@@ -12,20 +12,21 @@ import Level8 from './game/Level8';
 
 function LevelSelector({ onSelectLevel }) {
   const levels = [
-    { id: 0, icon: <Home size={28} />, name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
-    { id: 1, icon: <Ghost size={28} />, name: 'Nivel 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
-    { id: 2, icon: <Cookie size={28} />, name: 'Nivel 2', desc: 'La Tostada (Morena)', color: '#8A5A2B' },
-    { id: 3, icon: <Sun size={28} />, name: 'Nivel 3', desc: 'La Rubia (Catira)', color: '#F2C94C' },
-    { id: 4, icon: <WheatOff size={28} />, name: 'Nivel 4', desc: 'Sin Gluten (Sifrina)', color: '#D4AF37' },
-    { id: 5, icon: <Flame size={28} />, name: 'Nivel 5', desc: 'La Oscura (Candela)', color: '#8B1E1E' },
-    { id: 6, icon: <Palmtree size={28} />, name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
-    { id: 7, icon: <PartyPopper size={28} />, name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
+    { id: 0, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
+    { id: 1, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Nivel 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
+    { id: 2, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Nivel 2', desc: 'La Tostada (Morena)', color: '#8A5A2B' },
+    { id: 3, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png', name: 'Nivel 3', desc: 'La Rubia (Catira)', color: '#F2C94C' },
+    { id: 4, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Nivel 4', desc: 'Sin Gluten (Sifrina)', color: '#D4AF37' },
+    { id: 5, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png', name: 'Nivel 5', desc: 'La Oscura (Candela)', color: '#8B1E1E' },
+    { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
+    { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
   ];
 
   return (
     <div className="app-container">
       <div className="title-container">
-        <h1 className="title">🍺 LABERINTO 🍺</h1>
+        <img src="/assets/drive-download-20260109T123100Z-1-001/logo pixel art.png" alt="Beer Run Logo" className="game-logo" />
+        <h1 className="title">BEER RUN</h1>
         <p className="subtitle">Selecciona tu nivel</p>
         <div className="title-underline" />
       </div>
@@ -39,10 +40,8 @@ function LevelSelector({ onSelectLevel }) {
               style={{ borderLeftColor: level.color }}
               onClick={() => onSelectLevel(level.id)}
             >
-              <div className="level-icon-container">
-                <span className="level-icon" style={{ color: level.color }}>
-                  {level.icon}
-                </span>
+              <div className="level-image-container">
+                <img src={level.image} alt={level.name} className="level-image" />
               </div>
               <div className="level-info">
                 <h3 className="level-text">{level.name}</h3>

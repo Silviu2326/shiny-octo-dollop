@@ -42,6 +42,26 @@ body {
   animation: slideDown 0.6s ease-out;
 }
 
+.game-logo {
+  width: 150px;
+  height: auto;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+  animation: floatLogo 3s ease-in-out infinite;
+}
+
+@keyframes floatLogo {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
 .title {
   font-size: 48px;
   font-weight: 800;
@@ -172,28 +192,34 @@ body {
   animation: shine 1.5s infinite;
 }
 
-.level-icon-container {
-  width: 64px;
-  height: 64px;
+.level-image-container {
+  width: 100px;
+  height: 100px;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 16px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   margin-right: 20px;
   flex-shrink: 0;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
-  transition: transform 0.3s ease;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s ease;
+  border: 2px solid rgba(255, 255, 255, 0.05);
 }
 
-.level-button:hover .level-icon-container {
-  transform: scale(1.1) rotate(5deg);
-  background: rgba(0, 0, 0, 0.5);
+.level-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
 }
 
-.level-emoji {
-  font-size: 34px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+.level-button:hover .level-image-container {
+  transform: scale(1.05) rotate(-2deg);
+  border-color: var(--accent-color);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+.level-button:hover .level-image {
+  transform: scale(1.1);
 }
 
 .level-info {

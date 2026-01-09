@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
 import { useDrag } from '@use-gesture/react';
 import LevelHeader from '../components/LevelHeader';
-import './Level0.css'; // Reusing Level 0 styles for consistency, or we can create Level5.css
+import './Level4.css';
 
 // --- Constants & Configuration ---
 const CELL_SIZE = 5;
@@ -506,7 +506,14 @@ export default function Level5({ onBack }) {
     const [lives, setLives] = useState(3);
     const [tokens, setTokens] = useState(0);
     const [powerActive, setPowerActive] = useState(false);
+    const [powerTimeLeft, setPowerTimeLeft] = useState(0);
     const [isInvulnerable, setIsInvulnerable] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [showGameOverModal, setShowGameOverModal] = useState(false);
+    const [showWinModal, setShowWinModal] = useState(false);
+    const [beersCollected, setBeersCollected] = useState(0);
+    const invulnerabilityTimerRef = useRef(null);
 
     // Initial Barrels
     const [barrels, setBarrels] = useState([
@@ -520,36 +527,126 @@ export default function Level5({ onBack }) {
         { id: 8, x: 27, z: 22.5, collected: false },
     ]);
 
-    const [enemies, setEnemies] = useState([]); // Logic for AI needed
+    const [enemies, setEnemies] = useState([]);
 
-    // Logic Loop (Movement, Collision)
+    const restartLevel = () => {
+        setPlayerPos(INITIAL_PLAYER_POS);
+        setDirection({ x: 0, z: 0 });
+        setCollectibles(initialCollectibles.map(c => ({ ...c, collected: false })));
+        setScore(0);
+        setLives(3);
+        setBeersCollected(0);
+        setTokens(0);
+        setBarrels([
+            { id: 1, x: 3.5, z: 9, collected: false },
+            { id: 2, x: 10, z: 4.5, collected: false },
+            { id: 3, x: 19.5, z: 9, collected: false },
+            { id: 4, x: 27, z: 4.5, collected: false },
+            { id: 5, x: 3.5, z: 29.5, collected: false },
+            { id: 6, x: 10, z: 22.5, collected: false },
+            { id: 7, x: 19.5, z: 29.5, collected: false },
+            { id: 8, x: 27, z: 22.5, collected: false },
+        ]);
+        setEnemies([]);
+        setPowerActive(false);
+        setPowerTimeLeft(0);
+        setIsInvulnerable(false);
+        setIsPaused(false);
+        setShowSettingsModal(false);
+        setShowGameOverModal(false);
+        setShowWinModal(false);
+        if (invulnerabilityTimerRef.current) {
+            clearTimeout(invulnerabilityTimerRef.current);
+            invulnerabilityTimerRef.current = null;
+        }
+    };
 
-
-    // Audio...
-
-    // Controls...
+    const activatePower = () => {
+        if (tokens > 0 && !powerActive) {
+            setTokens(prev => prev - 1);
+            setPowerActive(true);
+            setPowerTimeLeft(6);
+        }
+    };
 
     // Since this is a specialized task to "Port Level 5", I will implement the gesture layer and structure.
 
-    const handleSwipe = (newDir) => setDirection(newDir);
+    const handleSwipe = (newDir) => {
+        if (!isPaused) setDirection(newDir);
+    };
+
+    // Power timer
+    useEffect(() => {
+        let interval;
+        if (powerActive && powerTimeLeft > 0) {
+            interval = setInterval(() => {
+                setPowerTimeLeft((prev) => {
+                    if (prev <= 1) {
+                        setPowerActive(false);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [powerActive, powerTimeLeft]);
+
+    // Cleanup invulnerability timer
+    useEffect(() => {
+        return () => {
+            if (invulnerabilityTimerRef.current) {
+                clearTimeout(invulnerabilityTimerRef.current);
+            }
+        };
+    }, []);
+
+    // Check win condition
+    useEffect(() => {
+        if (beersCollected === initialCollectibles.length && initialCollectibles.length > 0) {
+            setIsPaused(true);
+            setShowWinModal(true);
+        }
+    }, [beersCollected]);
 
     // Keyboard controls
     useEffect(() => {
         const k = (e) => {
-            if (e.key === 'ArrowUp' || e.key === 'w') setDirection({ x: 0, z: -1 });
-            if (e.key === 'ArrowDown' || e.key === 's') setDirection({ x: 0, z: 1 });
-            if (e.key === 'ArrowLeft' || e.key === 'a') setDirection({ x: -1, z: 0 });
-            if (e.key === 'ArrowRight' || e.key === 'd') setDirection({ x: 1, z: 0 });
+            if (isPaused) return;
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') setDirection({ x: 0, z: -1 });
+            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') setDirection({ x: 0, z: 1 });
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') setDirection({ x: -1, z: 0 });
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') setDirection({ x: 1, z: 0 });
+            if (e.key === ' ') {
+                e.preventDefault();
+                activatePower();
+            }
         };
-        const ku = () => setDirection({ x: 0, z: 0 });
+        const ku = (e) => {
+            const key = e.key.toLowerCase();
+            const currentDir = direction;
+            if (
+                (key === 'w' && currentDir.z === -1) ||
+                (key === 's' && currentDir.z === 1) ||
+                (key === 'a' && currentDir.x === -1) ||
+                (key === 'd' && currentDir.x === 1) ||
+                (e.key === 'ArrowUp' && currentDir.z === -1) ||
+                (e.key === 'ArrowDown' && currentDir.z === 1) ||
+                (e.key === 'ArrowLeft' && currentDir.x === -1) ||
+                (e.key === 'ArrowRight' && currentDir.x === 1)
+            ) {
+                setDirection({ x: 0, z: 0 });
+            }
+        };
         window.addEventListener('keydown', k);
         window.addEventListener('keyup', ku);
         return () => { window.removeEventListener('keydown', k); window.removeEventListener('keyup', ku); };
-    }, []);
+    }, [direction, isPaused, tokens, powerActive]);
 
     // Game Loop interval for non-visual logic
     useEffect(() => {
         const interval = setInterval(() => {
+            if (isPaused) return;
             if (direction.x !== 0 || direction.z !== 0) {
                 // Move logic
                 const speed = 0.2; // approx per tick
@@ -564,6 +661,7 @@ export default function Level5({ onBack }) {
                         const next = prev.map(c => {
                             if (!c.collected && Math.sqrt((newX - c.x) ** 2 + (newZ - c.z) ** 2) < 0.6) {
                                 setScore(s => s + 10);
+                                setBeersCollected(b => b + 1);
                                 changed = true;
                                 return { ...c, collected: true };
                             }
@@ -590,7 +688,7 @@ export default function Level5({ onBack }) {
             }
         }, 16); // 60fps logic
         return () => clearInterval(interval);
-    }, [direction, playerPos]);
+    }, [direction, playerPos, isPaused]);
 
     // Enemy Spawning
     useEffect(() => {
@@ -605,6 +703,7 @@ export default function Level5({ onBack }) {
     // Enemy AI Movement (Basic)
     useEffect(() => {
         const interval = setInterval(() => {
+            if (isPaused) return;
             setEnemies(prev => prev.map(e => {
                 // Simple chase or random move
                 const dx = playerPos.x - e.x;
@@ -612,9 +711,22 @@ export default function Level5({ onBack }) {
                 const dist = Math.sqrt(dx * dx + dz * dz);
 
                 if (dist < 0.5 && !isInvulnerable && !powerActive) {
-                    setLives(l => l - 1);
-                    setIsInvulnerable(true);
-                    setTimeout(() => setIsInvulnerable(false), 3000);
+                    const newLives = lives - 1;
+                    if (newLives <= 0) {
+                        setLives(0);
+                        setShowGameOverModal(true);
+                        setIsPaused(true);
+                    } else {
+                        setLives(newLives);
+                        setIsInvulnerable(true);
+                        if (invulnerabilityTimerRef.current) {
+                            clearTimeout(invulnerabilityTimerRef.current);
+                        }
+                        invulnerabilityTimerRef.current = setTimeout(() => {
+                            setIsInvulnerable(false);
+                            invulnerabilityTimerRef.current = null;
+                        }, 3000);
+                    }
                 }
 
                 if (dist < 5 && powerActive) {
@@ -640,7 +752,7 @@ export default function Level5({ onBack }) {
             }));
         }, 50);
         return () => clearInterval(interval);
-    }, [playerPos, isInvulnerable, powerActive]);
+    }, [playerPos, isInvulnerable, powerActive, isPaused, lives]);
 
 
     return (
@@ -661,7 +773,7 @@ export default function Level5({ onBack }) {
 
                 <Player position={playerPos} direction={direction} isPowerActive={powerActive} isInvulnerable={isInvulnerable} />
 
-                {enemies.map(e => <Enemy key={e.id} position={e} direction={e.direction || { x: 1, z: 0 }} isPowerActive={powerActive} />)}
+                {enemies.map(e => <Enemy key={e.id} position={e} direction={e.direction || { x: 1, z: 0 }} isPowerActive={powerActive} isPaused={isPaused} playerPos={playerPos} walls={walls} />)}
 
                 <CameraController targetX={playerPos.x} targetZ={playerPos.z} />
             </Canvas>
@@ -670,20 +782,103 @@ export default function Level5({ onBack }) {
                 <LevelHeader
                     lives={lives}
                     levelNumber={5}
-                    beersCollected={initialCollectibles.length - collectibles.filter(c => !c.collected).length}
+                    beersCollected={beersCollected}
+                    totalBeers={initialCollectibles.length}
                     score={score}
                 />
 
-                <div style={{ position: 'absolute', bottom: 20, right: 20, pointerEvents: 'auto' }}>
+                <div className="power-button-container">
                     <button
-                        onClick={() => { if (tokens > 0) { setTokens(t => t - 1); setPowerActive(true); setTimeout(() => setPowerActive(false), 6000); } }}
-                        style={{ padding: 20, borderRadius: '50%', background: powerActive ? 'cyan' : (tokens > 0 ? 'gold' : 'grey'), border: '4px solid white', fontSize: 24 }}
+                        onClick={activatePower}
+                        disabled={tokens === 0 || powerActive}
+                        className="power-button"
                     >
-                        ⚡ {tokens}
+                        <img
+                            src="/assets/poderes/image-removebg-preview (13).png"
+                            alt="Power"
+                            className={`power-button-image ${tokens === 0 ? 'disabled' : ''}`}
+                        />
+                        <div className="token-badge">
+                            <span className="token-text">{tokens}</span>
+                        </div>
+                        {powerActive && (
+                            <div className="timer-overlay">
+                                <span className="timer-text">{powerTimeLeft}</span>
+                            </div>
+                        )}
                     </button>
                 </div>
 
-                <button className="back-button" onClick={onBack}>Salir</button>
+                <button className="settings-button" onClick={() => {
+                    setIsPaused(true);
+                    setShowSettingsModal(true);
+                }}>
+                    PAUSA
+                </button>
+
+                {showSettingsModal && (
+                    <div className="settings-modal">
+                        <div className="settings-content glass-panel">
+                            <h2>PAUSA</h2>
+                            <button className="modal-button" onClick={() => {
+                                setShowSettingsModal(false);
+                                setIsPaused(false);
+                            }}>
+                                Seguir
+                            </button>
+                            <button className="modal-button restart-button" onClick={restartLevel}>
+                                Reiniciar
+                            </button>
+                            <button className="modal-button cancel-button" onClick={onBack}>
+                                Salir
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {showGameOverModal && (
+                    <div className="game-over-modal">
+                        <div className="game-over-content glass-panel">
+                            <h2 className="game-over-title">¡HAS PERDIDO!</h2>
+                            <p className="game-over-subtitle">Se acabaron las vidas</p>
+                            <div className="game-over-stats">
+                                <p>Puntuación final: {score}</p>
+                                <p>Cervezas recogidas: {beersCollected}</p>
+                            </div>
+                            <button className="modal-button restart-button" onClick={restartLevel}>
+                                Reintentar
+                            </button>
+                            <button className="modal-button cancel-button" onClick={onBack}>
+                                Volver al menú
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {showWinModal && (
+                    <div className="win-modal">
+                        <div className="win-content glass-panel">
+                            <h2 className="win-title">¡NIVEL COMPLETADO!</h2>
+                            <p className="win-subtitle">¡Excelente trabajo!</p>
+                            <div className="win-stats">
+                                <p>Puntuación Base: {score}</p>
+                                {tokens > 0 && (
+                                    <p className="bonus-text-blue">★ Barriles guardados: +{tokens * 50}</p>
+                                )}
+                                <div className="stats-divider"></div>
+                                <p className="total-score">
+                                    TOTAL: {Math.max(150, score + (tokens * 50))}
+                                </p>
+                            </div>
+                            <button className="modal-button restart-button" onClick={restartLevel}>
+                                Jugar de nuevo
+                            </button>
+                            <button className="modal-button cancel-button" onClick={onBack}>
+                                Volver al menú
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

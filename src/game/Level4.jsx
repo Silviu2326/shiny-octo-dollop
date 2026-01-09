@@ -1070,6 +1070,72 @@ export default function Level4({ onBack }) {
     };
   }, [direction, tokens, powerActive, isPaused]);
 
+  // Touch Controls
+  useEffect(() => {
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+
+    const minSwipeDistance = 30;
+
+    const handleTouchStart = (e) => {
+      // Ignore if touching a button
+      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+        return;
+      }
+
+      e.preventDefault();
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e) => {
+      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+        return;
+      }
+
+      e.preventDefault();
+      touchEndX = e.touches[0].clientX;
+      touchEndY = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = () => {
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+      const absDeltaX = Math.abs(deltaX);
+      const absDeltaY = Math.abs(deltaY);
+
+      if (absDeltaX < minSwipeDistance && absDeltaY < minSwipeDistance) {
+        return;
+      }
+
+      if (absDeltaX > absDeltaY) {
+        if (deltaX > 0) {
+          setDirection({ x: 1, z: 0 });
+        } else {
+          setDirection({ x: -1, z: 0 });
+        }
+      } else {
+        if (deltaY > 0) {
+          setDirection({ x: 0, z: 1 });
+        } else {
+          setDirection({ x: 0, z: -1 });
+        }
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isPaused]);
+
   return (
     <div className="game-container">
       <Canvas camera={{ position: [14, 18, 26], fov: cameraConfig.fov }}>
@@ -1127,7 +1193,7 @@ export default function Level4({ onBack }) {
       <div className="ui-overlay">
         <LevelHeader
           lives={lives}
-          levelName="La Carrera del Zigzag"
+          levelName="La Rubia"
           beersCollected={beersCollected}
           totalBeers={initialCollectibles.length}
           score={score}

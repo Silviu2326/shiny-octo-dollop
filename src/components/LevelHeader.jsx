@@ -4,10 +4,10 @@ const levelConfig = {
   1: { name: "La Casa del Gato", backgroundColor: "#F3E9C6", textColor: "#2C1810", borderColor: "#D4D4C8", totalBeers: 80 },
   2: { name: "Medusa", backgroundColor: "#7EC8E3", textColor: "#2C1810", borderColor: "#5DA8C3", totalBeers: 110 },
   3: { name: "Morena", backgroundColor: "#8A5A2B", textColor: "#FFFFFF", borderColor: "#6A3A0B", totalBeers: 140 },
-  4: { name: "La Carrera del Zigzag", backgroundColor: "#F2C94C", textColor: "#2C1810", borderColor: "#D2A92C", totalBeers: 150 },
-  5: { name: "La Jaula de la Sifrina", backgroundColor: "#F7F7F7", textColor: "#D4AF37", borderColor: "#D4AF37", totalBeers: 145 },
-  6: { name: "El Aspa del Cerco", backgroundColor: "#8B1E1E", textColor: "#FFFFFF", borderColor: "#1C1C1C", totalBeers: 155 },
-  7: { name: "Rotondas del Flujo", backgroundColor: "#2ECC71", textColor: "#2C1810", borderColor: "#27AE60", totalBeers: 150 },
+  4: { name: "La Cararera del Ziaagzag", backgroundColor: "#F2C94C", textColor: "#2C1810", borderColor: "#D2A92C", totalBeers: 150 },
+  5: { name: " Sifrina", backgroundColor: "#F7F7F7", textColor: "#D4AF37", borderColor: "#D4AF37", totalBeers: 145 },
+  6: { name: "La Oscura", backgroundColor: "#8B1E1E", textColor: "#FFFFFF", borderColor: "#1C1C1C", totalBeers: 155 },
+  7: { name: "La Tropical", backgroundColor: "#2ECC71", textColor: "#2C1810", borderColor: "#27AE60", totalBeers: 150 },
   8: { name: "Fiesta del Gato", backgroundColor: "#EB5757", textColor: "#FFFFFF", borderColor: "#F2C94C", totalBeers: 160 },
 };
 
