@@ -1,0 +1,491 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import * as THREE from 'three';
+import { mergeBufferGeometries } from 'three-stdlib';
+import './Level0.css';
+
+// --- Configuration & Constants ---
+const CELL_SIZE = 5;
+const WALL_HEIGHT = 10;
+const INITIAL_PLAYER_POS = { x: 2, z: 2 };
+
+// Walls definition (same as Level1.js)
+const walls = [
+    // Background walls
+    { x: -2, z: -10, length: 60, height: 10, thickness: 1, orientation: 'vertical' },
+    { x: -10, z: -2, length: 60, height: 10, thickness: 1, orientation: 'horizontal' },
+
+    // Exterior walls
+    { x: 0, z: 0, length: 24, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+    { x: 0, z: 28, length: 24, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+    { x: 0, z: 0, length: 28, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+    { x: 24, z: 0, length: 28, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+
+    // Main vertical corridors
+    { x: 6, z: 3, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+    { x: 6, z: 17, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+
+    { x: 12, z: 3, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+    { x: 12, z: 17, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+
+    { x: 18, z: 3, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+    { x: 18, z: 17, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+
+    // Horizontal corridors
+    { x: 3, z: 7, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+    { x: 9, z: 7, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+    { x: 15, z: 7, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+
+    { x: 3, z: 14, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+    { x: 9, z: 14, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+    { x: 15, z: 14, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+
+    { x: 3, z: 21, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+    { x: 9, z: 21, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+    { x: 15, z: 21, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+
+    // Extra complexity walls
+    { x: 3, z: 3, length: 5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+    { x: 15, z: 3, length: 5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+    { x: 9, z: 10, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+    { x: 21, z: 10, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+];
+
+// --- Physics / Collision Logic ---
+function getWallBounds(wall) {
+    const isHorizontal = wall.orientation === 'horizontal';
+    let minX, maxX, minZ, maxZ;
+
+    if (isHorizontal) {
+        minX = wall.x;
+        maxX = wall.x + wall.length;
+        minZ = wall.z - wall.thickness / 2;
+        maxZ = wall.z + wall.thickness / 2;
+    } else {
+        minX = wall.x - wall.thickness / 2;
+        maxX = wall.x + wall.thickness / 2;
+        minZ = wall.z;
+        maxZ = wall.z + wall.length;
+    }
+    return { minX, maxX, minZ, maxZ };
+}
+
+function checkCollision(x, z, walls) {
+    const playerRadius = 0.3;
+    for (const wall of walls) {
+        const { minX, maxX, minZ, maxZ } = getWallBounds(wall);
+        if (
+            x + playerRadius > minX &&
+            x - playerRadius < maxX &&
+            z + playerRadius > minZ &&
+            z - playerRadius < maxZ
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function generateCollectibles(count) {
+    const collectibles = [];
+    let id = 1;
+    while (collectibles.length < count) {
+        const x = Math.random() * 22 + 1;
+        const z = Math.random() * 26 + 1;
+        if (!checkCollision(x, z, walls)) {
+            const tooClose = collectibles.some(c => {
+                const distance = Math.sqrt(Math.pow(x - c.x, 2) + Math.pow(z - c.z, 2));
+                return distance < 1;
+            });
+            if (!tooClose) {
+                collectibles.push({ id: id++, x, z });
+            }
+        }
+    }
+    return collectibles;
+}
+
+const initialCollectibles = generateCollectibles(80);
+
+// --- 3D Components ---
+
+function Maze({ walls }) {
+    const textureUrls = {
+        brick: '/assets/paredes/wall_brick.jpg',
+        gold: '/assets/paredes/wall_gold.png',
+        background: '/assets/paredes/wall_background.png'
+    };
+
+    const brickTexture = useLoader(THREE.TextureLoader, textureUrls.brick);
+    const goldTexture = useLoader(THREE.TextureLoader, textureUrls.gold);
+    const backgroundTexture = useLoader(THREE.TextureLoader, textureUrls.background);
+
+    useMemo(() => {
+        [brickTexture, goldTexture, backgroundTexture].forEach(t => {
+            t.magFilter = THREE.NearestFilter;
+            t.minFilter = THREE.NearestFilter;
+            t.wrapS = THREE.RepeatWrapping;
+            t.wrapT = THREE.RepeatWrapping;
+        });
+    }, [brickTexture, goldTexture, backgroundTexture]);
+
+    const { brickGeometry, goldGeometry, backgroundGeometry } = useMemo(() => {
+        const brickGeometries = [];
+        const goldGeometries = [];
+        const backgroundGeometries = [];
+
+        walls.forEach(wall => {
+            const isHorizontal = wall.orientation === 'horizontal';
+            const isBackgroundWall = wall.height > 2;
+
+            const centerX = isHorizontal ? wall.x + wall.length / 2 : wall.x;
+            const centerZ = isHorizontal ? wall.z : wall.z + wall.length / 2;
+            const width = isHorizontal ? wall.length : wall.thickness;
+            const depth = isHorizontal ? wall.thickness : wall.length;
+
+            if (isBackgroundWall) {
+                const geometry = new THREE.BoxGeometry(width, wall.height, depth);
+                geometry.translate(centerX, wall.height / 2, centerZ);
+                const uvs = geometry.attributes.uv;
+                for (let i = 0; i < uvs.count; i++) {
+                    // uvs.setXY(i, uvs.getX(i), uvs.getY(i)); // Keep default UVs
+                }
+                backgroundGeometries.push(geometry);
+            } else {
+                const bottomHeight = wall.height * 0.8;
+                const topHeight = wall.height * 0.2;
+                const bottomY = bottomHeight / 2;
+                const topY = bottomHeight + topHeight / 2;
+
+                const bottomGeo = new THREE.BoxGeometry(width, bottomHeight, depth);
+                bottomGeo.translate(centerX, bottomY, centerZ);
+                const bottomUVs = bottomGeo.attributes.uv;
+                for (let i = 0; i < bottomUVs.count; i++) {
+                    bottomUVs.setXY(i, bottomUVs.getX(i) * wall.length, bottomUVs.getY(i));
+                }
+                brickGeometries.push(bottomGeo);
+
+                const topGeo = new THREE.BoxGeometry(width, topHeight, depth);
+                topGeo.translate(centerX, topY, centerZ);
+                const topUVs = topGeo.attributes.uv;
+                for (let i = 0; i < topUVs.count; i++) {
+                    topUVs.setXY(i, topUVs.getX(i) * wall.length, topUVs.getY(i));
+                }
+                goldGeometries.push(topGeo);
+            }
+        });
+
+        return {
+            brickGeometry: brickGeometries.length > 0 ? mergeBufferGeometries(brickGeometries) : null,
+            goldGeometry: goldGeometries.length > 0 ? mergeBufferGeometries(goldGeometries) : null,
+            backgroundGeometry: backgroundGeometries.length > 0 ? mergeBufferGeometries(backgroundGeometries) : null
+        };
+    }, [walls]);
+
+    return (
+        <group>
+            {backgroundGeometry && (
+                <mesh geometry={backgroundGeometry}>
+                    <meshBasicMaterial map={backgroundTexture} color="#ffffff" />
+                </mesh>
+            )}
+            {brickGeometry && (
+                <mesh geometry={brickGeometry}>
+                    <meshBasicMaterial map={brickTexture} />
+                </mesh>
+            )}
+            {goldGeometry && (
+                <mesh geometry={goldGeometry}>
+                    <meshBasicMaterial map={goldTexture} />
+                </mesh>
+            )}
+        </group>
+    );
+}
+
+function Player({ position, direction, onPositionUpdate, walls, rotation, isPaused }) {
+    const meshRef = useRef();
+    const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
+    const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
+
+    const [currentFrame, setCurrentFrame] = useState(0);
+
+    useMemo(() => {
+        spritesheet1.magFilter = THREE.NearestFilter;
+        spritesheet1.minFilter = THREE.NearestFilter;
+        spritesheet2.magFilter = THREE.NearestFilter;
+        spritesheet2.minFilter = THREE.NearestFilter;
+    }, [spritesheet1, spritesheet2]);
+
+    const frameCount = 8;
+    const animationSpeed = 10;
+
+    useFrame((state, delta) => {
+        if (isPaused) return;
+
+        if (direction.x !== 0 || direction.z !== 0) {
+            const speed = 4.5;
+            const newX = position.x + direction.x * speed * delta;
+            const newZ = position.z + direction.z * speed * delta;
+
+            if (!checkCollision(newX, newZ, walls)) {
+                onPositionUpdate(newX, newZ);
+            }
+
+            // Simple animation frame update
+            const time = state.clock.getElapsedTime();
+            const newFrame = Math.floor(time * animationSpeed) % frameCount;
+            setCurrentFrame(newFrame);
+        }
+    });
+
+    const getCurrentTexture = () => {
+        if (direction.z < 0) return spritesheet1;
+        if (direction.x < 0) return spritesheet1;
+        if (direction.x > 0) return spritesheet2;
+        if (direction.z > 0) return spritesheet2;
+        return spritesheet2;
+    };
+
+    const getFlipX = () => {
+        if (direction.x < 0) return -1;
+        if (direction.z > 0) return -1;
+        return 1;
+    };
+
+    const texture = getCurrentTexture().clone(); // Clone to avoid sharing state
+    texture.repeat.set(1 / frameCount, 1);
+    texture.offset.x = currentFrame / frameCount;
+
+    return (
+        <mesh
+            ref={meshRef}
+            position={[position.x, 0.5, position.z]}
+            rotation={[-Math.PI / 4, rotation, 0]}
+            scale={[getFlipX(), 1, 1]}
+        >
+            <planeGeometry args={[1.1, 1.1]} />
+            <meshStandardMaterial
+                map={texture}
+                transparent={true}
+                side={THREE.DoubleSide}
+                alphaTest={0.5}
+            />
+        </mesh>
+    );
+}
+
+function Collectible({ position }) {
+    const texture = useLoader(THREE.TextureLoader, '/assets/collectible_bottle.png');
+    useMemo(() => {
+        texture.magFilter = THREE.NearestFilter;
+        texture.minFilter = THREE.NearestFilter;
+    }, [texture]);
+
+    return (
+        <mesh position={[position.x, 0.4, position.z]} rotation={[-Math.PI / 4, Math.PI / 4.8, 0]}>
+            <planeGeometry args={[0.6, 0.6]} />
+            <meshStandardMaterial
+                map={texture}
+                transparent={true}
+                side={THREE.DoubleSide}
+                alphaTest={0.5}
+                depthWrite={false}
+            />
+        </mesh>
+    );
+}
+
+function Floor() {
+    const texture = useLoader(THREE.TextureLoader, '/assets/suelos/floor_texture.jpg');
+    useMemo(() => {
+        texture.magFilter = THREE.NearestFilter;
+        texture.minFilter = THREE.NearestFilter;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(40 / 5, 45 / 5);
+    }, [texture]);
+
+    return (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[12, -0.1, 14]}>
+            <planeGeometry args={[40, 45]} />
+            <meshBasicMaterial map={texture} />
+        </mesh>
+    );
+}
+
+function CameraController({ targetX, targetZ }) {
+    useFrame(({ camera }) => {
+        const rotation = Math.PI / 4.8;
+        const distance = 7;
+        const height = 5;
+
+        const offsetX = Math.sin(rotation) * distance;
+        const offsetZ = Math.cos(rotation) * distance;
+
+        // Smooth camera movement (lerp)
+        camera.position.x += (targetX + offsetX - camera.position.x) * 0.1;
+        camera.position.y = height;
+        camera.position.z += (targetZ + offsetZ - camera.position.z) * 0.1;
+
+        camera.lookAt(targetX, 0, targetZ);
+    });
+    return null;
+}
+
+// --- Main Component ---
+
+export default function Level0({ onBack }) {
+    const [playerPos, setPlayerPos] = useState(INITIAL_PLAYER_POS);
+    const [direction, setDirection] = useState({ x: 0, z: 0 });
+    const [collectibles, setCollectibles] = useState(initialCollectibles);
+    const [score, setScore] = useState(0);
+    const [showTutorial, setShowTutorial] = useState(true);
+    const [isPaused, setIsPaused] = useState(false);
+
+    // Audio
+    useEffect(() => {
+        const music = new Audio('/assets/audio/music_background.mp3');
+        music.loop = true;
+        music.volume = 0.4;
+        music.play().catch(e => console.log("Audio play failed (user interaction required):", e));
+
+        return () => {
+            music.pause();
+            music.currentTime = 0;
+        };
+    }, []);
+
+    const playCollectSound = () => {
+        const sfx = new Audio('/assets/audio/sfx_collect.mp3');
+        sfx.volume = 0.6;
+        sfx.play().catch(e => console.log("SFX play failed:", e));
+    };
+
+    // Keyboard Controls
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (showTutorial) {
+                setShowTutorial(false); // Dismiss tutorial on any key
+                return;
+            }
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    setDirection({ x: 0, z: -1 });
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    setDirection({ x: 0, z: 1 });
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    setDirection({ x: -1, z: 0 });
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    setDirection({ x: 1, z: 0 });
+                    break;
+            }
+        };
+
+        const handleKeyUp = (e) => {
+            // Optional: Stop moving on key up, or keep moving like snake styling
+            // Native app seemed to use swipe for continuous movement?
+            // Let's implement continuous movement for now (snake-like) as per app logic "direction state"
+            // But usually web games stop on key up. Let's try stop on key up for better control.
+
+            const key = e.key.toLowerCase();
+            const currentDir = direction;
+            if (
+                (key === 'w' && currentDir.z === -1) ||
+                (key === 's' && currentDir.z === 1) ||
+                (key === 'a' && currentDir.x === -1) ||
+                (key === 'd' && currentDir.x === 1) ||
+                (key === 'arrowup' && currentDir.z === -1) ||
+                (key === 'arrowdown' && currentDir.z === 1) ||
+                (key === 'arrowleft' && currentDir.x === -1) ||
+                (key === 'arrowright' && currentDir.x === 1)
+            ) {
+                setDirection({ x: 0, z: 0 });
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [showTutorial, direction]);
+
+    const handlePositionUpdate = (x, z) => {
+        setPlayerPos({ x, z });
+
+        // Collectibles collision
+        setCollectibles(prev => {
+            const remaining = prev.filter(c => {
+                const dist = Math.sqrt(Math.pow(x - c.x, 2) + Math.pow(z - c.z, 2));
+                if (dist < 0.5) {
+                    setScore(s => s + 10);
+                    playCollectSound();
+                    return false;
+                }
+                return true;
+            });
+            return remaining;
+        });
+    };
+
+    return (
+        <div className="game-container">
+            <Canvas camera={{ position: [12, 15, 20], fov: 60 }} shadows>
+                <ambientLight intensity={1.5} />
+                <pointLight position={[10, 10, 10]} intensity={2.0} />
+
+                <Maze walls={walls} />
+                <Floor />
+                <Player
+                    position={playerPos}
+                    direction={direction}
+                    onPositionUpdate={handlePositionUpdate}
+                    walls={walls}
+                    rotation={1.1} // Original prop
+                    isPaused={isPaused}
+                />
+
+                {collectibles.map(c => (
+                    <Collectible key={c.id} position={c} />
+                ))}
+
+                <CameraController targetX={playerPos.x} targetZ={playerPos.z} />
+            </Canvas>
+
+            {/* UI Overlay */}
+            <div className="ui-overlay">
+                <div className="score-board">
+                    <span>🍺 {score}</span>
+                </div>
+
+                <button className="back-button" onClick={onBack}>
+                    salir
+                </button>
+
+                {showTutorial && (
+                    <div className="tutorial-modal animate-fade-in">
+                        <div className="tutorial-content glass-panel">
+                            <h2>¡Bienvenido!</h2>
+                            <p>Usa las flechas o W/A/S/D para moverte.</p>
+                            <p>Recoge todas las cervezas 🍺</p>
+                            <button onClick={() => setShowTutorial(false)}>JUGAR</button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
