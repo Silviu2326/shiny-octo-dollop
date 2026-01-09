@@ -1,77 +1,281 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap');
+
+:root {
+  --bg-color: #222222;
+  --card-bg: #333333;
+  --accent-color: #ff6b35;
+  --text-main: #ffffff;
+  --text-secondary: #cccccc;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-color);
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  color: var(--text-main);
+}
+
 .app-container {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  background-color: var(--bg-color);
+  /* Subtle modern texture or gradient overlay to make it less flat */
   background-image:
-    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 20%),
-    radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 20%);
+    radial-gradient(circle at 50% 0%, rgba(255, 107, 53, 0.15) 0%, transparent 50%),
+    linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.2));
 }
 
-.hero-section {
-  width: 100%;
-  max-width: 1000px;
-  padding: 2rem;
-  text-align: center;
+/* --- Header Section --- */
+.title-container {
+  padding-top: 60px;
+  padding-bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+  background: linear-gradient(180deg, rgba(34, 34, 34, 0.95) 0%, rgba(34, 34, 34, 0.8) 100%);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 107, 53, 0.3);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+  animation: slideDown 0.6s ease-out;
 }
+
+.title {
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  text-shadow: 0 0 20px rgba(255, 107, 53, 0.6);
+  position: relative;
+}
+
+/* Make icons in title bounce/animate slightly? Optional but adds life */
 
 .subtitle {
-  font-size: 1.25rem;
-  margin-bottom: 3rem;
-  margin-left: auto;
-  margin-right: auto;
+  font-size: 18px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  margin: 0;
+  opacity: 0.9;
 }
 
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 2rem;
-  margin-bottom: 3rem;
-  text-align: left;
-}
-
-.feature-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 1.5rem;
-  border-radius: var(--radius-lg);
-  transition: transform 0.2s, background 0.2s;
-}
-
-.feature-card:hover {
-  transform: translateY(-5px);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.feature-card h3 {
-  font-size: 1.25rem;
-  margin-bottom: 0.5rem;
-  color: var(--color-secondary);
-}
-
-.feature-card p {
-  font-size: 0.95rem;
-  margin-bottom: 0;
-}
-
-.interaction-area {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.read-the-docs {
-  margin-top: 1.5rem;
-  font-size: 0.875rem;
-  opacity: 0.7;
-}
-
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 0.2rem 0.4rem;
+.title-underline {
+  width: 120px;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+  margin-top: 16px;
   border-radius: 4px;
-  color: var(--color-primary);
+  box-shadow: 0 0 15px var(--accent-color);
+}
+
+/* --- Scroll Area --- */
+.scroll-view {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+  padding-top: 20px;
+  /* Custom scrollbar for webkit */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-color) var(--bg-color);
+}
+
+.scroll-view::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll-view::-webkit-scrollbar-track {
+  background: var(--bg-color);
+}
+
+.scroll-view::-webkit-scrollbar-thumb {
+  background-color: var(--accent-color);
+  border-radius: 4px;
+}
+
+/* --- Levels Grid/List --- */
+.levels-container {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 20px;
+  padding-bottom: 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.level-button {
+  background: rgba(51, 51, 51, 0.6);
+  /* Glassmorphism feel */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  padding: 16px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+
+  /* Borders and Shadows */
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-left-width: 6px;
+  border-left-style: solid;
+  /* Dynamic border-left-color comes from inline styles */
+
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+  overflow: hidden;
+
+  /* Animation for list items appearing */
+  animation: fadeInUp 0.6s ease-out backwards;
+}
+
+/* Stagger animations for items would require specific delays, 
+   but basic entry animation is good enough for now */
+
+.level-button:hover {
+  transform: translateY(-4px) scale(1.02);
+  background: rgba(60, 60, 60, 0.8);
+  box-shadow:
+    0 10px 20px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  /* Inner glow */
+}
+
+.level-button:active {
+  transform: scale(0.98);
+}
+
+/* Hover ripple effect hint */
+.level-button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0) 70%);
+  background-size: 200%;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.level-button:hover::after {
+  opacity: 1;
+  animation: shine 1.5s infinite;
+}
+
+.level-icon-container {
+  width: 64px;
+  height: 64px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-right: 20px;
+  flex-shrink: 0;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s ease;
+}
+
+.level-button:hover .level-icon-container {
+  transform: scale(1.1) rotate(5deg);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.level-emoji {
+  font-size: 34px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.level-info {
+  flex: 1;
+}
+
+.level-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 6px 0;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.level-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+  font-weight: 400;
+}
+
+.level-arrow {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 107, 53, 0.1);
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.arrow-text {
+  font-size: 18px;
+  color: var(--accent-color);
+  font-weight: bold;
+  transform: translateX(2px);
+  /* visual centering */
+}
+
+.level-button:hover .level-arrow {
+  background: var(--accent-color);
+  transform: translateX(5px);
+}
+
+.level-button:hover .arrow-text {
+  color: white;
+}
+
+/* --- Animations --- */
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(200%);
+  }
 }

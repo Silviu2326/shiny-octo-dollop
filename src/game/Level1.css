@@ -1,0 +1,211 @@
+.game-container {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    background-color: #000;
+    overscroll-behavior: none;
+    touch-action: none;
+}
+
+.ui-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.ui-overlay > * {
+    pointer-events: auto;
+}
+
+.settings-button {
+    position: absolute;
+    bottom: 40px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    pointer-events: auto;
+    touch-action: auto;
+}
+
+.settings-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.back-button {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    pointer-events: auto;
+    touch-action: auto;
+    background: #FF0000;
+    border: 2px solid #FFF;
+    border-radius: 10px;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.back-button:hover {
+    background: #CC0000;
+    transform: scale(1.05);
+}
+
+.tutorial-modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.7);
+    pointer-events: auto;
+    z-index: 1000;
+}
+
+.tutorial-content {
+    text-align: center;
+    max-width: 400px;
+    padding: 30px;
+}
+
+.tutorial-content h2 {
+    color: #2C1810;
+    margin-bottom: 20px;
+    font-size: 24px;
+}
+
+.tutorial-content p {
+    color: #2C1810;
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+
+.tutorial-content button {
+    margin-top: 20px;
+    background: #F2C94C;
+    color: #2C1810;
+    border: 2px solid #D2A92C;
+    border-radius: 10px;
+    padding: 12px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    touch-action: auto;
+    transition: all 0.3s ease;
+}
+
+.tutorial-content button:hover {
+    background: #D2A92C;
+    transform: scale(1.05);
+}
+
+.settings-modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.8);
+    pointer-events: auto;
+    z-index: 1000;
+}
+
+.settings-content {
+    text-align: center;
+    max-width: 400px;
+    padding: 30px;
+}
+
+.settings-content h2 {
+    color: #2C1810;
+    margin-bottom: 30px;
+    font-size: 32px;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.modal-button {
+    width: 100%;
+    background: rgba(100, 100, 100, 0.6);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    padding: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+    touch-action: auto;
+}
+
+.modal-button:hover {
+    background: rgba(100, 100, 100, 0.8);
+    transform: scale(1.05);
+}
+
+.restart-button {
+    background: rgba(49, 130, 206, 0.6);
+    border-color: rgba(49, 130, 206, 0.8);
+}
+
+.restart-button:hover {
+    background: rgba(49, 130, 206, 0.8);
+}
+
+.cancel-button {
+    background: rgba(229, 62, 62, 0.6);
+    border-color: rgba(229, 62, 62, 0.8);
+    margin-top: 10px;
+}
+
+.cancel-button:hover {
+    background: rgba(229, 62, 62, 0.8);
+}
+
+.glass-panel {
+    background: rgba(245, 245, 220, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    border: 3px solid #D4D4C8;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

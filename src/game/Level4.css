@@ -1,0 +1,342 @@
+.game-container {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    background-color: #000;
+    overscroll-behavior: none;
+    touch-action: none;
+}
+
+.ui-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.ui-overlay > * {
+    pointer-events: auto;
+}
+
+.power-button-container {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    margin-left: -45px;
+    z-index: 100;
+}
+
+.power-button {
+    width: 90px;
+    height: 90px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.power-button:hover:not(:disabled) {
+    transform: scale(1.1);
+}
+
+.power-button:disabled {
+    cursor: not-allowed;
+}
+
+.power-button-image {
+    width: 90px;
+    height: 90px;
+    object-fit: contain;
+}
+
+.power-button-image.disabled {
+    opacity: 0.3;
+    filter: grayscale(100%);
+}
+
+.token-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #FF6B6B;
+    border-radius: 15px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid #FFF;
+}
+
+.token-text {
+    color: #FFF;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.timer-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 45px;
+}
+
+.timer-text {
+    color: #FFF;
+    font-size: 40px;
+    font-weight: bold;
+    text-shadow: -1px 1px 10px rgba(0, 0, 0, 0.75);
+}
+
+.settings-button {
+    position: absolute;
+    bottom: 40px;
+    right: 20px;
+    width: 80px;
+    height: 80px;
+    background: #FF0000;
+    border: 3px solid #FFF;
+    border-radius: 50%;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    pointer-events: auto;
+    touch-action: auto;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    z-index: 1100;
+}
+
+.settings-button:hover {
+    background: #CC0000;
+    transform: scale(1.1);
+}
+
+.tutorial-modal,
+.settings-modal,
+.game-over-modal,
+.win-modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.8);
+    pointer-events: auto;
+    z-index: 1000;
+}
+
+.tutorial-content,
+.settings-content,
+.game-over-content,
+.win-content {
+    text-align: center;
+    max-width: 400px;
+    padding: 30px;
+    width: 320px;
+    background: #1a1a2e;
+    border-radius: 20px;
+    border: 2px solid #4a5568;
+}
+
+.tutorial-content {
+    background: rgba(255, 215, 0, 0.95);
+    border: 3px solid #FFA500;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+}
+
+.game-over-content {
+    border: 3px solid #e53e3e;
+    box-shadow: 0 0 20px rgba(229, 62, 62, 0.6);
+}
+
+.win-content {
+    border: 3px solid #48BB78;
+    box-shadow: 0 0 20px rgba(72, 187, 120, 0.6);
+}
+
+.tutorial-content h2 {
+    font-size: 28px;
+    font-weight: bold;
+    color: #2C1810;
+    margin-bottom: 20px;
+    letter-spacing: 2px;
+}
+
+.tutorial-content p {
+    color: #2C1810;
+    font-size: 16px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.tutorial-content button {
+    margin-top: 20px;
+    background: #FF6B00;
+    color: #FFF;
+    border: 2px solid #CC5500;
+    border-radius: 10px;
+    padding: 12px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    touch-action: auto;
+    transition: all 0.3s ease;
+}
+
+.tutorial-content button:hover {
+    background: #CC5500;
+    transform: scale(1.05);
+}
+
+.settings-content h2 {
+    font-size: 32px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 30px;
+    letter-spacing: 2px;
+}
+
+.modal-button {
+    width: 100%;
+    background: #4a5568;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+    touch-action: auto;
+}
+
+.modal-button:hover {
+    background: #5a6578;
+    transform: scale(1.05);
+}
+
+.restart-button {
+    background: #3182ce;
+}
+
+.restart-button:hover {
+    background: #4192de;
+}
+
+.cancel-button {
+    background: #e53e3e;
+    margin-top: 10px;
+}
+
+.cancel-button:hover {
+    background: #f54e4e;
+}
+
+.game-over-title {
+    font-size: 38px;
+    font-weight: bold;
+    color: #e53e3e;
+    margin-bottom: 10px;
+    letter-spacing: 3px;
+    text-shadow: 0 2px 4px rgba(229, 62, 62, 0.5);
+}
+
+.win-title {
+    font-size: 38px;
+    font-weight: bold;
+    color: #48BB78;
+    margin-bottom: 10px;
+    letter-spacing: 3px;
+    text-shadow: 0 2px 4px rgba(72, 187, 120, 0.5);
+}
+
+.game-over-subtitle,
+.win-subtitle {
+    font-size: 18px;
+    color: #cbd5e0;
+    margin-bottom: 25px;
+    font-style: italic;
+}
+
+.game-over-stats,
+.win-stats {
+    width: 100%;
+    background: rgba(74, 85, 104, 0.3);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 25px;
+    border: 1px solid #4a5568;
+}
+
+.game-over-stats p,
+.win-stats p {
+    font-size: 16px;
+    color: #fff;
+    margin: 5px 0;
+    text-align: center;
+    font-weight: 600;
+}
+
+.bonus-text {
+    color: #FFD700 !important;
+}
+
+.bonus-text-blue {
+    color: #63B3ED !important;
+}
+
+.stats-divider {
+    height: 1px;
+    background: #FFFFFF;
+    margin: 10px 0;
+}
+
+.total-score {
+    font-size: 20px !important;
+    font-weight: bold !important;
+}
+
+.glass-panel {
+    background: rgba(26, 26, 46, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
