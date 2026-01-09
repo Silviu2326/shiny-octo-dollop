@@ -433,6 +433,11 @@ export default function Level0({ onBack }) {
         const minSwipeDistance = 30; // Minimum distance for a swipe
 
         const handleTouchStart = (e) => {
+            // Allow buttons and interactive elements to work normally
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                return;
+            }
+
             if (showTutorial) {
                 setShowTutorial(false);
                 return;
@@ -443,6 +448,11 @@ export default function Level0({ onBack }) {
         };
 
         const handleTouchMove = (e) => {
+            // Allow buttons and interactive elements to work normally
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                return;
+            }
+
             e.preventDefault();
             touchEndX = e.touches[0].clientX;
             touchEndY = e.touches[0].clientY;
