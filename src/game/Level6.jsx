@@ -11,8 +11,8 @@ const CELL_SIZE = 5;
 const INITIAL_PLAYER_POS = { x: 5, z: 3 };
 const CAMERA_CONFIG = {
     rotation: Math.PI / 4.8,
-    distance: 9,
-    height: 7,
+    distance: 7,
+    height: 5,
     fov: 60,
 };
 const PLAYER_ROTATION = 1.1;
@@ -257,37 +257,267 @@ function Barrel({ position }) {
     );
 }
 
-function Enemy({ position, isReturning, isPowerActive }) {
-    const texture1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_5.png');
+function Enemy({ position, playerPos, walls, onPositionUpdate, rotation, isPowerActive, isPaused, doghousePos, isReturning, onReturnComplete }) {
+    const meshRef = useRef();
 
-    // Simple visual for returning state
-    const color = isReturning ? 'grey' : (isPowerActive ? 'blue' : 'white');
+    // Load both spritesheets
+    // Texture 1: Right/Down (enemy_type_5.png)
+    // Texture 2: Left/Up   (enemy_type_6.png)
+    const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_5.png');
+    const t2 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_6.png');
+
+    // Clone textures to allow independent frame updates per enemy instance
+    const spritesheet1 = useMemo(() => {
+        const t = t1.clone();
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.NearestFilter;
+        return t;
+    }, [t1]);
+
+    const spritesheet2 = useMemo(() => {
+        const t = t2.clone();
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.NearestFilter;
+        return t;
+    }, [t2]);
+
+    const [currentFrame, setCurrentFrame] = useState(0);
+    const [direction, setDirection] = useState({ x: 1, z: 0 }); // Start moving right
+    const [mode, setMode] = useState('scatter');
+    const [modeTimer, setModeTimer] = useState(Math.random() * 2);
+    const [lastIntersectionPos, setLastIntersectionPos] = useState({ x: -999, z: -999 });
+
+    const stunTimerRef = useRef(0);
+
+    // Constants
+    const frameCount = 8;
+    const animationSpeed = 10;
+    const chaseTime = useMemo(() => 5 + Math.random() * 4, []);
+    const scatterTime = useMemo(() => 5 + Math.random() * 4, []);
+
+    // Helper: Check for intersections
+    const isAtIntersection = (x, z, lastPos) => {
+        const distanceFromLast = Math.sqrt(Math.pow(x - lastPos.x, 2) + Math.pow(z - lastPos.z, 2));
+        if (distanceFromLast < 1.5) return false;
+
+        const directions = [{ x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }];
+        let availableDirections = 0;
+        directions.forEach(dir => {
+            if (!checkCollision(x + dir.x * 0.6, z + dir.z * 0.6, walls)) {
+                availableDirections++;
+            }
+        });
+        return availableDirections > 2;
+    };
+
+    const getValidDirections = (x, z, currentDir) => {
+        const directions = [{ x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }];
+        return directions.filter(dir => {
+            if (dir.x === -currentDir.x && dir.z === -currentDir.z) return false; // Don't reverse
+            return !checkCollision(x + dir.x * 0.5, z + dir.z * 0.5, walls);
+        });
+    };
+
+    useFrame((state, delta) => {
+        if (isPaused) return;
+
+        if (isPowerActive) {
+            stunTimerRef.current += delta;
+        }
+
+        // --- Logic matching Level6.js (native) ---
+        const distToPlayer = Math.sqrt(Math.pow(playerPos.x - position.x, 2) + Math.pow(playerPos.z - position.z, 2));
+
+        // Return to Doghouse Logic
+        if (isReturning) {
+            const distToHome = Math.sqrt(Math.pow(doghousePos.x - position.x, 2) + Math.pow(doghousePos.z - position.z, 2));
+            if (distToHome < 0.5) {
+                setMode('scatter');
+                onReturnComplete();
+                return;
+            }
+
+            // Move towards home
+            const returnSpeed = 3.5;
+            const dx = doghousePos.x - position.x;
+            const dz = doghousePos.z - position.z;
+            const totalDist = Math.sqrt(dx * dx + dz * dz);
+
+            if (totalDist > 0) {
+                const dirX = dx / totalDist;
+                const dirZ = dz / totalDist;
+                // Simple movement towards home, taking checkCollision into account only if needed
+                // Native code does: if (!checkCollision) move.
+                const nextX = position.x + dirX * returnSpeed * delta;
+                const nextZ = position.z + dirZ * returnSpeed * delta;
+
+                if (!checkCollision(nextX, nextZ, walls)) {
+                    onPositionUpdate(nextX, nextZ);
+                }
+            }
+            // Animate
+            const newFrame = Math.floor(state.clock.elapsedTime * animationSpeed) % frameCount;
+            setCurrentFrame(newFrame);
+            return;
+        }
+
+        // Logic Limit
+        if (distToPlayer > 30) return;
+
+        // Mode Switching
+        if (!isPowerActive) {
+            setModeTimer(prev => {
+                const newTimer = prev + delta;
+                const limit = mode === 'scatter' ? scatterTime : chaseTime;
+                if (newTimer >= limit) {
+                    setMode(curr => curr === 'scatter' ? 'chase' : 'scatter');
+                    return 0;
+                }
+                return newTimer;
+            });
+        }
+
+        // Movement
+        const speed = isPowerActive ? 0.5 : 4.95;
+        const nextX = position.x + direction.x * speed * delta;
+        const nextZ = position.z + direction.z * speed * delta;
+
+        const canMove = !checkCollision(nextX, nextZ, walls);
+        const atInt = isAtIntersection(position.x, position.z, lastIntersectionPos);
+        const shouldChangeStunDir = isPowerActive && stunTimerRef.current > 0.2;
+
+        if (atInt || !canMove || shouldChangeStunDir) {
+            const validDirs = getValidDirections(position.x, position.z, direction);
+            if (validDirs.length > 0) {
+                let newDir;
+                if (isPowerActive) {
+                    newDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                    stunTimerRef.current = 0;
+                } else if (mode === 'scatter') {
+                    newDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                } else {
+                    // Chase
+                    const dx = playerPos.x - position.x;
+                    const dz = playerPos.z - position.z;
+                    newDir = validDirs.reduce((best, dir) => {
+                        const score = dir.x * dx + dir.z * dz;
+                        const bestScore = best.x * dx + best.z * dz;
+                        return score > bestScore ? dir : best;
+                    });
+                }
+                setDirection(newDir);
+                if (atInt) setLastIntersectionPos({ x: position.x, z: position.z });
+            } else if (!canMove) {
+                // Dead end, turn around
+                setDirection({ x: -direction.x, z: -direction.z });
+            }
+        }
+
+        if (canMove) {
+            onPositionUpdate(nextX, nextZ);
+            // Animate
+            const newFrame = Math.floor(state.clock.elapsedTime * animationSpeed) % frameCount;
+            setCurrentFrame(newFrame);
+        }
+    });
+
+    // Determine correct texture and flip based on direction
+    const getCurrentTexture = () => {
+        // Texture 1 (Type 5) is for Right/Down (usually)
+        // Texture 2 (Type 6) is for Left/Up
+        // Native logic: if (dir.x > 0 || dir.z > 0) -> spritesheet1
+        if (direction.x > 0 || direction.z > 0) {
+            return spritesheet1;
+        } else {
+            return spritesheet2;
+        }
+    };
+
+    const getFlipX = () => {
+        // Native logic: Left or Down -> flip?
+        // Native: if (direction.z > 0) return -1;
+        //         if (direction.x < 0) return -1;
+        if (direction.z > 0) return -1;
+        if (direction.x < 0) return -1;
+        return 1;
+    };
+
+    const texture = getCurrentTexture();
+    texture.repeat.set(1 / frameCount, 1);
+    texture.offset.x = currentFrame / frameCount;
 
     return (
-        <mesh position={[position.x, 0.5, position.z]} rotation={[-Math.PI / 4, 0, 0]}>
+        <mesh
+            ref={meshRef}
+            position={[position.x, 0.5, position.z]}
+            rotation={[-Math.PI / 4, 0, 0]} // Keep 0 Y rotation, flip handling via scale
+            scale={[getFlipX(), 1, 1]}
+        >
             <planeGeometry args={[1.3, 1.3]} />
             <meshStandardMaterial
-                map={texture1}
+                map={texture}
                 transparent
                 side={THREE.DoubleSide}
-                color={color}
+                alphaTest={0.5}
+                color={isReturning ? 'grey' : isPowerActive ? 'blue' : 'white'}
+                emissive={isReturning ? "#888888" : (isPowerActive ? "#0000FF" : "#000000")}
+                emissiveIntensity={isReturning ? 0.5 : (isPowerActive ? 0.6 : 0)}
             />
         </mesh>
     );
 }
 
-function Player({ position, rotation, isPowerActive, isInvulnerable }) {
+function Player({ position, direction, isPowerActive, isInvulnerable }) {
     const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
-    const [frame, setFrame] = useState(0);
+    const t2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
 
-    useFrame((state) => {
-        setFrame(Math.floor(state.clock.getElapsedTime() * 10) % 8);
+    // Clone to ensure independent settings
+    const spritesheet1 = useMemo(() => {
+        const t = t1.clone();
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.NearestFilter;
+        return t;
+    }, [t1]);
+
+    const spritesheet2 = useMemo(() => {
+        const t = t2.clone();
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.NearestFilter;
+        return t;
+    }, [t2]);
+
+    const [currentFrame, setCurrentFrame] = useState(0);
+    const frameCount = 8;
+    const animationSpeed = 10;
+
+    useFrame((state, delta) => {
+        // Always animate or only when moving? Native animates when moving. 
+        // But here we might want idle loop? 
+        // Native: checks "if (direction.x !== 0 || direction.z !== 0)" inside Player useFrame
+        // But we are passing "direction" prop which is current input. 
+        // However, "position" is updated by parent.
+        // Let's just loop animation for now to be safe/lively.
+        const newFrame = Math.floor(state.clock.elapsedTime * animationSpeed) % frameCount;
+        setCurrentFrame(newFrame);
     });
 
-    const tex = t1.clone();
-    tex.repeat.set(1 / 8, 1);
-    tex.offset.x = frame / 8;
-    tex.magFilter = THREE.NearestFilter;
+    const getCurrentTexture = () => {
+        if (direction.z < 0) return spritesheet1; // Up
+        if (direction.x < 0) return spritesheet1; // Left
+        if (direction.x > 0) return spritesheet2; // Right
+        if (direction.z > 0) return spritesheet2; // Down
+        return spritesheet2; // Default
+    };
+
+    const getFlipX = () => {
+        if (direction.x < 0) return -1; // Flip for Left
+        if (direction.z > 0) return -1; // Flip for Down
+        return 1;
+    };
+
+    const texture = getCurrentTexture();
+    texture.repeat.set(1 / frameCount, 1);
+    texture.offset.x = currentFrame / frameCount;
 
     return (
         <group position={[position.x, 0.5, position.z]}>
@@ -297,9 +527,18 @@ function Player({ position, rotation, isPowerActive, isInvulnerable }) {
                     <meshStandardMaterial color="#00FFFF" transparent opacity={0.3} emissive="#00FFFF" emissiveIntensity={1.5} />
                 </mesh>
             )}
-            <mesh rotation={[-Math.PI / 4, rotation, 0]}>
+            <mesh
+                rotation={[-Math.PI / 4, 0, 0]}
+                scale={[getFlipX(), 1, 1]}
+            >
                 <planeGeometry args={[1.1, 1.1]} />
-                <meshStandardMaterial map={tex} transparent side={THREE.DoubleSide} opacity={isInvulnerable ? 0.5 : 1} />
+                <meshStandardMaterial
+                    map={texture}
+                    transparent
+                    side={THREE.DoubleSide}
+                    opacity={isInvulnerable ? 0.5 : 1}
+                    depthWrite={!isInvulnerable} // Avoid depth issues when transparent
+                />
             </mesh>
         </group>
     );
@@ -343,9 +582,7 @@ export default function Level6({ onBack }) {
     const [enemies, setEnemies] = useState([]);
 
     // Logic Loop
-    useFrame((state, delta) => {
-        // No-op for now in React state, driven by effects below
-    });
+
 
     const handleSwipe = (newDir) => setDirection(newDir);
 
@@ -425,34 +662,15 @@ export default function Level6({ onBack }) {
                     setTimeout(() => setIsInvulnerable(false), 3000);
                 }
 
-                // Movement
-                let targetX = playerPos.x;
-                let targetZ = playerPos.z;
-                let speed = 0.09;
+                // Movement is now handled by the Enemy component itself (which calls setEnemies via callbacks)
+                // We only handle collision checks here, but since collision effects (lives, score) are global state,
+                // we can keep them here. However, ideally, the Enemy component should trigger these too.
+                // 
+                // BUT, to minimally disrupt the structure:
+                // We will REMOVE the movement calculation here. 
+                // We will KEEP the collision check, but notice that 'dist' uses 'x' and 'z' from 'e'.
+                // 'e' is updated via react state updates from Enemy component.
 
-                if (isReturning) {
-                    targetX = DOGHOUSE_POS.x;
-                    targetZ = DOGHOUSE_POS.z;
-                    speed = 0.2; // Return fast
-                    if (Math.sqrt((x - targetX) ** 2 + (z - targetZ) ** 2) < 0.5) {
-                        return { ...e, x: DOGHOUSE_POS.x, z: DOGHOUSE_POS.z, isReturning: false };
-                    }
-                } else if (powerActive) {
-                    // Run away? Or just stay/slow? Native says "Scatter" or "Stun". 
-                    // We'll just slow down heavily for this implementation
-                    speed = 0.03;
-                }
-
-                const dx = targetX - x;
-                const dz = targetZ - z;
-                const angle = Math.atan2(dz, dx);
-
-                let ex = x + Math.cos(angle) * speed;
-                let ez = z + Math.sin(angle) * speed;
-
-                if (!checkCollision(ex, ez, walls)) {
-                    return { ...e, x: ex, z: ez };
-                }
                 return e;
             }));
 
@@ -471,11 +689,19 @@ export default function Level6({ onBack }) {
         return () => timeouts.forEach(clearTimeout);
     }, []);
 
+    const handleEnemyPositionUpdate = (id, x, z) => {
+        setEnemies(prev => prev.map(e => e.id === id ? { ...e, x, z } : e));
+    };
+
+    const handleReturnComplete = (id) => {
+        setEnemies(prev => prev.map(e => e.id === id ? { ...e, isReturning: false } : e));
+    };
+
     return (
         <div className="game-container">
             <GestureLayer onSwipe={handleSwipe} />
 
-            <Canvas camera={{ position: [15, 20, 30], fov: 60 }} shadows>
+            <Canvas camera={{ position: [14, 16, 24], fov: 60 }} shadows>
                 <ambientLight intensity={1.5} />
                 <directionalLight position={[15, 24, 18]} intensity={1} />
 
@@ -487,9 +713,22 @@ export default function Level6({ onBack }) {
 
                 {barrels.map(b => !b.collected && <Barrel key={b.id} position={b} />)}
 
-                <Player position={playerPos} rotation={PLAYER_ROTATION} isPowerActive={powerActive} isInvulnerable={isInvulnerable} />
+                <Player position={playerPos} direction={direction} isPowerActive={powerActive} isInvulnerable={isInvulnerable} />
 
-                {enemies.map(e => <Enemy key={e.id} position={e} isReturning={e.isReturning} isPowerActive={powerActive} />)}
+                {enemies.map(e => (
+                    <Enemy
+                        key={e.id}
+                        position={e}
+                        playerPos={playerPos}
+                        walls={walls}
+                        doghousePos={DOGHOUSE_POS}
+                        isPowerActive={powerActive}
+                        isReturning={e.isReturning}
+                        rotation={0}
+                        onPositionUpdate={(x, z) => handleEnemyPositionUpdate(e.id, x, z)}
+                        onReturnComplete={() => handleReturnComplete(e.id)}
+                    />
+                ))}
 
                 <CameraController targetX={playerPos.x} targetZ={playerPos.z} />
             </Canvas>
@@ -535,8 +774,10 @@ function CameraController({ targetX, targetZ }) {
     useFrame(({ camera }) => {
         const offsetX = Math.sin(CAMERA_CONFIG.rotation) * CAMERA_CONFIG.distance;
         const offsetZ = Math.cos(CAMERA_CONFIG.rotation) * CAMERA_CONFIG.distance;
-        camera.position.x += (targetX + offsetX - camera.position.x) * 0.1;
-        camera.position.z += (targetZ + offsetZ - camera.position.z) * 0.1;
+
+        camera.position.x = targetX + offsetX;
+        camera.position.y = CAMERA_CONFIG.height;
+        camera.position.z = targetZ + offsetZ;
         camera.lookAt(targetX, 0, targetZ);
     });
     return null;

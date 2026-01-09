@@ -1,6 +1,6 @@
 import { useState } from 'react';
+import { Home, Ghost, Cookie, Sun, WheatOff, Flame, Palmtree, PartyPopper, Play } from 'lucide-react';
 import './App.css';
-import Level0 from './game/Level0';
 import Level1 from './game/Level1';
 import Level2 from './game/Level2';
 import Level3 from './game/Level3';
@@ -12,25 +12,14 @@ import Level8 from './game/Level8';
 
 function LevelSelector({ onSelectLevel }) {
   const levels = [
-    { id: 0, emoji: '🏠', name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
-    { id: 1, emoji: '🐙', name: 'Nivel 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
-    { id: 2, emoji: '🍞', name: 'Nivel 2', desc: 'La Tostada (Morena)', color: '#8A5A2B' },
-    { id: 3, emoji: '👩', name: 'Nivel 3', desc: 'La Rubia (Catira)', color: '#F2C94C' },
-    { id: 4, emoji: '🌾', name: 'Nivel 4', desc: 'Sin Gluten (Sifrina)', color: '#D4AF37' },
-    { id: 5, emoji: '🕯️', name: 'Nivel 5', desc: 'La Oscura (Candela)', color: '#8B1E1E' },
-    { id: 6, emoji: '🌴', name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
-    { id: 7, emoji: '🎉', name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
-    // Level 8 is missing in the list in Juego.js but Level8 import exists and logic exists. 
-    // Checking Juego.js again: imports Level8, has if(level===7) -> Level8? Wait.
-    // In Juego.js:
-    // { id: 7, emoji: '🎉', name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' }
-    // if (level === 7) return <Level8 ... />
-    // It seems Level 7 in the menu maps to Level8 component? Or maybe Level 7 IS the final level?
-    // Let's stick to the menu list from Juego.js exactly for now.
-    // Wait, let me check Juego.js content I read.
-    // Line 24: { id: 7 ... name: 'Nivel 7' ... }
-    // Line 101: if (level === 7) { return <Level8 ... />; }
-    // This looks like an off-by-one or intentional mapping in the original. I will reproduce strictly.
+    { id: 0, icon: <Home size={28} />, name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
+    { id: 1, icon: <Ghost size={28} />, name: 'Nivel 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
+    { id: 2, icon: <Cookie size={28} />, name: 'Nivel 2', desc: 'La Tostada (Morena)', color: '#8A5A2B' },
+    { id: 3, icon: <Sun size={28} />, name: 'Nivel 3', desc: 'La Rubia (Catira)', color: '#F2C94C' },
+    { id: 4, icon: <WheatOff size={28} />, name: 'Nivel 4', desc: 'Sin Gluten (Sifrina)', color: '#D4AF37' },
+    { id: 5, icon: <Flame size={28} />, name: 'Nivel 5', desc: 'La Oscura (Candela)', color: '#8B1E1E' },
+    { id: 6, icon: <Palmtree size={28} />, name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
+    { id: 7, icon: <PartyPopper size={28} />, name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
   ];
 
   return (
@@ -51,14 +40,16 @@ function LevelSelector({ onSelectLevel }) {
               onClick={() => onSelectLevel(level.id)}
             >
               <div className="level-icon-container">
-                <span className="level-emoji">{level.emoji}</span>
+                <span className="level-icon" style={{ color: level.color }}>
+                  {level.icon}
+                </span>
               </div>
               <div className="level-info">
                 <h3 className="level-text">{level.name}</h3>
                 <p className="level-description">{level.desc}</p>
               </div>
               <div className="level-arrow">
-                <span className="arrow-text">▶</span>
+                <Play size={20} fill="#666" stroke="none" />
               </div>
             </div>
           ))}
@@ -69,15 +60,14 @@ function LevelSelector({ onSelectLevel }) {
 }
 
 function Game({ level, onBack }) {
-  if (level === 0) return <Level0 onBack={onBack} />;
-  if (level === 1) return <Level1 onBack={onBack} />;
-  if (level === 2) return <Level2 onBack={onBack} />;
-  if (level === 3) return <Level3 onBack={onBack} />;
-  if (level === 4) return <Level4 onBack={onBack} />;
-  if (level === 5) return <Level5 onBack={onBack} />;
-  if (level === 6) return <Level6 onBack={onBack} />;
-
-  // Mapping level 7 to Level8 component as per Juego.js logic
+  // Mapping matches Juego.js (off-by-one logic)
+  if (level === 0) return <Level1 onBack={onBack} />;
+  if (level === 1) return <Level2 onBack={onBack} />;
+  if (level === 2) return <Level3 onBack={onBack} />;
+  if (level === 3) return <Level4 onBack={onBack} />;
+  if (level === 4) return <Level5 onBack={onBack} />;
+  if (level === 5) return <Level6 onBack={onBack} />;
+  if (level === 6) return <Level7 onBack={onBack} />;
   if (level === 7) return <Level8 onBack={onBack} />;
 
   return (

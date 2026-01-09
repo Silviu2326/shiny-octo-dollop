@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX } from 'lucide-react';
 import * as THREE from 'three';
 import './Level3.css';
 import LevelHeader from '../components/LevelHeader';
@@ -104,6 +105,10 @@ function generateCollectibles(count) {
 }
 
 const initialCollectibles = generateCollectibles(140);
+
+// Preload enemy textures to avoid lag
+useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_11.png');
+useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_12.png');
 
 // --- 3D Components ---
 
@@ -553,6 +558,8 @@ function CameraController({ targetX, targetZ, rotation, distance, height }) {
 
 // --- Main Component ---
 
+const doghousePos = { x: 2.5, z: 4 };
+
 export default function Level3({ onBack }) {
   const [playerPos, setPlayerPos] = useState({ x: 2, z: 2 });
   const [direction, setDirection] = useState({ x: 0, z: 0 });
@@ -583,8 +590,120 @@ export default function Level3({ onBack }) {
   const comboTimerRef = useRef(null);
   const [livesLost, setLivesLost] = useState(false);
   const [showWinModal, setShowWinModal] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
-  const doghousePos = { x: 2.5, z: 4 };
+  // --- Main Component ---
+
+  // Game Loop
+  const handlePositionUpdate = React.useCallback((newX, newZ) => {
+    if (isPaused) return;
+
+    // Check collision with enemies
+    const checkCollisions = (x, z) => {
+      if (isInvulnerable) return;
+
+      for (const enemy of enemies) {
+        const dist = Math.sqrt(Math.pow(x - enemy.x, 2) + Math.pow(z - enemy.z, 2));
+        if (dist < 0.8) {
+          const newLives = lives - 1;
+          setLivesLost(true);
+
+          if (newLives <= 0) {
+            setLives(0);
+            setShowGameOverModal(true);
+            setIsPaused(true);
+            playGameOverSound();
+          } else {
+            setLives(newLives);
+            playLoseLifeSound();
+
+            setIsInvulnerable(true);
+
+            if (invulnerabilityTimerRef.current) {
+              clearTimeout(invulnerabilityTimerRef.current);
+            }
+
+            invulnerabilityTimerRef.current = setTimeout(() => {
+              setIsInvulnerable(false);
+              invulnerabilityTimerRef.current = null;
+            }, 3000);
+          }
+
+          return;
+        }
+      }
+    };
+
+    // Special Bonuses collision
+    let bonusHitId = null;
+    specialBonuses.forEach(bonus => {
+      if (!bonus.collected) {
+        const distance = Math.sqrt(
+          Math.pow(newX - bonus.x, 2) + Math.pow(newZ - bonus.z, 2)
+        );
+        if (distance < 0.6) {
+          bonusHitId = bonus.id;
+        }
+      }
+    });
+
+    if (bonusHitId) {
+      setSpecialBonuses(prev => prev.map(b => b.id === bonusHitId ? { ...b, collected: true } : b));
+      setScore(p => p + 500);
+      playCollectSound();
+    }
+
+    // Barrels collision
+    let barrelHitId = null;
+    barrels.forEach(barrel => {
+      if (!barrel.collected) {
+        const distance = Math.sqrt(
+          Math.pow(newX - barrel.x, 2) + Math.pow(newZ - barrel.z, 2)
+        );
+        if (distance < 0.8) {
+          barrelHitId = barrel.id;
+        }
+      }
+    });
+
+    if (barrelHitId) {
+      setBarrels(prev => prev.map(b => b.id === barrelHitId ? { ...b, collected: true } : b));
+      if (tokens < 3) {
+        setTokens(p => p + 1);
+      } else {
+        setScore(p => p + 100);
+      }
+      playBarrelSound();
+    }
+
+    // Collectibles collision
+    let collectibleHitId = null;
+    collectibles.forEach(collectible => {
+      if (!collectible.collected) {
+        const distance = Math.sqrt(Math.pow(newX - collectible.x, 2) + Math.pow(newZ - collectible.z, 2));
+        if (distance < 0.5) {
+          collectibleHitId = collectible.id;
+        }
+      }
+    });
+
+    if (collectibleHitId) {
+      setCollectibles(prev => prev.map(c => c.id === collectibleHitId ? { ...c, collected: true } : c));
+
+      setComboMultiplier(1.5);
+      if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
+      comboTimerRef.current = setTimeout(() => {
+        setComboMultiplier(1);
+      }, 3000);
+
+      setScore(p => p + Math.floor(10 * comboMultiplier));
+      setBeersCollected(p => p + 1);
+      playCollectSound();
+    }
+
+    setPlayerPos({ x: newX, z: newZ });
+    checkCollisions(newX, newZ);
+  }, [enemies, isPaused, isInvulnerable, specialBonuses, barrels, collectibles, tokens, lives, score, comboMultiplier]);
 
   const cameraConfig = {
     rotation: Math.PI / 4.8,
@@ -595,38 +714,64 @@ export default function Level3({ onBack }) {
 
   const playerRotation = 1.1;
 
-  // Audio
+  // Audio Ref
+  const musicRef = useRef(null);
+
   useEffect(() => {
-    const music = new Audio('/assets/audio/music_funky.wav');
-    music.loop = true;
-    music.volume = 0.3;
-    music.play().catch(e => console.log("Audio play failed:", e));
+    musicRef.current = new Audio('/assets/audio/music_funky.wav');
+    musicRef.current.loop = true;
+    musicRef.current.volume = 0.3;
+
+    if (!isMuted) {
+      musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+    }
 
     return () => {
-      music.pause();
-      music.currentTime = 0;
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current = null;
+      }
     };
   }, []);
 
+  // Handle mute toggle for bg music
+  useEffect(() => {
+    if (!musicRef.current) return;
+
+    if (isMuted) {
+      musicRef.current.pause();
+    } else {
+      musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+    }
+  }, [isMuted]);
+
+  const toggleMute = () => {
+    setIsMuted(prev => !prev);
+  };
+
   const playCollectSound = () => {
+    if (isMuted) return;
     const sfx = new Audio('/assets/audio/sfx_collect.mp3');
     sfx.volume = 0.6;
     sfx.play().catch(e => console.log("SFX play failed:", e));
   };
 
   const playBarrelSound = () => {
+    if (isMuted) return;
     const sfx = new Audio('/assets/audio/sfx_barrel.mp3');
     sfx.volume = 0.6;
     sfx.play().catch(e => console.log("SFX play failed:", e));
   };
 
   const playLoseLifeSound = () => {
+    if (isMuted) return;
     const sfx = new Audio('/assets/audio/sfx_lose_life.mp3');
     sfx.volume = 0.6;
     sfx.play().catch(e => console.log("SFX play failed:", e));
   };
 
   const playGameOverSound = () => {
+    if (isMuted) return;
     const sfx = new Audio('/assets/audio/sfx_game_over.mp3');
     sfx.volume = 0.6;
     sfx.play().catch(e => console.log("SFX play failed:", e));
@@ -801,10 +946,10 @@ export default function Level3({ onBack }) {
         (key === 's' && currentDir.z === 1) ||
         (key === 'a' && currentDir.x === -1) ||
         (key === 'd' && currentDir.x === 1) ||
-        (key === 'arrowup' && currentDir.z === -1) ||
-        (key === 'arrowdown' && currentDir.z === 1) ||
-        (key === 'arrowleft' && currentDir.x === -1) ||
-        (key === 'arrowright' && currentDir.x === 1)
+        (e.key === 'ArrowUp' && currentDir.z === -1) ||
+        (e.key === 'ArrowDown' && currentDir.z === 1) ||
+        (e.key === 'ArrowLeft' && currentDir.x === -1) ||
+        (e.key === 'ArrowRight' && currentDir.x === 1)
       ) {
         setDirection({ x: 0, z: 0 });
       }
@@ -812,198 +957,20 @@ export default function Level3({ onBack }) {
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [direction, tokens, powerActive]);
 
-  // Touch Controls
-  useEffect(() => {
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchEndX = 0;
-    let touchEndY = 0;
+  // Game Loop
 
-    const minSwipeDistance = 30;
 
-    const handleTouchStart = (e) => {
-      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-        return;
-      }
-
-      e.preventDefault();
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    };
-
-    const handleTouchMove = (e) => {
-      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-        return;
-      }
-
-      e.preventDefault();
-      touchEndX = e.touches[0].clientX;
-      touchEndY = e.touches[0].clientY;
-    };
-
-    const handleTouchEnd = () => {
-      const deltaX = touchEndX - touchStartX;
-      const deltaY = touchEndY - touchStartY;
-      const absDeltaX = Math.abs(deltaX);
-      const absDeltaY = Math.abs(deltaY);
-
-      if (absDeltaX < minSwipeDistance && absDeltaY < minSwipeDistance) {
-        return;
-      }
-
-      if (absDeltaX > absDeltaY) {
-        if (deltaX > 0) {
-          setDirection({ x: 1, z: 0 });
-        } else {
-          setDirection({ x: -1, z: 0 });
-        }
-      } else {
-        if (deltaY > 0) {
-          setDirection({ x: 0, z: 1 });
-        } else {
-          setDirection({ x: 0, z: -1 });
-        }
-      }
-    };
-
-    window.addEventListener('touchstart', handleTouchStart, { passive: false });
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
-
-    return () => {
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, []);
-
-  const handleEnemyPositionUpdate = (enemyId, x, z) => {
-    setEnemies(prevEnemies =>
-      prevEnemies.map(enemy =>
-        enemy.id === enemyId ? { ...enemy, x, z } : enemy
-      )
-    );
-  };
-
-  const handlePositionUpdate = (x, z) => {
-    setPlayerPos({ x, z });
-
-    // Enemy collision
-    if (powerActive) {
-      setEnemies(prevEnemies => {
-        return prevEnemies.map(enemy => {
-          if (!enemy.isReturning) {
-            const distance = Math.sqrt(
-              Math.pow(x - enemy.x, 2) + Math.pow(z - enemy.z, 2)
-            );
-            if (distance < 0.5) {
-              setScore(prev => prev + 50);
-              return { ...enemy, isReturning: true };
-            }
-          }
-          return enemy;
-        });
-      });
-    } else {
-      if (!isInvulnerable) {
-        const hitByEnemy = enemies.some(enemy => {
-          if (enemy.isReturning) return false;
-          const distance = Math.sqrt(Math.pow(x - enemy.x, 2) + Math.pow(z - enemy.z, 2));
-          return distance < 0.4;
-        });
-
-        if (hitByEnemy) {
-          const newLives = lives - 1;
-          setLivesLost(true);
-
-          if (newLives <= 0) {
-            setLives(0);
-            setShowGameOverModal(true);
-            setIsPaused(true);
-            playGameOverSound();
-          } else {
-            setLives(newLives);
-            playLoseLifeSound();
-
-            setIsInvulnerable(true);
-
-            if (invulnerabilityTimerRef.current) {
-              clearTimeout(invulnerabilityTimerRef.current);
-            }
-
-            invulnerabilityTimerRef.current = setTimeout(() => {
-              setIsInvulnerable(false);
-              invulnerabilityTimerRef.current = null;
-            }, 3000);
-          }
-
-          return;
-        }
-      }
-    }
-
-    // Special Bonuses collision
-    setSpecialBonuses(prev => {
-      return prev.map(bonus => {
-        if (!bonus.collected) {
-          const distance = Math.sqrt(
-            Math.pow(x - bonus.x, 2) + Math.pow(z - bonus.z, 2)
-          );
-          if (distance < 0.6) {
-            setScore(p => p + 500);
-            playCollectSound();
-            return { ...bonus, collected: true };
-          }
-        }
-        return bonus;
-      });
-    });
-
-    // Barrels collision
-    setBarrels(prevBarrels => {
-      return prevBarrels.map(barrel => {
-        if (!barrel.collected) {
-          const distance = Math.sqrt(
-            Math.pow(x - barrel.x, 2) + Math.pow(z - barrel.z, 2)
-          );
-          if (distance < 0.6) {
-            setTokens(p => p + 1);
-            setScore(p => p + 25);
-            playBarrelSound();
-            return { ...barrel, collected: true };
-          }
-        }
-        return barrel;
-      });
-    });
-
-    // Collectibles collision
-    setCollectibles(prev => {
-      return prev.map(collectible => {
-        if (!collectible.collected) {
-          const distance = Math.sqrt(Math.pow(x - collectible.x, 2) + Math.pow(z - collectible.z, 2));
-          if (distance < 0.5) {
-            setComboMultiplier(1.5);
-            if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
-            comboTimerRef.current = setTimeout(() => {
-              setComboMultiplier(1);
-            }, 3000);
-
-            setScore(p => p + Math.floor(10 * comboMultiplier));
-            setBeersCollected(p => p + 1);
-            playCollectSound();
-            return { ...collectible, collected: true };
-          }
-        }
-        return collectible;
-      });
-    });
+  const handleEnemyPositionUpdate = (id, x, z) => {
+    setEnemies(prev => prev.map(enemy =>
+      enemy.id === id ? { ...enemy, x, z } : enemy
+    ));
   };
 
   useEffect(() => {
@@ -1077,6 +1044,9 @@ export default function Level3({ onBack }) {
           beersCollected={beersCollected}
           score={score}
         />
+        <div style={{ position: 'absolute', top: 100, left: 10, color: 'white', zIndex: 9999 }}>
+          Enemies: {enemies.length}
+        </div>
 
         <div className="power-button-container">
           <button
@@ -1104,7 +1074,7 @@ export default function Level3({ onBack }) {
           setIsPaused(true);
           setShowSettingsModal(true);
         }}>
-          PAUSA
+          <Pause size={24} />
         </button>
 
         {showSettingsModal && (
@@ -1115,13 +1085,16 @@ export default function Level3({ onBack }) {
                 setShowSettingsModal(false);
                 setIsPaused(false);
               }}>
-                Seguir con la partida
+                <Play size={20} /> Seguir
               </button>
               <button className="modal-button restart-button" onClick={restartLevel}>
-                Reiniciar Nivel
+                <RotateCcw size={20} /> Reiniciar
+              </button>
+              <button className="modal-button" onClick={toggleMute}>
+                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />} {isMuted ? 'Activar Sonido' : 'Silenciar'}
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                Volver al menú
+                <Home size={20} /> Salir
               </button>
             </div>
           </div>
@@ -1137,10 +1110,10 @@ export default function Level3({ onBack }) {
                 <p>Cervezas recogidas: {beersCollected}</p>
               </div>
               <button className="modal-button restart-button" onClick={restartLevel}>
-                Reintentar
+                <RotateCcw size={20} /> Reintentar
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                Volver al menú
+                <Home size={20} /> Volver al menú
               </button>
             </div>
           </div>
@@ -1165,10 +1138,10 @@ export default function Level3({ onBack }) {
                 </p>
               </div>
               <button className="modal-button restart-button" onClick={restartLevel}>
-                Jugar de nuevo
+                <RotateCcw size={20} /> Jugar de nuevo
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                Volver al menú
+                <Home size={20} /> Volver al menú
               </button>
             </div>
           </div>

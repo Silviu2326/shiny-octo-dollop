@@ -373,37 +373,53 @@ function Barrel({ position }) {
     );
 }
 
-function Enemy({ position, playerPos, walls, rotation, isPowerActive, isPaused, enemyId }) {
-    const texture1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_7.png');
-    const texture2 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_8.png');
-
-    // Simplification of logic: render a mesh at position. 
-    // Logic is handled in parent for easier React state management, or we keep local state?
-    // Native kept local state. Let's try to keep it stateless or simple for now, 
-    // but Native had full AI in component. 
-    // BUT! React Three Fiber re-mounting components on state change is bad.
-    // Ideally we pass a ref or use a store. `Level5.js` has AI logic inside `Enemy` component.
-    // We should copy that pattern but careful with re-renders.
-
-    // Actually, `Level5.js` passed `onPositionUpdate` to Enemy.
-    // I will implement a simplified visual for now to ensure it renders, 
-    // but wait, standard practice in this codebase seems to be logic in component.
+function Enemy({ position, playerPos, walls, isPowerActive, isPaused, enemyId, direction }) {
+    const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_7.png');
+    const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_8.png');
 
     const [currentFrame, setCurrentFrame] = useState(0);
     const frameCount = 8;
+
+    useMemo(() => {
+        spritesheet1.magFilter = THREE.NearestFilter;
+        spritesheet1.minFilter = THREE.NearestFilter;
+        spritesheet2.magFilter = THREE.NearestFilter;
+        spritesheet2.minFilter = THREE.NearestFilter;
+    }, [spritesheet1, spritesheet2]);
 
     useFrame((state) => {
         const t = state.clock.getElapsedTime();
         setCurrentFrame(Math.floor(t * 10) % frameCount);
     });
 
-    const texture = texture1.clone();
+    const getCurrentTexture = () => {
+        if (!direction) return spritesheet1;
+        const dx = direction.x || 0;
+        const dz = direction.z || 0;
+
+        if (dx > 0 || dz > 0) {
+            return spritesheet1;
+        } else {
+            return spritesheet2;
+        }
+    };
+
+    const getFlipX = () => {
+        if (!direction) return 1;
+        const dz = direction.z || 0;
+        const dx = direction.x || 0;
+
+        if (dz > 0) return -1;
+        if (dx < 0) return -1;
+        return 1;
+    };
+
+    const texture = getCurrentTexture();
     texture.repeat.set(1 / frameCount, 1);
     texture.offset.x = currentFrame / frameCount;
-    texture.magFilter = THREE.NearestFilter;
 
     return (
-        <mesh position={[position.x, 0.5, position.z]} rotation={[-Math.PI / 4, rotation, 0]}>
+        <mesh position={[position.x, 0.5, position.z]} rotation={[-Math.PI / 4, PLAYER_ROTATION, 0]} scale={[getFlipX(), 1, 1]}>
             <planeGeometry args={[1.3, 1.3]} />
             <meshStandardMaterial
                 map={texture}
@@ -412,23 +428,45 @@ function Enemy({ position, playerPos, walls, rotation, isPowerActive, isPaused, 
                 color={isPowerActive ? '#4444ff' : 'white'}
                 emissive={isPowerActive ? '#2222ff' : 'black'}
                 emissiveIntensity={isPowerActive ? 0.5 : 0}
+                alphaTest={0.5}
             />
         </mesh>
     );
 }
 
-function Player({ position, rotation, isPowerActive, isInvulnerable }) {
-    const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
+function Player({ position, direction, isPowerActive, isInvulnerable }) {
+    const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
+    const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
     const [frame, setFrame] = useState(0);
+
+    useMemo(() => {
+        spritesheet1.magFilter = THREE.NearestFilter;
+        spritesheet1.minFilter = THREE.NearestFilter;
+        spritesheet2.magFilter = THREE.NearestFilter;
+        spritesheet2.minFilter = THREE.NearestFilter;
+    }, [spritesheet1, spritesheet2]);
 
     useFrame((state) => {
         setFrame(Math.floor(state.clock.getElapsedTime() * 10) % 8);
     });
 
-    const tex = t1.clone();
+    const getCurrentTexture = () => {
+        if (direction.z < 0) return spritesheet1;
+        if (direction.x < 0) return spritesheet1;
+        if (direction.x > 0) return spritesheet2;
+        if (direction.z > 0) return spritesheet2;
+        return spritesheet2;
+    };
+
+    const getFlipX = () => {
+        if (direction.x < 0) return -1;
+        if (direction.z > 0) return -1;
+        return 1;
+    };
+
+    const tex = getCurrentTexture();
     tex.repeat.set(1 / 8, 1);
     tex.offset.x = frame / 8;
-    tex.magFilter = THREE.NearestFilter;
 
     return (
         <group position={[position.x, 0.5, position.z]}>
@@ -438,9 +476,9 @@ function Player({ position, rotation, isPowerActive, isInvulnerable }) {
                     <meshStandardMaterial color="#00FFFF" transparent opacity={0.3} emissive="#00FFFF" emissiveIntensity={1.5} />
                 </mesh>
             )}
-            <mesh rotation={[-Math.PI / 4, rotation, 0]}>
+            <mesh rotation={[-Math.PI / 4, PLAYER_ROTATION, 0]} scale={[getFlipX(), 1, 1]}>
                 <planeGeometry args={[1.1, 1.1]} />
-                <meshStandardMaterial map={tex} transparent side={THREE.DoubleSide} opacity={isInvulnerable ? 0.5 : 1} />
+                <meshStandardMaterial map={tex} transparent side={THREE.DoubleSide} opacity={isInvulnerable ? 0.5 : 1} alphaTest={0.5} />
             </mesh>
         </group>
     );
@@ -485,12 +523,7 @@ export default function Level5({ onBack }) {
     const [enemies, setEnemies] = useState([]); // Logic for AI needed
 
     // Logic Loop (Movement, Collision)
-    useFrame((state, delta) => {
-        // Here we can handle player movement and collision logic "outside" the canvas if we want, 
-        // to avoid passing callbacks deep down. 
-        // Or we can keep doing it in a wrapper component or useFrame inside Player.
-        // For Web version, I'll keep it simple: Logic inside Layout or special Logic component.
-    });
+
 
     // Audio...
 
@@ -563,8 +596,8 @@ export default function Level5({ onBack }) {
     useEffect(() => {
         // Simplified spawn logic
         const timeouts = [
-            setTimeout(() => setEnemies(e => [...e, { id: 1, x: doghousePos.x, z: doghousePos.z }]), 3000),
-            setTimeout(() => setEnemies(e => [...e, { id: 2, x: doghousePos.x, z: doghousePos.z }]), 7000),
+            setTimeout(() => setEnemies(e => [...e, { id: 1, x: doghousePos.x, z: doghousePos.z, direction: { x: 1, z: 0 } }]), 3000),
+            setTimeout(() => setEnemies(e => [...e, { id: 2, x: doghousePos.x, z: doghousePos.z, direction: { x: 1, z: 0 } }]), 7000),
         ];
         return () => timeouts.forEach(clearTimeout);
     }, []);
@@ -592,11 +625,16 @@ export default function Level5({ onBack }) {
                 // Move towards player slowly
                 const moveSpeed = 0.08;
                 const angle = Math.atan2(dz, dx);
-                let ex = e.x + Math.cos(angle) * moveSpeed;
-                let ez = e.z + Math.sin(angle) * moveSpeed;
+                const moveX = Math.cos(angle) * moveSpeed;
+                const moveZ = Math.sin(angle) * moveSpeed;
+                let ex = e.x + moveX;
+                let ez = e.z + moveZ;
 
                 if (!checkCollision(ex, ez, walls)) {
-                    return { ...e, x: ex, z: ez };
+                    // Store normalized direction for sprite animation
+                    const dirX = moveX > 0 ? 1 : (moveX < 0 ? -1 : 0);
+                    const dirZ = moveZ > 0 ? 1 : (moveZ < 0 ? -1 : 0);
+                    return { ...e, x: ex, z: ez, direction: { x: dirX, z: dirZ } };
                 }
                 return e;
             }));
@@ -609,7 +647,7 @@ export default function Level5({ onBack }) {
         <div className="game-container">
             <GestureLayer onSwipe={handleSwipe} />
 
-            <Canvas camera={{ position: [15, 18, 28], fov: 60 }} shadows>
+            <Canvas camera={{ position: [14, 18, 26], fov: CAMERA_CONFIG.fov }} shadows>
                 <ambientLight intensity={1.5} />
                 <directionalLight position={[15, 22, 17]} intensity={1} />
 
@@ -621,9 +659,9 @@ export default function Level5({ onBack }) {
 
                 {barrels.map(b => !b.collected && <Barrel key={b.id} position={b} />)}
 
-                <Player position={playerPos} rotation={PLAYER_ROTATION} isPowerActive={powerActive} isInvulnerable={isInvulnerable} />
+                <Player position={playerPos} direction={direction} isPowerActive={powerActive} isInvulnerable={isInvulnerable} />
 
-                {enemies.map(e => <Enemy key={e.id} position={e} rotation={PLAYER_ROTATION} isPowerActive={powerActive} />)}
+                {enemies.map(e => <Enemy key={e.id} position={e} direction={e.direction || { x: 1, z: 0 }} isPowerActive={powerActive} />)}
 
                 <CameraController targetX={playerPos.x} targetZ={playerPos.z} />
             </Canvas>
@@ -669,8 +707,10 @@ function CameraController({ targetX, targetZ }) {
     useFrame(({ camera }) => {
         const offsetX = Math.sin(CAMERA_CONFIG.rotation) * CAMERA_CONFIG.distance;
         const offsetZ = Math.cos(CAMERA_CONFIG.rotation) * CAMERA_CONFIG.distance;
-        camera.position.x += (targetX + offsetX - camera.position.x) * 0.1;
-        camera.position.z += (targetZ + offsetZ - camera.position.z) * 0.1;
+
+        camera.position.x = targetX + offsetX;
+        camera.position.y = CAMERA_CONFIG.height;
+        camera.position.z = targetZ + offsetZ;
         camera.lookAt(targetX, 0, targetZ);
     });
     return null;

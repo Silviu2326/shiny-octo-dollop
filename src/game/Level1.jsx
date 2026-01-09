@@ -378,7 +378,7 @@ export default function Level1({ onBack }) {
   const [collectibles, setCollectibles] = useState(initialCollectibles);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
@@ -422,16 +422,16 @@ export default function Level1({ onBack }) {
     setLives(3);
     setIsPaused(false);
     setShowSettingsModal(false);
-    setShowTutorial(true);
+    setIsPaused(false);
+    setShowSettingsModal(false);
+    setShowGameOverModal(false);
+    // Tutorial removed
   };
 
   // Keyboard Controls
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (showTutorial) {
-        setShowTutorial(false);
-        return;
-      }
+      // Tutorial check removed
       switch (e.key) {
         case 'ArrowUp':
         case 'w':
@@ -479,7 +479,7 @@ export default function Level1({ onBack }) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showTutorial, direction]);
+  }, [direction]);
 
   // Touch/Swipe Controls for Mobile
   useEffect(() => {
@@ -495,10 +495,11 @@ export default function Level1({ onBack }) {
         return;
       }
 
-      if (showTutorial) {
-        setShowTutorial(false);
+      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
         return;
       }
+
+      // Tutorial check removed
       e.preventDefault();
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
@@ -515,7 +516,7 @@ export default function Level1({ onBack }) {
     };
 
     const handleTouchEnd = () => {
-      if (showTutorial) return;
+      // Tutorial check removed
 
       const deltaX = touchEndX - touchStartX;
       const deltaY = touchEndY - touchStartY;
@@ -550,7 +551,7 @@ export default function Level1({ onBack }) {
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [showTutorial]);
+  }, []);
 
   const handlePositionUpdate = (x, z) => {
     setPlayerPos({ x, z });
@@ -616,17 +617,7 @@ export default function Level1({ onBack }) {
           salir
         </button>
 
-        {showTutorial && (
-          <div className="tutorial-modal animate-fade-in">
-            <div className="tutorial-content glass-panel">
-              <h2>¡Bienvenido a La Casa del Gato!</h2>
-              <p>Usa las flechas o W/A/S/D para moverte.</p>
-              <p>Desliza en móvil para cambiar dirección.</p>
-              <p>Recoge todas las cervezas 🍺</p>
-              <button onClick={() => setShowTutorial(false)}>JUGAR</button>
-            </div>
-          </div>
-        )}
+
 
         {showSettingsModal && (
           <div className="settings-modal">

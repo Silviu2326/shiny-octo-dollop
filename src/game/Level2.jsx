@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX } from 'lucide-react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
@@ -380,8 +381,14 @@ function Doghouse({ position }) {
   );
 }
 
+// Preload textures
+useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_13.png');
+useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_14.png');
+
 function Enemy({ position, playerPos, onPositionUpdate, rotation, isPaused, enemyId }) {
   const meshRef = useRef();
+  // Using useLoader here is fine if preloaded, but better to share the texture if instanced. 
+  // For now, preloading avoids the suspense.
   const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_13.png');
   const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_14.png');
 
@@ -692,10 +699,11 @@ export default function Level2({ onBack }) {
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [beersCollected, setBeersCollected] = useState(0);
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [enemies, setEnemies] = useState([]);
   const [isInvulnerable, setIsInvulnerable] = useState(false);
   const enemyIdRef = useRef(1);
@@ -713,34 +721,60 @@ export default function Level2({ onBack }) {
   const playerRotation = 1.1;
 
   // Audio
+  const musicRef = useRef(null);
+
   useEffect(() => {
-    const music = new Audio('/assets/audio/music_medusa.wav');
-    music.loop = true;
-    music.volume = 0.3;
-    music.play().catch(e => console.log("Audio play failed:", e));
+    musicRef.current = new Audio('/assets/audio/music_medusa.wav');
+    musicRef.current.loop = true;
+    musicRef.current.volume = 0.3;
+
+    // Only play if not muted initially (though muted state starts false)
+    if (!isMuted) {
+      musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+    }
 
     return () => {
-      music.pause();
-      music.currentTime = 0;
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current = null;
+      }
     };
-  }, []);
+  }, []); // Only run once on mount
+
+  // Handle mute toggle for bg music
+  useEffect(() => {
+    if (!musicRef.current) return;
+
+    if (isMuted) {
+      musicRef.current.pause();
+    } else {
+      musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+    }
+  }, [isMuted]);
 
   const playCollectSound = () => {
+    if (isMuted) return;
     const sfx = new Audio('/assets/audio/sfx_collect.mp3');
     sfx.volume = 0.6;
     sfx.play().catch(e => console.log("SFX play failed:", e));
   };
 
   const playLoseLifeSound = () => {
+    if (isMuted) return;
     const sfx = new Audio('/assets/audio/sfx_lose_life.mp3');
     sfx.volume = 0.6;
     sfx.play().catch(e => console.log("SFX play failed:", e));
   };
 
   const playGameOverSound = () => {
+    if (isMuted) return;
     const sfx = new Audio('/assets/audio/sfx_game_over.mp3');
     sfx.volume = 0.6;
     sfx.play().catch(e => console.log("SFX play failed:", e));
+  };
+
+  const toggleMute = () => {
+    setIsMuted(prev => !prev);
   };
 
   const restartLevel = () => {
@@ -791,10 +825,7 @@ export default function Level2({ onBack }) {
   // Keyboard Controls
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (showTutorial) {
-        setShowTutorial(false);
-        return;
-      }
+      // Tutorial check removed
       switch (e.key) {
         case 'ArrowUp':
         case 'w':
@@ -1034,24 +1065,16 @@ export default function Level2({ onBack }) {
           score={score}
         />
 
+
+
         <button className="settings-button" onClick={() => {
           setIsPaused(true);
           setShowSettingsModal(true);
         }}>
-          ⏸️
+          <Pause size={24} />
         </button>
 
-        {showTutorial && (
-          <div className="tutorial-modal animate-fade-in">
-            <div className="tutorial-content glass-panel">
-              <h2>¡Bienvenido a Medusa!</h2>
-              <p>Usa las flechas o W/A/S/D para moverte.</p>
-              <p>¡Cuidado con los enemigos!</p>
-              <p>Tienes 3 vidas.</p>
-              <button onClick={() => setShowTutorial(false)}>JUGAR</button>
-            </div>
-          </div>
-        )}
+
 
         {showSettingsModal && (
           <div className="settings-modal">
@@ -1061,13 +1084,16 @@ export default function Level2({ onBack }) {
                 setShowSettingsModal(false);
                 setIsPaused(false);
               }}>
-                ▶️ Seguir
+                <Play size={20} /> Seguir
               </button>
               <button className="modal-button restart-button" onClick={restartLevel}>
-                🔄 Reiniciar
+                <RotateCcw size={20} /> Reiniciar
+              </button>
+              <button className="modal-button" onClick={toggleMute}>
+                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />} {isMuted ? 'Activar Sonido' : 'Silenciar'}
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                🏠 Salir
+                <Home size={20} /> Salir
               </button>
             </div>
           </div>
@@ -1083,10 +1109,10 @@ export default function Level2({ onBack }) {
                 <p>Cervezas recogidas: {beersCollected}</p>
               </div>
               <button className="modal-button restart-button" onClick={restartLevel}>
-                🔄 Reintentar
+                <RotateCcw size={20} /> Reintentar
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                🏠 Volver al menú
+                <Home size={20} /> Volver al menú
               </button>
             </div>
           </div>

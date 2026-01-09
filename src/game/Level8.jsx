@@ -11,8 +11,8 @@ const INITIAL_PLAYER_POS = { x: 16, z: 2 };
 const DOGHOUSE_POS = { x: 16, z: 4 };
 const CAMERA_CONFIG = {
     rotation: Math.PI / 4.8,
-    distance: 10,
-    height: 8,
+    distance: 8,
+    height: 6,
     fov: 60,
 };
 const PLAYER_ROTATION = 1.1;
@@ -314,9 +314,22 @@ function Barrel({ position }) {
     );
 }
 
-function Enemy({ position, isReturning, role, stunned }) {
-    const texture1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_1.png');
+function Enemy({ position, isReturning, role, stunned, direction }) {
+    const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_1.png');
+    const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_2.png');
     const meshRef = useRef();
+    const [currentFrame, setCurrentFrame] = useState(0);
+    const [animationTime, setAnimationTime] = useState(0);
+    const frameCount = 8;
+    const animationSpeed = 10;
+
+    // Configure textures
+    useMemo(() => {
+        spritesheet1.magFilter = THREE.NearestFilter;
+        spritesheet1.minFilter = THREE.NearestFilter;
+        spritesheet2.magFilter = THREE.NearestFilter;
+        spritesheet2.minFilter = THREE.NearestFilter;
+    }, [spritesheet1, spritesheet2]);
 
     // Color based on role
     const color = useMemo(() => {
@@ -328,34 +341,91 @@ function Enemy({ position, isReturning, role, stunned }) {
     }, [role]);
 
     useFrame((state, delta) => {
+        // Animation frames
+        setAnimationTime(prev => {
+            const newTime = prev + delta * animationSpeed;
+            const newFrame = Math.floor(newTime) % frameCount;
+            setCurrentFrame(newFrame);
+            return newTime;
+        });
+
+        // Rotation for stunned effect
         if (stunned && meshRef.current) meshRef.current.rotation.z += delta * 5;
         else if (meshRef.current) meshRef.current.rotation.z = 0;
     });
 
+    const getCurrentTexture = () => {
+        if (!direction) return spritesheet1;
+        const dx = direction.x || 0;
+        const dz = direction.z || 0;
+
+        if (dx > 0 || dz > 0) {
+            return spritesheet1;
+        } else {
+            return spritesheet2;
+        }
+    };
+
+    const getFlipX = () => {
+        if (!direction) return 1;
+        const dz = direction.z || 0;
+        const dx = direction.x || 0;
+
+        if (dz > 0) return -1;
+        if (dx < 0) return -1;
+        return 1;
+    };
+
+    const texture = getCurrentTexture();
+    texture.repeat.set(1 / frameCount, 1);
+    texture.offset.x = currentFrame / frameCount;
+
     return (
         <group position={[position.x, 0.5, position.z]}>
-            <mesh ref={meshRef} rotation={[-Math.PI / 4, 0, 0]}>
+            <mesh ref={meshRef} rotation={[-Math.PI / 4, PLAYER_ROTATION, 0]} scale={[getFlipX(), 1, 1]}>
                 <planeGeometry args={[1.3, 1.3]} />
                 <meshStandardMaterial
-                    map={texture1}
+                    map={texture}
                     transparent
                     side={THREE.DoubleSide}
                     color={isReturning ? 'grey' : 'white'}
                     emissive={color}
                     emissiveIntensity={0.2}
+                    alphaTest={0.5}
+                    depthWrite={true}
                 />
             </mesh>
         </group>
     );
 }
 
-function Player({ position, rotation, isInvulnerable, isPowerActive }) {
+function Player({ position, direction, isInvulnerable, isPowerActive }) {
     const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
+    const t2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
+
+    const spritesheet1 = useMemo(() => {
+        const t = t1.clone();
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.NearestFilter;
+        return t;
+    }, [t1]);
+
+    const spritesheet2 = useMemo(() => {
+        const t = t2.clone();
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.NearestFilter;
+        return t;
+    }, [t2]);
+
     const [frame, setFrame] = useState(0);
     const trailRef = useRef([]);
+    const frameCount = 8;
+    const animationSpeed = 10;
 
     useFrame((state) => {
-        setFrame(Math.floor(state.clock.getElapsedTime() * 10) % 8);
+        const newFrame = Math.floor(state.clock.getElapsedTime() * animationSpeed) % frameCount;
+        setFrame(newFrame);
+
         if (isPowerActive) {
             trailRef.current.unshift({ x: position.x, z: position.z });
             if (trailRef.current.length > 5) trailRef.current.pop();
@@ -364,24 +434,50 @@ function Player({ position, rotation, isInvulnerable, isPowerActive }) {
         }
     });
 
-    const tex = t1.clone();
-    tex.repeat.set(1 / 8, 1);
-    tex.offset.x = frame / 8;
-    tex.magFilter = THREE.NearestFilter;
+    const getCurrentTexture = () => {
+        if (direction.z < 0) return spritesheet1; // Up
+        if (direction.x < 0) return spritesheet1; // Left
+        if (direction.x > 0) return spritesheet2; // Right
+        if (direction.z > 0) return spritesheet2; // Down
+        return spritesheet2; // Default
+    };
+
+    const getFlipX = () => {
+        if (direction.x < 0) return -1; // Flip for Left
+        if (direction.z > 0) return -1; // Flip for Down
+        return 1;
+    };
+
+    const texture = getCurrentTexture();
+    texture.repeat.set(1 / frameCount, 1);
+    texture.offset.x = frame / frameCount;
 
     return (
         <group>
             {isPowerActive && trailRef.current.map((pos, i) => (
-                <mesh key={i} position={[pos.x, 0.5, pos.z]} rotation={[-Math.PI / 4, rotation, 0]}>
+                <mesh key={i} position={[pos.x, 0.5, pos.z]} rotation={[-Math.PI / 4, 0, 0]}>
                     <planeGeometry args={[0.8, 0.8]} />
                     <meshBasicMaterial color={i % 2 === 0 ? "gold" : "cyan"} transparent opacity={0.5 - i * 0.1} />
                 </mesh>
             ))}
             <group position={[position.x, 0.5, position.z]}>
-                <mesh rotation={[-Math.PI / 4, rotation, 0]}>
+                {isPowerActive && (
+                    <mesh rotation={[-Math.PI / 4, 0, 0]}>
+                        <sphereGeometry args={[0.7, 16, 16]} />
+                        <meshStandardMaterial color="#00FFFF" transparent opacity={0.3} emissive="#00FFFF" emissiveIntensity={1.5} />
+                    </mesh>
+                )}
+                <mesh rotation={[-Math.PI / 4, 0, 0]} scale={[getFlipX(), 1, 1]}>
                     <planeGeometry args={[1.1, 1.1]} />
-                    <meshStandardMaterial map={tex} transparent side={THREE.DoubleSide} opacity={isInvulnerable ? 0.5 : 1}
-                        emissive={isPowerActive ? "#FF00FF" : "black"} emissiveIntensity={isPowerActive ? 1 : 0}
+                    <meshStandardMaterial
+                        map={texture}
+                        transparent
+                        side={THREE.DoubleSide}
+                        opacity={isInvulnerable ? 0.5 : 1}
+                        emissive={isPowerActive ? "#FF00FF" : "black"}
+                        emissiveIntensity={isPowerActive ? 1 : 0}
+                        alphaTest={0.5}
+                        depthWrite={true}
                     />
                 </mesh>
             </group>
@@ -542,11 +638,16 @@ export default function Level8({ onBack }) {
                 const dz = targetZ - z;
                 const angle = Math.atan2(dz, dx);
 
-                let ex = x + Math.cos(angle) * speed;
-                let ez = z + Math.sin(angle) * speed;
+                const moveX = Math.cos(angle) * speed;
+                const moveZ = Math.sin(angle) * speed;
+                let ex = x + moveX;
+                let ez = z + moveZ;
 
                 if (!checkCollision(ex, ez, walls)) {
-                    return { ...e, x: ex, z: ez };
+                    // Store normalized direction for sprite animation
+                    const dirX = moveX > 0 ? 1 : (moveX < 0 ? -1 : 0);
+                    const dirZ = moveZ > 0 ? 1 : (moveZ < 0 ? -1 : 0);
+                    return { ...e, x: ex, z: ez, direction: { x: dirX, z: dirZ } };
                 }
                 return e;
             }));
@@ -558,13 +659,13 @@ export default function Level8({ onBack }) {
     // Role-based Spawning
     useEffect(() => {
         const spawns = [
-            { t: 1000, x: 8, z: 6, r: 'chaser' },
-            { t: 3000, x: 24, z: 6, r: 'cutter' },
-            { t: 6000, x: 16, z: 19, r: 'rotator' },
-            { t: 9000, x: 8, z: 32, r: 'lazy' },
+            { t: 1000, r: 'chaser' },
+            { t: 3000, r: 'cutter' },
+            { t: 6000, r: 'rotator' },
+            { t: 9000, r: 'lazy' },
         ];
         const timeouts = spawns.map(s => setTimeout(() => {
-            setEnemies(prev => [...prev, { id: Math.random(), x: s.x, z: s.z, role: s.r }]);
+            setEnemies(prev => [...prev, { id: Math.random(), x: DOGHOUSE_POS.x, z: DOGHOUSE_POS.z, role: s.r, direction: { x: 1, z: 0 } }]);
         }, s.t));
         return () => timeouts.forEach(clearTimeout);
     }, []);
@@ -573,7 +674,7 @@ export default function Level8({ onBack }) {
         <div className="game-container">
             <GestureLayer onSwipe={handleSwipe} />
 
-            <Canvas camera={{ position: [16, 20, 30], fov: 60 }} shadows>
+            <Canvas camera={{ position: [16, 18, 26], fov: CAMERA_CONFIG.fov }} shadows>
                 <ambientLight intensity={1.5} />
                 <directionalLight position={[16, 24, 19]} intensity={1} />
 
@@ -585,9 +686,11 @@ export default function Level8({ onBack }) {
 
                 {barrels.map(b => !b.collected && <Barrel key={b.id} position={b} />)}
 
-                <Player position={playerPos} rotation={PLAYER_ROTATION} isInvulnerable={isInvulnerable} isPowerActive={powerActive} />
+                <Player position={playerPos} direction={direction} isInvulnerable={isInvulnerable} isPowerActive={powerActive} />
 
-                {enemies.map(e => <Enemy key={e.id} position={e} isReturning={e.isReturning} role={e.role} />)}
+                {enemies.map(e => <Enemy key={e.id} position={e} isReturning={e.isReturning} role={e.role} direction={e.direction || { x: 1, z: 0 }} />)}
+
+                <CameraController targetX={playerPos.x} targetZ={playerPos.z} />
             </Canvas>
 
             <div className="ui-overlay">
@@ -611,6 +714,19 @@ export default function Level8({ onBack }) {
             </div>
         </div>
     );
+}
+
+function CameraController({ targetX, targetZ }) {
+    useFrame(({ camera }) => {
+        const offsetX = Math.sin(CAMERA_CONFIG.rotation) * CAMERA_CONFIG.distance;
+        const offsetZ = Math.cos(CAMERA_CONFIG.rotation) * CAMERA_CONFIG.distance;
+
+        camera.position.x = targetX + offsetX;
+        camera.position.y = CAMERA_CONFIG.height;
+        camera.position.z = targetZ + offsetZ;
+        camera.lookAt(targetX, 0, targetZ);
+    });
+    return null;
 }
 
 function GestureLayer({ onSwipe }) {

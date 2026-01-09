@@ -11,8 +11,8 @@ const INITIAL_PLAYER_POS = { x: 15, z: 5 };
 const DOGHOUSE_POS = { x: 15, z: 6 };
 const CAMERA_CONFIG = {
     rotation: Math.PI / 4.8,
-    distance: 9,
-    height: 7,
+    distance: 8,
+    height: 6,
     fov: 60,
 };
 const PLAYER_ROTATION = 1.1;
@@ -253,51 +253,274 @@ function Barrel({ position }) {
     );
 }
 
-function Enemy({ position, isReturning, onReturnComplete, onPositionUpdate, stunned }) {
-    const texture = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_3.png');
+function Enemy({ position, playerPos, walls, onPositionUpdate, rotation, isPowerActive, isPaused, isStunned, doghousePos, isReturning, onReturnComplete }) {
     const meshRef = useRef();
 
+    // Load both spritesheets
+    // Texture 1: Right/Down (enemy_type_3.png)
+    // Texture 2: Left/Up   (enemy_type_4.png)
+    const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_3.png');
+    const t2 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_4.png');
+
+    // Clone textures to allow independent frame updates per enemy instance
+    const spritesheet1 = useMemo(() => {
+        const t = t1.clone();
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.NearestFilter;
+        return t;
+    }, [t1]);
+
+    const spritesheet2 = useMemo(() => {
+        const t = t2.clone();
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.NearestFilter;
+        return t;
+    }, [t2]);
+
+    const [currentFrame, setCurrentFrame] = useState(0);
+    const [direction, setDirection] = useState({ x: 1, z: 0 });
+    const [mode, setMode] = useState('scatter');
+    const [modeTimer, setModeTimer] = useState(Math.random() * 2);
+    const [lastIntersectionPos, setLastIntersectionPos] = useState({ x: -999, z: -999 });
+    const [stunVisualTime, setStunVisualTime] = useState(0);
+
+    const stunTimerRef = useRef(0);
+
+    const frameCount = 8;
+    const animationSpeed = 10;
+    const chaseTime = useMemo(() => 6 + Math.random() * 3, []);
+    const scatterTime = useMemo(() => 6 + Math.random() * 3, []);
+
+    // Helper: Check for intersections
+    const isAtIntersection = (x, z, lastPos) => {
+        const distanceFromLast = Math.sqrt(Math.pow(x - lastPos.x, 2) + Math.pow(z - lastPos.z, 2));
+        if (distanceFromLast < 1.5) return false;
+
+        const directions = [{ x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }];
+        let availableDirections = 0;
+        directions.forEach(dir => {
+            if (!checkCollision(x + dir.x * 0.6, z + dir.z * 0.6, walls)) {
+                availableDirections++;
+            }
+        });
+        return availableDirections > 2;
+    };
+
+    const getValidDirections = (x, z, currentDir) => {
+        const directions = [{ x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }];
+        return directions.filter(dir => {
+            if (dir.x === -currentDir.x && dir.z === -currentDir.z) return false;
+            return !checkCollision(x + dir.x * 0.5, z + dir.z * 0.5, walls);
+        });
+    };
+
     useFrame((state, delta) => {
-        if (stunned && meshRef.current) {
-            meshRef.current.rotation.z += delta * 5;
-        } else if (meshRef.current) {
-            meshRef.current.rotation.z = 0;
+        if (isPaused) return;
+
+        if (isStunned || isPowerActive) {
+            if (isStunned) setStunVisualTime(prev => prev + delta * 10);
+            if (isPowerActive) stunTimerRef.current += delta;
+        }
+
+        // Returning logic
+        if (isReturning) {
+            const distToHome = Math.sqrt(Math.pow(doghousePos.x - position.x, 2) + Math.pow(doghousePos.z - position.z, 2));
+            if (distToHome < 0.5) {
+                setMode('scatter');
+                onReturnComplete();
+                return;
+            }
+
+            const returnSpeed = 3.5;
+            const dx = doghousePos.x - position.x;
+            const dz = doghousePos.z - position.z;
+            const totalDist = Math.sqrt(dx * dx + dz * dz);
+
+            if (totalDist > 0) {
+                const dirX = dx / totalDist;
+                const dirZ = dz / totalDist;
+                const nextX = position.x + dirX * returnSpeed * delta;
+                const nextZ = position.z + dirZ * returnSpeed * delta;
+
+                if (!checkCollision(nextX, nextZ, walls)) {
+                    onPositionUpdate(nextX, nextZ);
+                }
+            }
+            // Animate while returning
+            const newFrame = Math.floor(state.clock.elapsedTime * animationSpeed) % frameCount;
+            setCurrentFrame(newFrame);
+            return;
+        }
+
+        if (isStunned) return;
+
+        const distToPlayer = Math.sqrt(Math.pow(playerPos.x - position.x, 2) + Math.pow(playerPos.z - position.z, 2));
+        if (distToPlayer > 30) return;
+
+        // Mode Switching
+        setModeTimer(prev => {
+            const newTimer = prev + delta;
+            const limit = mode === 'scatter' ? scatterTime : chaseTime;
+            if (newTimer >= limit) {
+                setMode(curr => curr === 'scatter' ? 'chase' : 'scatter');
+                return 0;
+            }
+            return newTimer;
+        });
+
+        // Movement
+        const baseSpeed = 4.73;
+        const speed = isPowerActive ? baseSpeed * 0.5 : baseSpeed;
+        const nextX = position.x + direction.x * speed * delta;
+        const nextZ = position.z + direction.z * speed * delta;
+
+        const canMove = !checkCollision(nextX, nextZ, walls);
+        const atInt = isAtIntersection(position.x, position.z, lastIntersectionPos);
+        const shouldChangeStunDir = isPowerActive && stunTimerRef.current > 0.2;
+
+        if (atInt || !canMove || shouldChangeStunDir) {
+            const validDirs = getValidDirections(position.x, position.z, direction);
+            if (validDirs.length > 0) {
+                let newDir;
+                if (isPowerActive) {
+                    newDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                    stunTimerRef.current = 0;
+                } else if (mode === 'scatter') {
+                    // Scatter logic
+                    newDir = validDirs.reduce((best, dir) => {
+                        const futureX = position.x + dir.x * 5;
+                        const futureZ = position.z + dir.z * 5;
+                        const distCenter = Math.sqrt(Math.pow(futureX - 15, 2) + Math.pow(futureZ - 18, 2));
+                        const bestFutureX = position.x + best.x * 5;
+                        const bestFutureZ = position.z + best.z * 5;
+                        const bestDistCenter = Math.sqrt(Math.pow(bestFutureX - 15, 2) + Math.pow(bestFutureZ - 18, 2));
+                        return distCenter > bestDistCenter ? dir : best;
+                    });
+                    if (Math.random() < 0.3) {
+                        newDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                    }
+                } else {
+                    // Chase
+                    const dx = playerPos.x - position.x;
+                    const dz = playerPos.z - position.z;
+                    newDir = validDirs.reduce((best, dir) => {
+                        const score = dir.x * dx + dir.z * dz;
+                        const bestScore = best.x * dx + best.z * dz;
+                        return score > bestScore ? dir : best;
+                    });
+                }
+                setDirection(newDir);
+                if (atInt) setLastIntersectionPos({ x: position.x, z: position.z });
+            } else if (!canMove) {
+                setDirection({ x: -direction.x, z: -direction.z });
+            }
+        }
+
+        if (canMove) {
+            onPositionUpdate(nextX, nextZ);
+            const newFrame = Math.floor(state.clock.elapsedTime * animationSpeed) % frameCount;
+            setCurrentFrame(newFrame);
         }
     });
 
+    const getCurrentTexture = () => {
+        if (direction.x > 0 || direction.z > 0) return spritesheet1;
+        return spritesheet2;
+    };
+
+    const getFlipX = () => {
+        // User requested inversion for Right/Down spritesheet (S1)
+        if (direction.x > 0) return -1; // Right -> Flip (-1) instead of 1
+        if (direction.z > 0) return 1;  // Down -> Normal (1) instead of -1
+
+        if (direction.x < 0) return -1; // Left -> Flip (-1)
+        return 1; // Default/Up
+    };
+
+    const texture = getCurrentTexture();
+    texture.repeat.set(1 / frameCount, 1);
+    texture.offset.x = currentFrame / frameCount;
+
     return (
         <group position={[position.x, 0.5, position.z]}>
-            <mesh ref={meshRef} rotation={[-Math.PI / 4, 0, 0]}>
+            {isStunned && (
+                <>
+                    <mesh position={[0, 0.3, 0]} rotation={[0, stunVisualTime, 0]}>
+                        <ringGeometry args={[0.4, 0.5, 8]} />
+                        <meshStandardMaterial color="#FFFF00" emissive="#FFFF00" emissiveIntensity={2} transparent opacity={0.8} />
+                    </mesh>
+                    <mesh position={[0, 0.4, 0]} rotation={[0, -stunVisualTime * 1.5, 0]}>
+                        <ringGeometry args={[0.3, 0.35, 6]} />
+                        <meshStandardMaterial color="#FFFF00" emissive="#FFFF00" emissiveIntensity={2} transparent opacity={0.6} />
+                    </mesh>
+                </>
+            )}
+
+            <mesh
+                ref={meshRef}
+                rotation={[-Math.PI / 4, 0, 0]}
+                scale={[getFlipX(), 1, 1]}
+            >
                 <planeGeometry args={[1.3, 1.3]} />
                 <meshStandardMaterial
                     map={texture}
                     transparent
                     side={THREE.DoubleSide}
-                    color={stunned ? 'yellow' : (isReturning ? 'grey' : 'white')}
+                    alphaTest={0.5}
+                    emissive={isStunned ? "#FFFF00" : "#000000"}
+                    emissiveIntensity={isStunned ? 0.5 : 0}
+                    depthWrite
                 />
             </mesh>
-            {stunned && (
-                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
-                    <ringGeometry args={[0.5, 0.6, 16]} />
-                    <meshBasicMaterial color="yellow" side={THREE.DoubleSide} />
-                </mesh>
-            )}
         </group>
     );
 }
 
-function Player({ position, rotation, isInvulnerable, shockwaveActive, shockwaveRadius }) {
+function Player({ position, direction, isInvulnerable, shockwaveActive, shockwaveRadius }) {
     const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
-    const [frame, setFrame] = useState(0);
+    const t2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
+
+    // Clone to ensure independent settings
+    const spritesheet1 = useMemo(() => {
+        const t = t1.clone();
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.NearestFilter;
+        return t;
+    }, [t1]);
+
+    const spritesheet2 = useMemo(() => {
+        const t = t2.clone();
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.NearestFilter;
+        return t;
+    }, [t2]);
+
+    const [currentFrame, setCurrentFrame] = useState(0);
+    const frameCount = 8;
+    const animationSpeed = 10;
 
     useFrame((state) => {
-        setFrame(Math.floor(state.clock.getElapsedTime() * 10) % 8);
+        const newFrame = Math.floor(state.clock.elapsedTime * animationSpeed) % frameCount;
+        setCurrentFrame(newFrame);
     });
 
-    const tex = t1.clone();
-    tex.repeat.set(1 / 8, 1);
-    tex.offset.x = frame / 8;
-    tex.magFilter = THREE.NearestFilter;
+    const getCurrentTexture = () => {
+        if (direction.z < 0) return spritesheet1; // Up
+        if (direction.x < 0) return spritesheet1; // Left
+        if (direction.x > 0) return spritesheet2; // Right
+        if (direction.z > 0) return spritesheet2; // Down
+        return spritesheet2; // Default
+    };
+
+    const getFlipX = () => {
+        if (direction.x < 0) return -1; // Flip for Left
+        if (direction.z > 0) return -1; // Flip for Down
+        return 1;
+    };
+
+    const texture = getCurrentTexture();
+    texture.repeat.set(1 / frameCount, 1);
+    texture.offset.x = currentFrame / frameCount;
 
     return (
         <group position={[position.x, 0.5, position.z]}>
@@ -307,9 +530,18 @@ function Player({ position, rotation, isInvulnerable, shockwaveActive, shockwave
                     <meshBasicMaterial color="#FF6600" transparent opacity={0.6} side={THREE.DoubleSide} />
                 </mesh>
             )}
-            <mesh rotation={[-Math.PI / 4, rotation, 0]}>
+            <mesh
+                rotation={[-Math.PI / 4, 0, 0]}
+                scale={[getFlipX(), 1, 1]}
+            >
                 <planeGeometry args={[1.1, 1.1]} />
-                <meshStandardMaterial map={tex} transparent side={THREE.DoubleSide} opacity={isInvulnerable ? 0.5 : 1} />
+                <meshStandardMaterial
+                    map={texture}
+                    transparent
+                    side={THREE.DoubleSide}
+                    opacity={isInvulnerable ? 0.5 : 1}
+                    depthWrite={!isInvulnerable}
+                />
             </mesh>
         </group>
     );
@@ -421,6 +653,14 @@ export default function Level7({ onBack }) {
         return () => { window.removeEventListener('keydown', k); window.removeEventListener('keyup', ku); };
     }, []);
 
+    const handleEnemyPositionUpdate = (id, x, z) => {
+        setEnemies(prev => prev.map(e => e.id === id ? { ...e, x, z } : e));
+    };
+
+    const handleReturnComplete = (id) => {
+        setEnemies(prev => prev.map(e => e.id === id ? { ...e, isReturning: false } : e));
+    };
+
     useEffect(() => {
         const interval = setInterval(() => {
             // Player Movement
@@ -462,47 +702,24 @@ export default function Level7({ onBack }) {
                 }
             }
 
-            // Enemy AI
+            // Enemy AI - Global State Updates
             setEnemies(prev => prev.map(e => {
                 // Un-stun check
                 if (e.stunned && Date.now() > e.stunTime) {
                     return { ...e, stunned: false };
                 }
-                if (e.stunned) return e;
 
                 let { x, z, isReturning } = e;
 
                 // Collision with player
                 const dist = Math.sqrt((playerPos.x - x) ** 2 + (playerPos.z - z) ** 2);
-                if (dist < 0.5 && !isInvulnerable && !isReturning) {
+                if (dist < 0.5 && !isInvulnerable && !isReturning && !e.stunned) {
                     setLives(l => l - 1);
                     setIsInvulnerable(true);
                     setTimeout(() => setIsInvulnerable(false), 3000);
                 }
 
-                let targetX = playerPos.x;
-                let targetZ = playerPos.z;
-                let speed = 0.08;
-
-                if (isReturning) {
-                    targetX = DOGHOUSE_POS.x;
-                    targetZ = DOGHOUSE_POS.z;
-                    speed = 0.2;
-                    if (Math.sqrt((x - targetX) ** 2 + (z - targetZ) ** 2) < 0.5) {
-                        return { ...e, x: DOGHOUSE_POS.x, z: DOGHOUSE_POS.z, isReturning: false };
-                    }
-                }
-
-                const dx = targetX - x;
-                const dz = targetZ - z;
-                const angle = Math.atan2(dz, dx);
-
-                let ex = x + Math.cos(angle) * speed;
-                let ez = z + Math.sin(angle) * speed;
-
-                if (!checkCollision(ex, ez, walls)) {
-                    return { ...e, x: ex, z: ez };
-                }
+                // Movement is now handled by the Enemy component itself.
                 return e;
             }));
 
@@ -512,10 +729,10 @@ export default function Level7({ onBack }) {
 
     useEffect(() => {
         const timeouts = [
-            setTimeout(() => setEnemies(e => [...e, { id: 1, x: 15, z: 27 }]), 2000),
-            setTimeout(() => setEnemies(e => [...e, { id: 2, x: 5, z: 18 }]), 5000),
-            setTimeout(() => setEnemies(e => [...e, { id: 3, x: 25, z: 18 }]), 9000),
-            setTimeout(() => setEnemies(e => [...e, { id: 4, x: 15, z: 9 }]), 15000),
+            setTimeout(() => setEnemies(e => [...e, { id: 1, x: DOGHOUSE_POS.x, z: DOGHOUSE_POS.z }]), 2000),
+            setTimeout(() => setEnemies(e => [...e, { id: 2, x: DOGHOUSE_POS.x, z: DOGHOUSE_POS.z }]), 5000),
+            setTimeout(() => setEnemies(e => [...e, { id: 3, x: DOGHOUSE_POS.x, z: DOGHOUSE_POS.z }]), 9000),
+            setTimeout(() => setEnemies(e => [...e, { id: 4, x: DOGHOUSE_POS.x, z: DOGHOUSE_POS.z }]), 15000),
         ];
         return () => timeouts.forEach(clearTimeout);
     }, []);
@@ -524,7 +741,7 @@ export default function Level7({ onBack }) {
         <div className="game-container">
             <GestureLayer onSwipe={handleSwipe} />
 
-            <Canvas camera={{ position: [15, 20, 30], fov: 60 }} shadows>
+            <Canvas camera={{ position: [15, 18, 26], fov: CAMERA_CONFIG.fov }} shadows>
                 <ambientLight intensity={1.5} />
                 <directionalLight position={[15, 24, 18]} intensity={1} />
 
@@ -536,9 +753,29 @@ export default function Level7({ onBack }) {
 
                 {barrels.map(b => !b.collected && <Barrel key={b.id} position={b} />)}
 
-                <Player position={playerPos} rotation={PLAYER_ROTATION} isInvulnerable={isInvulnerable} shockwaveActive={shockwaveActive} shockwaveRadius={shockwaveRadius} />
+                <Player
+                    position={playerPos}
+                    direction={direction}
+                    isInvulnerable={isInvulnerable}
+                    shockwaveActive={shockwaveActive}
+                    shockwaveRadius={shockwaveRadius}
+                />
 
-                {enemies.map(e => <Enemy key={e.id} position={e} isReturning={e.isReturning} stunned={e.stunned} />)}
+                {enemies.map(e => (
+                    <Enemy
+                        key={e.id}
+                        position={e}
+                        playerPos={playerPos}
+                        walls={walls}
+                        doghousePos={DOGHOUSE_POS}
+                        isPowerActive={powerActive}
+                        isReturning={e.isReturning}
+                        isStunned={e.stunned}
+                        rotation={0}
+                        onPositionUpdate={(x, z) => handleEnemyPositionUpdate(e.id, x, z)}
+                        onReturnComplete={() => handleReturnComplete(e.id)}
+                    />
+                ))}
 
                 <CameraController targetX={playerPos.x} targetZ={playerPos.z} />
             </Canvas>
@@ -584,8 +821,10 @@ function CameraController({ targetX, targetZ }) {
     useFrame(({ camera }) => {
         const offsetX = Math.sin(CAMERA_CONFIG.rotation) * CAMERA_CONFIG.distance;
         const offsetZ = Math.cos(CAMERA_CONFIG.rotation) * CAMERA_CONFIG.distance;
-        camera.position.x += (targetX + offsetX - camera.position.x) * 0.1;
-        camera.position.z += (targetZ + offsetZ - camera.position.z) * 0.1;
+
+        camera.position.x = targetX + offsetX;
+        camera.position.y = CAMERA_CONFIG.height;
+        camera.position.z = targetZ + offsetZ;
         camera.lookAt(targetX, 0, targetZ);
     });
     return null;
