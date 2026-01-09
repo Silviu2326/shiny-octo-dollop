@@ -3,6 +3,8 @@
     height: 100vh;
     position: relative;
     background-color: #000;
+    overscroll-behavior: none;
+    touch-action: none;
 }
 
 .ui-overlay {

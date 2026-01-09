@@ -437,11 +437,13 @@ export default function Level0({ onBack }) {
                 setShowTutorial(false);
                 return;
             }
+            e.preventDefault();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
         };
 
         const handleTouchMove = (e) => {
+            e.preventDefault();
             touchEndX = e.touches[0].clientX;
             touchEndY = e.touches[0].clientY;
         };
@@ -477,8 +479,8 @@ export default function Level0({ onBack }) {
             }
         };
 
-        window.addEventListener('touchstart', handleTouchStart);
-        window.addEventListener('touchmove', handleTouchMove);
+        window.addEventListener('touchstart', handleTouchStart, { passive: false });
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
         window.addEventListener('touchend', handleTouchEnd);
 
         return () => {
