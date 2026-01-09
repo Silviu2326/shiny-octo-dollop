@@ -2,6 +2,7 @@ import { useState } from 'react'
 import './App.css'
 import LevelSelector from './components/LevelSelector'
 import Level0 from './game/Level0'
+import Level1_5 from './game/Level1_5'
 
 function App() {
   const [selectedLevel, setSelectedLevel] = useState(null)
@@ -12,6 +13,8 @@ function App() {
         <LevelSelector onSelectLevel={setSelectedLevel} />
       ) : selectedLevel === 0 ? (
         <Level0 onBack={() => setSelectedLevel(null)} />
+      ) : selectedLevel === 1.5 ? (
+        <Level1_5 onBack={() => setSelectedLevel(null)} />
       ) : (
         <div className="glass-panel animate-fade-in" style={{ textAlign: 'center', padding: '3rem', maxWidth: '600px', margin: '2rem auto' }}>
           <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem', background: 'var(--gradient-main)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>

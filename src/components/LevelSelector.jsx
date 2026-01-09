@@ -4,6 +4,7 @@ import './LevelSelector.css';
 const levels = [
     { id: 0, emoji: '🏠', name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
     { id: 1, emoji: '🐙', name: 'Nivel 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
+    { id: 1.5, emoji: '🌐', name: 'Nivel 1.5', desc: 'Juego Completo (Web)', color: '#9B59B6' },
     { id: 2, emoji: '🍞', name: 'Nivel 2', desc: 'La Tostada (Morena)', color: '#8A5A2B' },
     { id: 3, emoji: '👩', name: 'Nivel 3', desc: 'La Rubia (Catira)', color: '#F2C94C' },
     { id: 4, emoji: '🌾', name: 'Nivel 4', desc: 'Sin Gluten (Sifrina)', color: '#D4AF37' },
