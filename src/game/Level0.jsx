@@ -423,6 +423,71 @@ export default function Level0({ onBack }) {
         };
     }, [showTutorial, direction]);
 
+    // Touch/Swipe Controls for Mobile
+    useEffect(() => {
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+
+        const minSwipeDistance = 30; // Minimum distance for a swipe
+
+        const handleTouchStart = (e) => {
+            if (showTutorial) {
+                setShowTutorial(false);
+                return;
+            }
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        };
+
+        const handleTouchMove = (e) => {
+            touchEndX = e.touches[0].clientX;
+            touchEndY = e.touches[0].clientY;
+        };
+
+        const handleTouchEnd = () => {
+            if (showTutorial) return;
+
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+            const absDeltaX = Math.abs(deltaX);
+            const absDeltaY = Math.abs(deltaY);
+
+            // Check if swipe distance is sufficient
+            if (absDeltaX < minSwipeDistance && absDeltaY < minSwipeDistance) {
+                return;
+            }
+
+            // Determine swipe direction
+            if (absDeltaX > absDeltaY) {
+                // Horizontal swipe
+                if (deltaX > 0) {
+                    setDirection({ x: 1, z: 0 }); // Right
+                } else {
+                    setDirection({ x: -1, z: 0 }); // Left
+                }
+            } else {
+                // Vertical swipe
+                if (deltaY > 0) {
+                    setDirection({ x: 0, z: 1 }); // Down
+                } else {
+                    setDirection({ x: 0, z: -1 }); // Up
+                }
+            }
+        };
+
+        window.addEventListener('touchstart', handleTouchStart);
+        window.addEventListener('touchmove', handleTouchMove);
+        window.addEventListener('touchend', handleTouchEnd);
+
+        return () => {
+            window.removeEventListener('touchstart', handleTouchStart);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
+        };
+    }, [showTutorial]);
+
     const handlePositionUpdate = (x, z) => {
         setPlayerPos({ x, z });
 
