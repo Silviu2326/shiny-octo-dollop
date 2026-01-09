@@ -3,6 +3,7 @@ import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
 import './Level0.css';
+import LevelHeader from '../components/LevelHeader';
 
 // --- Configuration & Constants ---
 const CELL_SIZE = 5;
@@ -342,6 +343,10 @@ export default function Level0({ onBack }) {
     const [score, setScore] = useState(0);
     const [showTutorial, setShowTutorial] = useState(true);
     const [isPaused, setIsPaused] = useState(false);
+    const [lives, setLives] = useState(3);
+
+    const totalBeers = initialCollectibles.length;
+    const beersCollected = totalBeers - collectibles.length;
 
     // Audio
     useEffect(() => {
@@ -544,9 +549,12 @@ export default function Level0({ onBack }) {
 
             {/* UI Overlay */}
             <div className="ui-overlay">
-                <div className="score-board">
-                    <span>🍺 {score}</span>
-                </div>
+                <LevelHeader
+                    lives={lives}
+                    levelNumber={1}
+                    beersCollected={beersCollected}
+                    score={score}
+                />
 
                 <button className="back-button" onClick={onBack}>
                     salir
