@@ -568,7 +568,7 @@ function CameraController({ targetX, targetZ, rotation, distance, height }) {
 
 const doghousePos = { x: 2.5, z: 4 };
 
-export default function Level3({ onBack, onNextLevel }) {
+export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
   const [playerPos, setPlayerPos] = useState({ x: 2, z: 2 });
   const [direction, setDirection] = useState({ x: 0, z: 0 });
   const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -1051,11 +1051,14 @@ export default function Level3({ onBack, onNextLevel }) {
   };
 
   useEffect(() => {
-    if (beersCollected === initialCollectibles.length && initialCollectibles.length > 0) {
+    if (score >= 150 && !showWinModal) {
       setIsPaused(true);
       setShowWinModal(true);
+      if (onLevelComplete) {
+        onLevelComplete(2); // Nivel 2 completed (Level3.jsx), unlock Nivel 3
+      }
     }
-  }, [beersCollected]);
+  }, [score, showWinModal, onLevelComplete]);
 
   return (
     <div className="game-container">
@@ -1204,17 +1207,14 @@ export default function Level3({ onBack, onNextLevel }) {
         {showWinModal && (
           <div className="settings-modal victory-modal">
             <div className="settings-content glass-panel victory-content">
-              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>¡FELICIDADES! 🎉</h2>
-              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has recogido todas las cervezas!</p>
-              <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#2C1810', marginBottom: '30px' }}>Puntuación: {score}</p>
+              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
+              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has conseguido {score} puntos!</p>
+              <p style={{ fontSize: '1em', marginBottom: '30px', color: '#4CAF50' }}>¡El siguiente nivel está desbloqueado!</p>
               {onNextLevel && (
                 <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
                   <Play size={20} /> Siguiente Nivel
                 </button>
               )}
-              <button className="modal-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> Jugar de Nuevo
-              </button>
               <button className="modal-button cancel-button" onClick={onBack}>
                 <Home size={20} /> Volver al Menú
               </button>
@@ -1238,11 +1238,12 @@ export default function Level3({ onBack, onNextLevel }) {
           flexDirection: 'column'
         }}>
           <video
-            src="/assets/videos/NIVEL%202%20FINAL.mp4"
+            src="/assets/videos/NIVEL 2 FINAL.mp4"
             autoPlay
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onEnded={() => setShowIntroVideo(false)}
             onClick={() => setShowIntroVideo(false)}
+            onError={() => setShowIntroVideo(false)}
           />
           <button
             onClick={() => setShowIntroVideo(false)}

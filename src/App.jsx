@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Home, Ghost, Cookie, Sun, WheatOff, Flame, Palmtree, PartyPopper, Play } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Home, Ghost, Cookie, Sun, WheatOff, Flame, Palmtree, PartyPopper, Play, Lock } from 'lucide-react';
 import './App.css';
 import Level1 from './game/Level1';
 import Level2 from './game/Level2';
@@ -10,7 +10,55 @@ import Level6 from './game/Level6';
 import Level7 from './game/Level7';
 import Level8 from './game/Level8';
 
+console.log('App.jsx loaded successfully');
+
+// Utility functions for level progression
+const getUnlockedLevels = () => {
+  try {
+    const saved = localStorage.getItem('beerRunProgress');
+    if (saved) {
+      try {
+        const progress = JSON.parse(saved);
+        return Array.isArray(progress.unlockedLevels) ? progress.unlockedLevels : [0];
+      } catch (e) {
+        console.error('Error parsing progress:', e);
+        localStorage.removeItem('beerRunProgress');
+        return [0];
+      }
+    }
+    return [0]; // Only level 0 unlocked by default
+  } catch (e) {
+    console.error('Error accessing localStorage:', e);
+    return [0];
+  }
+};
+
+const unlockLevel = (levelId) => {
+  try {
+    const current = getUnlockedLevels();
+    if (!current.includes(levelId)) {
+      const updated = [...current, levelId].sort((a, b) => a - b);
+      localStorage.setItem('beerRunProgress', JSON.stringify({ unlockedLevels: updated }));
+      console.log('Level unlocked:', levelId, 'All unlocked:', updated);
+    }
+  } catch (e) {
+    console.error('Error unlocking level:', e);
+  }
+};
+
+const isLevelUnlocked = (levelId) => {
+  const unlocked = getUnlockedLevels();
+  return unlocked.includes(levelId);
+};
+
 function LevelSelector({ onSelectLevel }) {
+  const [unlockedLevels, setUnlockedLevels] = useState(getUnlockedLevels());
+
+  // Update unlocked levels when component mounts or when returning from a level
+  useEffect(() => {
+    setUnlockedLevels(getUnlockedLevels());
+  }, []);
+
   const levels = [
     { id: 0, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
     { id: 1, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Nivel 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
@@ -21,6 +69,12 @@ function LevelSelector({ onSelectLevel }) {
     { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
     { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
   ];
+
+  const handleLevelClick = (levelId) => {
+    if (unlockedLevels.includes(levelId)) {
+      onSelectLevel(levelId);
+    }
+  };
 
   return (
     <div className="app-container">
@@ -33,41 +87,75 @@ function LevelSelector({ onSelectLevel }) {
 
       <div className="scroll-view">
         <div className="levels-container">
-          {levels.map((level) => (
-            <div
-              key={level.id}
-              className="level-button"
-              style={{ borderLeftColor: level.color }}
-              onClick={() => onSelectLevel(level.id)}
-            >
-              <div className="level-image-container">
-                <img src={level.image} alt={level.name} className="level-image" />
+          {levels.map((level) => {
+            const isUnlocked = unlockedLevels.includes(level.id);
+            return (
+              <div
+                key={level.id}
+                className={`level-button ${!isUnlocked ? 'level-locked' : ''}`}
+                style={{
+                  borderLeftColor: level.color,
+                  opacity: isUnlocked ? 1 : 0.5,
+                  cursor: isUnlocked ? 'pointer' : 'not-allowed'
+                }}
+                onClick={() => handleLevelClick(level.id)}
+              >
+                <div className="level-image-container">
+                  <img
+                    src={level.image}
+                    alt={level.name}
+                    className="level-image"
+                    style={{ filter: isUnlocked ? 'none' : 'grayscale(100%)' }}
+                  />
+                  {!isUnlocked && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      backgroundColor: 'rgba(0,0,0,0.6)',
+                      borderRadius: '50%',
+                      padding: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Lock size={24} color="white" />
+                    </div>
+                  )}
+                </div>
+                <div className="level-info">
+                  <h3 className="level-text">{level.name}</h3>
+                  <p className="level-description">
+                    {isUnlocked ? level.desc : 'Completa el nivel anterior'}
+                  </p>
+                </div>
+                <div className="level-arrow">
+                  {isUnlocked ? (
+                    <Play size={20} fill="#666" stroke="none" />
+                  ) : (
+                    <Lock size={20} color="#666" />
+                  )}
+                </div>
               </div>
-              <div className="level-info">
-                <h3 className="level-text">{level.name}</h3>
-                <p className="level-description">{level.desc}</p>
-              </div>
-              <div className="level-arrow">
-                <Play size={20} fill="#666" stroke="none" />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
 
-function Game({ level, onBack, onNextLevel }) {
-  // Mapping matches Juego.js (off-by-one logic)
-  if (level === 0) return <Level1 onBack={onBack} onNextLevel={onNextLevel} />;
-  if (level === 1) return <Level2 onBack={onBack} onNextLevel={onNextLevel} />;
-  if (level === 2) return <Level3 onBack={onBack} onNextLevel={onNextLevel} />;
-  if (level === 3) return <Level4 onBack={onBack} onNextLevel={onNextLevel} />;
-  if (level === 4) return <Level5 onBack={onBack} onNextLevel={onNextLevel} />;
-  if (level === 5) return <Level6 onBack={onBack} onNextLevel={onNextLevel} />;
-  if (level === 6) return <Level7 onBack={onBack} onNextLevel={onNextLevel} />;
-  if (level === 7) return <Level8 onBack={onBack} onNextLevel={onNextLevel} />;
+function Game({ level, onBack, onNextLevel, onLevelComplete }) {
+  // Mapping with off-by-one: Nivel 0 (selector) = Level1.jsx, Nivel 1 = Level2.jsx, etc.
+  if (level === 0) return <Level1 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
+  if (level === 1) return <Level2 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
+  if (level === 2) return <Level3 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
+  if (level === 3) return <Level4 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
+  if (level === 4) return <Level5 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
+  if (level === 5) return <Level6 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
+  if (level === 6) return <Level7 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
+  if (level === 7) return <Level8 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
 
   return (
     <div className="app-container">
@@ -82,16 +170,40 @@ function Game({ level, onBack, onNextLevel }) {
 
 function App() {
   const [selectedLevel, setSelectedLevel] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  console.log('App rendering, selectedLevel:', selectedLevel);
 
   const handleNextLevel = () => {
+    console.log('handleNextLevel called');
     setSelectedLevel(prev => prev + 1);
   };
 
+  const handleLevelComplete = (currentLevel) => {
+    console.log('handleLevelComplete called for level:', currentLevel);
+    const nextLevel = currentLevel + 1;
+    unlockLevel(nextLevel);
+    setRefreshKey(k => k + 1); // Force update to refresh unlocked levels
+  };
+
+  const handleBack = () => {
+    console.log('handleBack called');
+    setSelectedLevel(null);
+    setRefreshKey(k => k + 1); // Force update to refresh unlocked levels in selector
+  };
+
   if (selectedLevel === null) {
-    return <LevelSelector onSelectLevel={setSelectedLevel} />;
+    console.log('Rendering LevelSelector');
+    return <LevelSelector key={refreshKey} onSelectLevel={setSelectedLevel} />;
   }
 
-  return <Game level={selectedLevel} onBack={() => setSelectedLevel(null)} onNextLevel={handleNextLevel} />;
+  console.log('Rendering Game with level:', selectedLevel);
+  return <Game
+    level={selectedLevel}
+    onBack={handleBack}
+    onNextLevel={handleNextLevel}
+    onLevelComplete={handleLevelComplete}
+  />;
 }
 
 export default App;

@@ -563,7 +563,7 @@ function Floor() {
 
 // --- Main Level Component ---
 
-export default function Level6({ onBack, onNextLevel }) {
+export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     const [playerPos, setPlayerPos] = useState(INITIAL_PLAYER_POS);
     const [direction, setDirection] = useState({ x: 0, z: 0 });
     const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -600,7 +600,7 @@ export default function Level6({ onBack, onNextLevel }) {
     useEffect(() => {
         if (showIntroVideo) return;
 
-        musicRef.current = new Audio('/assets/audio/music_funky.wav');
+        musicRef.current = new Audio('/assets/audio/Candela – "Dark Flame".wav');
         musicRef.current.loop = true;
         musicRef.current.volume = 0.3;
 
@@ -643,12 +643,14 @@ export default function Level6({ onBack, onNextLevel }) {
 
     // --- Victory Logic ---
     useEffect(() => {
-        const remainingCollectibles = collectibles.filter(c => !c.collected).length;
-        if (remainingCollectibles === 0 && initialCollectibles.length > 0) {
+        if (score >= 150 && !showVictoryModal) {
             setIsPaused(true);
             setShowVictoryModal(true);
+            if (onLevelComplete) {
+                onLevelComplete(5); // Nivel 5 completed (Level6.jsx), unlock Nivel 6
+            }
         }
-    }, [collectibles]);
+    }, [score, showVictoryModal, onLevelComplete]);
 
     // --- Game Logic ---
 
@@ -942,17 +944,14 @@ export default function Level6({ onBack, onNextLevel }) {
                 {showVictoryModal && (
                     <div className="settings-modal victory-modal">
                         <div className="settings-content glass-panel victory-content">
-                            <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>¡FELICIDADES! 🎉</h2>
-                            <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has recogido todas las cervezas!</p>
-                            <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#2C1810', marginBottom: '30px' }}>Puntuación: {score}</p>
+                            <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
+                            <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has conseguido {score} puntos!</p>
+                            <p style={{ fontSize: '1em', marginBottom: '30px', color: '#4CAF50' }}>¡El siguiente nivel está desbloqueado!</p>
                             {onNextLevel && (
                                 <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
                                     <Play size={20} /> Siguiente Nivel
                                 </button>
                             )}
-                            <button className="modal-button" onClick={restartLevel}>
-                                <RotateCcw size={20} /> Jugar de Nuevo
-                            </button>
                             <button className="modal-button cancel-button" onClick={onBack}>
                                 <Home size={20} /> Volver al Menú
                             </button>
@@ -999,11 +998,12 @@ export default function Level6({ onBack, onNextLevel }) {
                         flexDirection: 'column'
                     }}>
                         <video
-                            src="/assets/videos/NIVEL%205%20FINAL.mp4"
+                            src="/assets/videos/NIVEL 5 FINAL.mp4"
                             autoPlay
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             onEnded={() => setShowIntroVideo(false)}
                             onClick={() => setShowIntroVideo(false)}
+                            onError={() => setShowIntroVideo(false)}
                         />
                         <button
                             onClick={() => setShowIntroVideo(false)}

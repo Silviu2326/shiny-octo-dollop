@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx vite build:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}

@@ -692,7 +692,7 @@ function CameraController({ targetX, targetZ, rotation, distance, height }) {
 
 // --- Main Component ---
 
-export default function Level2({ onBack, onNextLevel }) {
+export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
   const [playerPos, setPlayerPos] = useState({ x: 2, z: 2 });
   const [direction, setDirection] = useState({ x: 0, z: 0 });
   const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -1016,14 +1016,17 @@ export default function Level2({ onBack, onNextLevel }) {
     });
   };
 
-  // Check if all beers collected
+  // Check for victory (150 points)
   const totalBeers = initialCollectibles.length;
   useEffect(() => {
-    if (beersCollected === totalBeers && beersCollected > 0 && !showVictoryModal) {
+    if (score >= 150 && !showVictoryModal) {
       setIsPaused(true);
       setShowVictoryModal(true);
+      if (onLevelComplete) {
+        onLevelComplete(1); // Nivel 1 completed (Level2.jsx), unlock Nivel 2
+      }
     }
-  }, [beersCollected, totalBeers, showVictoryModal]);
+  }, [score, showVictoryModal, onLevelComplete]);
 
   return (
     <div className="game-container">
@@ -1140,17 +1143,14 @@ export default function Level2({ onBack, onNextLevel }) {
         {showVictoryModal && (
           <div className="settings-modal victory-modal">
             <div className="settings-content glass-panel victory-content">
-              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>¡FELICIDADES! 🎉</h2>
-              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has recogido todas las cervezas!</p>
-              <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#FFD700', marginBottom: '30px' }}>Puntuación: {score}</p>
+              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
+              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has conseguido {score} puntos!</p>
+              <p style={{ fontSize: '1em', marginBottom: '30px', color: '#4CAF50' }}>¡El siguiente nivel está desbloqueado!</p>
               {onNextLevel && (
                 <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
                   <Play size={20} /> Siguiente Nivel
                 </button>
               )}
-              <button className="modal-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> Jugar de Nuevo
-              </button>
               <button className="modal-button cancel-button" onClick={onBack}>
                 <Home size={20} /> Volver al Menú
               </button>
@@ -1174,11 +1174,12 @@ export default function Level2({ onBack, onNextLevel }) {
           flexDirection: 'column'
         }}>
           <video
-            src="/assets/videos/NIVEL%201%20FINAL.mp4"
+            src="/assets/videos/NIVEL 1 FINAL.mp4"
             autoPlay
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onEnded={() => setShowIntroVideo(false)}
             onClick={() => setShowIntroVideo(false)}
+            onError={() => setShowIntroVideo(false)}
           />
           <button
             onClick={() => setShowIntroVideo(false)}

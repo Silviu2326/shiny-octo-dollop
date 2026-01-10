@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, Suspense } from 'react';
 import { Pause, Play, RotateCcw, Home, Volume2, VolumeX } from 'lucide-react';
 import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -175,6 +175,7 @@ function generateCollectibles(count) {
 const initialCollectibles = generateCollectibles(150);
 
 function Maze({ walls }) {
+  console.log('Maze component rendering, walls count:', walls.length);
   const { bgHorizGeom, bgVertGeom, wallGeom } = useMemo(() => {
     const bgHorizGeoms = [];
     const bgVertGeoms = [];
@@ -240,7 +241,17 @@ function Maze({ walls }) {
 }
 
 function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive, isInvulnerable }) {
+  console.log('Player component rendering at position:', position);
   const meshRef = useRef();
+  try {
+    const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
+    const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
+    console.log('Player textures loaded successfully');
+  } catch (error) {
+    console.error('Error loading Player textures:', error);
+    return null;
+  }
+
   const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
   const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
 
@@ -660,18 +671,25 @@ function Doghouse({ position }) {
 }
 
 function Floor() {
-  const texture = useLoader(THREE.TextureLoader, '/assets/suelos/floor_texture_2.png');
+  console.log('Floor component rendering');
+  try {
+    const texture = useLoader(THREE.TextureLoader, '/assets/suelos/floor_texture_2.png');
+    console.log('Floor texture loaded successfully');
 
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(25, 25);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(25, 25);
 
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[14, -0.1, 17]}>
-      <planeGeometry args={[100, 100]} />
-      <meshStandardMaterial map={texture} />
-    </mesh>
-  );
+    return (
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[14, -0.1, 17]}>
+        <planeGeometry args={[100, 100]} />
+        <meshStandardMaterial map={texture} />
+      </mesh>
+    );
+  } catch (error) {
+    console.error('Error in Floor component:', error);
+    return null;
+  }
 }
 
 // Preload enemy textures to prevent black screen flash
@@ -733,7 +751,8 @@ function Camera({ targetX, targetZ, rotation, distance, height }) {
   return null;
 }
 
-export default function Level4({ onBack, onNextLevel }) {
+export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
+  console.log('Level4 rendering');
   const [playerPos, setPlayerPos] = useState({ x: 3, z: 3 });
   const [direction, setDirection] = useState({ x: 0, z: 0 });
   const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -767,13 +786,44 @@ export default function Level4({ onBack, onNextLevel }) {
   const [isMuted, setIsMuted] = useState(false);
   const musicRef = useRef(null);
 
+  console.log('Level4 state:', { showIntroVideo, lives, score, collectiblesCount: collectibles.length });
+
   const doghousePos = { x: 3, z: 5 };
 
-  // Audio
+  // Audio Helpers
+  const playCollectSound = () => {
+    if (isMuted) return;
+    const sfx = new Audio('/assets/audio/sfx_collect.mp3');
+    sfx.volume = 0.6;
+    sfx.play().catch(e => console.log("SFX play failed:", e));
+  };
+
+  const playBarrelSound = () => {
+    if (isMuted) return;
+    const sfx = new Audio('/assets/audio/sfx_barrel.mp3');
+    sfx.volume = 1.0;
+    sfx.play().catch(e => console.log("SFX play failed:", e));
+  };
+
+  const playLoseLifeSound = () => {
+    if (isMuted) return;
+    const sfx = new Audio('/assets/audio/sfx_lose_life.mp3');
+    sfx.volume = 0.6;
+    sfx.play().catch(e => console.log("SFX play failed:", e));
+  };
+
+  const playGameOverSound = () => {
+    if (isMuted) return;
+    const sfx = new Audio('/assets/audio/sfx_game_over.mp3');
+    sfx.volume = 0.6;
+    sfx.play().catch(e => console.log("SFX play failed:", e));
+  };
+
+  // Audio Effects
   useEffect(() => {
     if (showIntroVideo) return;
 
-    musicRef.current = new Audio('/assets/audio/music_tech.mp3');
+    musicRef.current = new Audio('/assets/audio/music_golden.wav');
     musicRef.current.loop = true;
     musicRef.current.volume = 0.3;
 
@@ -805,6 +855,7 @@ export default function Level4({ onBack, onNextLevel }) {
   };
 
   const cameraConfig = {
+    rotation: Math.PI / 4.8,
     distance: 8,
     height: 6,
     fov: 60,
@@ -983,8 +1034,10 @@ export default function Level4({ onBack, onNextLevel }) {
           setLives(0);
           setShowGameOverModal(true);
           setIsPaused(true);
+          playGameOverSound();
         } else {
           setLives(newLives);
+          playLoseLifeSound();
 
           setIsInvulnerable(true);
 
@@ -1010,6 +1063,7 @@ export default function Level4({ onBack, onNextLevel }) {
           );
           if (distance < 0.6) {
             setScore(p => p + 500);
+            playCollectSound();
             return { ...bonus, collected: true };
           }
         }
@@ -1039,6 +1093,7 @@ export default function Level4({ onBack, onNextLevel }) {
             tokensToAdd++;
             pointsToAdd += 25;
             hasChanges = true;
+            playBarrelSound();
             console.log('Barrel collected! ID:', barrel.id);
             return { ...barrel, collected: true };
           }
@@ -1069,6 +1124,7 @@ export default function Level4({ onBack, onNextLevel }) {
 
             setScore(prev => prev + Math.floor(10 * comboMultiplier));
             setBeersCollected(prev => prev + 1);
+            playCollectSound();
             return { ...collectible, collected: true };
           }
         }
@@ -1078,11 +1134,14 @@ export default function Level4({ onBack, onNextLevel }) {
   };
 
   useEffect(() => {
-    if (beersCollected === initialCollectibles.length && initialCollectibles.length > 0) {
+    if (score >= 150 && !showWinModal) {
       setIsPaused(true);
       setShowWinModal(true);
+      if (onLevelComplete) {
+        onLevelComplete(3); // Nivel 3 completed (Level4.jsx), unlock Nivel 4
+      }
     }
-  }, [beersCollected]);
+  }, [score, showWinModal, onLevelComplete]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1207,54 +1266,72 @@ export default function Level4({ onBack, onNextLevel }) {
     };
   }, [isPaused]);
 
+  console.log('Level4 returning JSX, showIntroVideo:', showIntroVideo);
+
   return (
-    <div className="game-container">
-      <Canvas camera={{ position: [14, 18, 26], fov: cameraConfig.fov }}>
-        <ambientLight intensity={1.5} />
-        <directionalLight position={[14, 22, 17]} intensity={1.0} />
+    <div className="game-container" style={{ width: '100vw', height: '100vh', backgroundColor: '#111' }}>
+      {console.log('Rendering Canvas')}
+      <Canvas
+        camera={{ position: [14, 18, 26], fov: cameraConfig.fov }}
+        style={{ width: '100%', height: '100%' }}
+        gl={{ antialias: true }}
+        onCreated={({ gl, scene }) => {
+          console.log('Canvas created, renderer:', gl);
+          scene.background = new THREE.Color('#87CEEB'); // Sky blue background
+        }}
+      >
+        <Suspense fallback={
+          <mesh position={[14, 5, 17]}>
+            <boxGeometry args={[5, 5, 5]} />
+            <meshStandardMaterial color="red" />
+          </mesh>
+        }>
+          <ambientLight intensity={1.5} />
+          <directionalLight position={[14, 22, 17]} intensity={1.0} />
 
-        <PreloadTextures />
-        <Maze walls={walls} />
-        <Floor />
+          <PreloadTextures />
+          <Maze walls={walls} />
+          <Floor />
 
-        <InstancedCollectibles collectibles={collectibles} />
+          <InstancedCollectibles collectibles={collectibles} />
 
-        {barrels.map(b => !b.collected && <Barrel key={b.id} position={b} />)}
+          {barrels.map(b => !b.collected && <Barrel key={b.id} position={b} />)}
 
-        {specialBonuses.filter(b => !b.collected).map(b => (
-          <SpecialBonus key={b.id} position={{ x: b.x, z: b.z }} />
-        ))}
+          {specialBonuses.filter(b => !b.collected).map(b => (
+            <SpecialBonus key={b.id} position={{ x: b.x, z: b.z }} />
+          ))}
 
-        <Doghouse position={doghousePos} />
+          <Doghouse position={doghousePos} />
 
-        {enemies.map(enemy => (
-          <Enemy
-            key={enemy.id}
-            enemyId={enemy.id}
-            role={enemy.role || 'normal'}
-            position={{ x: enemy.x, z: enemy.z }}
-            playerPos={playerPos}
-            onPositionUpdate={(x, z) => handleEnemyPositionUpdate(enemy.id, x, z)}
-            isPowerActive={powerActive}
+          {enemies.map(enemy => (
+            <Enemy
+              key={enemy.id}
+              enemyId={enemy.id}
+              role={enemy.role || 'normal'}
+              position={{ x: enemy.x, z: enemy.z }}
+              playerPos={playerPos}
+              onPositionUpdate={(x, z) => handleEnemyPositionUpdate(enemy.id, x, z)}
+              isPowerActive={powerActive}
+              isPaused={isPaused}
+            />
+          ))}
+
+          <Player
+            position={playerPos}
+            direction={direction}
+            onPositionUpdate={handlePositionUpdate}
             isPaused={isPaused}
+            isPowerActive={powerActive}
+            isInvulnerable={isInvulnerable}
           />
-        ))}
-
-        <Player
-          position={playerPos}
-          direction={direction}
-          onPositionUpdate={handlePositionUpdate}
-          isPaused={isPaused}
-          isPowerActive={powerActive}
-          isInvulnerable={isInvulnerable}
-        />
-        <Camera
-          targetX={playerPos.x}
-          targetZ={playerPos.z}
-          rotation={cameraConfig.rotation}
-          distance={cameraConfig.distance}
-          height={cameraConfig.height}
-        />
+          <Camera
+            targetX={playerPos.x}
+            targetZ={playerPos.z}
+            rotation={cameraConfig.rotation}
+            distance={cameraConfig.distance}
+            height={cameraConfig.height}
+          />
+        </Suspense>
       </Canvas>
 
       <div className="ui-overlay">
@@ -1306,11 +1383,15 @@ export default function Level4({ onBack, onNextLevel }) {
               }}>
                 Seguir
               </button>
+              <button className="modal-button" onClick={toggleMute}>
+                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                {isMuted ? " Activar Sonido" : " Silenciar"}
+              </button>
               <button className="modal-button restart-button" onClick={restartLevel}>
                 Reiniciar
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                Salir
+                <Home size={20} /> Salir
               </button>
             </div>
           </div>
@@ -1343,17 +1424,14 @@ export default function Level4({ onBack, onNextLevel }) {
         {showWinModal && (
           <div className="settings-modal victory-modal">
             <div className="settings-content glass-panel victory-content">
-              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>¡FELICIDADES! 🎉</h2>
-              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has recogido todas las cervezas!</p>
-              <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#2C1810', marginBottom: '30px' }}>Puntuación: {score}</p>
+              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
+              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has conseguido {score} puntos!</p>
+              <p style={{ fontSize: '1em', marginBottom: '30px', color: '#4CAF50' }}>¡El siguiente nivel está desbloqueado!</p>
               {onNextLevel && (
                 <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
                   <Play size={20} /> Siguiente Nivel
                 </button>
               )}
-              <button className="modal-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> Jugar de Nuevo
-              </button>
               <button className="modal-button cancel-button" onClick={onBack}>
                 <Home size={20} /> Volver al Menú
               </button>
@@ -1377,14 +1455,29 @@ export default function Level4({ onBack, onNextLevel }) {
           flexDirection: 'column'
         }}>
           <video
-            src="/assets/videos/NIVEL%203%20FINAL.mp4"
+            src="/assets/videos/NIVEL 3 FINAL.mp4"
             autoPlay
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onEnded={() => setShowIntroVideo(false)}
-            onClick={() => setShowIntroVideo(false)}
+            onError={(e) => {
+              console.error('Level4 - Error loading video:', e);
+              console.log('Level4 - Setting showIntroVideo to false due to error');
+              setShowIntroVideo(false);
+            }}
+            onLoadStart={() => console.log('Level4 - Video loading started')}
+            onEnded={() => {
+              console.log('Level4 - Video ended, setting showIntroVideo to false');
+              setShowIntroVideo(false);
+            }}
+            onClick={() => {
+              console.log('Level4 - Video clicked, setting showIntroVideo to false');
+              setShowIntroVideo(false);
+            }}
           />
           <button
-            onClick={() => setShowIntroVideo(false)}
+            onClick={() => {
+              console.log('Level4 - Skip button clicked');
+              setShowIntroVideo(false);
+            }}
             style={{
               position: 'absolute',
               bottom: '20px',

@@ -672,7 +672,7 @@ function Floor() {
     );
 }
 
-export default function Level8({ onBack, onNextLevel }) {
+export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
     const [playerPos, setPlayerPos] = useState(INITIAL_PLAYER_POS);
     const [direction, setDirection] = useState({ x: 0, z: 0 });
     const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -762,12 +762,12 @@ export default function Level8({ onBack, onNextLevel }) {
 
     // --- Victory Logic ---
     useEffect(() => {
-        const remainingCollectibles = collectibles.filter(c => !c.collected).length;
-        if (remainingCollectibles === 0 && initialCollectibles.length > 0) {
+        if (score >= 150 && !showVictoryModal) {
             setIsPaused(true);
             setShowVictoryModal(true);
+            // Level 8 is the final level, no need to unlock next level
         }
-    }, [collectibles]);
+    }, [score, showVictoryModal]);
 
     const handleEnemyPositionUpdate = (enemyId, x, z) => {
         setEnemies(prevEnemies =>
@@ -1124,13 +1124,10 @@ export default function Level8({ onBack, onNextLevel }) {
                 {showVictoryModal && (
                     <div className="settings-modal victory-modal">
                         <div className="settings-content glass-panel victory-content">
-                            <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>¡FELICIDADES! 🎉</h2>
-                            <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has recogido todas las cervezas!</p>
-                            <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#2C1810', marginBottom: '30px' }}>Puntuación: {score}</p>
-                            {/* Level 8 is the last one, so no next level button needed usually, or loop back? The UI shows standard. Keeping standard structure. */}
-                            <button className="modal-button" onClick={restartLevel}>
-                                <RotateCcw size={20} /> Jugar de Nuevo
-                            </button>
+                            <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>🎉 ¡JUEGO COMPLETADO! 🎉</h2>
+                            <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has completado todos los niveles!</p>
+                            <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#FFD700', marginBottom: '30px' }}>Puntuación final: {score}</p>
+                            <p style={{ fontSize: '1em', marginBottom: '30px', color: '#4CAF50' }}>¡Gracias por jugar Beer Run!</p>
                             <button className="modal-button cancel-button" onClick={onBack}>
                                 <Home size={20} /> Volver al Menú
                             </button>
@@ -1172,11 +1169,12 @@ export default function Level8({ onBack, onNextLevel }) {
                         flexDirection: 'column'
                     }}>
                         <video
-                            src="/assets/videos/nivel%207.mp4"
+                            src="/assets/videos/nivel 7.mp4"
                             autoPlay
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             onEnded={() => setShowIntroVideo(false)}
                             onClick={() => setShowIntroVideo(false)}
+                            onError={() => setShowIntroVideo(false)}
                         />
                         <button
                             onClick={() => setShowIntroVideo(false)}

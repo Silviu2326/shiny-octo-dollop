@@ -336,7 +336,7 @@ function CameraController({ targetX, targetZ }) {
 
 // --- Main Component ---
 
-export default function Level0({ onBack }) {
+export default function Level0({ onBack, onNextLevel, onLevelComplete }) {
     const [playerPos, setPlayerPos] = useState(INITIAL_PLAYER_POS);
     const [direction, setDirection] = useState({ x: 0, z: 0 });
     const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -344,9 +344,21 @@ export default function Level0({ onBack }) {
     const [showTutorial, setShowTutorial] = useState(true);
     const [isPaused, setIsPaused] = useState(false);
     const [lives, setLives] = useState(3);
+    const [showVictory, setShowVictory] = useState(false);
 
     const totalBeers = initialCollectibles.length;
     const beersCollected = totalBeers - collectibles.length;
+
+    // Check for victory
+    useEffect(() => {
+        if (score >= 150 && !showVictory) {
+            setShowVictory(true);
+            setIsPaused(true);
+            if (onLevelComplete) {
+                onLevelComplete(0); // Level 0 completed, unlock level 1
+            }
+        }
+    }, [score, showVictory, onLevelComplete]);
 
     // Audio
     useEffect(() => {
@@ -567,6 +579,22 @@ export default function Level0({ onBack }) {
                             <p>Usa las flechas o W/A/S/D para moverte.</p>
                             <p>Recoge todas las cervezas 🍺</p>
                             <button onClick={() => setShowTutorial(false)}>JUGAR</button>
+                        </div>
+                    </div>
+                )}
+
+                {showVictory && (
+                    <div className="tutorial-modal animate-fade-in">
+                        <div className="tutorial-content glass-panel">
+                            <h2>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
+                            <p>Has conseguido {score} puntos</p>
+                            <p>¡El siguiente nivel está desbloqueado!</p>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                                <button onClick={() => {
+                                    if (onNextLevel) onNextLevel();
+                                }}>SIGUIENTE NIVEL</button>
+                                <button onClick={onBack} style={{ background: '#666' }}>VOLVER AL MENÚ</button>
+                            </div>
                         </div>
                     </div>
                 )}
