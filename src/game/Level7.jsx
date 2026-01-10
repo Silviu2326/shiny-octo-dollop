@@ -3,8 +3,9 @@ import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
 import { useDrag } from '@use-gesture/react';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX } from 'lucide-react';
 import LevelHeader from '../components/LevelHeader';
-import './Level0.css';
+import './Level7.css';
 
 // --- Constants & Configuration ---
 const INITIAL_PLAYER_POS = { x: 15, z: 5 };
@@ -144,13 +145,20 @@ function generateCollectibles(count) {
 
 const initialCollectibles = generateCollectibles(150);
 
+// --- Preload Textures ---
+useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_3.png');
+useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_4.png');
+useLoader.preload(THREE.TextureLoader, '/assets/personajes/player.png');
+useLoader.preload(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
+useLoader.preload(THREE.TextureLoader, '/assets/suelos/floor_texture_2.png');
+
 // --- Components ---
 
 function Maze({ walls }) {
     const textures = useLoader(THREE.TextureLoader, [
         '/assets/paredes/wall_texture_4.png',
-        '/assets/paredes/wall_background_2.jpg',
-        '/assets/paredes/wall_background_3.jpg'
+        '/assets/paredes/wall_background_left.jpg',
+        '/assets/paredes/wall_background_top.jpg'
     ]);
     const [mainTex, leftBgTex, topBgTex] = textures;
 
@@ -202,9 +210,9 @@ function Maze({ walls }) {
 function Doghouse({ position }) {
     const texture = useLoader(THREE.TextureLoader, '/assets/casetas/image-removebg-preview (23).png');
     return (
-        <mesh position={[position.x, 0.6, position.z]} rotation={[0, -Math.PI / 6, 0]}>
+        <mesh position={[position.x, 0.6, position.z]} rotation={[-Math.PI / 4, Math.PI / 4.8, 0]}>
             <planeGeometry args={[1.2, 1.2]} />
-            <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} />
+            <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} alphaTest={0.5} />
         </mesh>
     );
 }
@@ -236,9 +244,9 @@ function InstancedCollectibles({ collectibles }) {
     });
 
     return (
-        <instancedMesh ref={meshRef} args={[null, null, collectibles.length]}>
+        <instancedMesh ref={meshRef} args={[null, null, collectibles.length]} renderOrder={1}>
             <planeGeometry args={[0.6, 0.6]} />
-            <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} alphaTest={0.5} />
+            <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} alphaTest={0.5} depthWrite={false} />
         </instancedMesh>
     );
 }
@@ -433,8 +441,9 @@ function Enemy({ position, playerPos, walls, onPositionUpdate, rotation, isPower
         if (direction.x > 0) return -1; // Right -> Flip (-1) instead of 1
         if (direction.z > 0) return 1;  // Down -> Normal (1) instead of -1
 
-        if (direction.x < 0) return -1; // Left -> Flip (-1)
-        return 1; // Default/Up
+        if (direction.x < 0) return 1;  // Left -> Normal (1) instead of Flip (-1)
+        if (direction.z < 0) return -1; // Up -> Flip (-1)
+        return 1; // Default
     };
 
     const texture = getCurrentTexture();
@@ -533,6 +542,7 @@ function Player({ position, direction, isInvulnerable, shockwaveActive, shockwav
             <mesh
                 rotation={[-Math.PI / 4, 0, 0]}
                 scale={[getFlipX(), 1, 1]}
+                renderOrder={2}
             >
                 <planeGeometry args={[1.1, 1.1]} />
                 <meshStandardMaterial
@@ -540,7 +550,7 @@ function Player({ position, direction, isInvulnerable, shockwaveActive, shockwav
                     transparent
                     side={THREE.DoubleSide}
                     opacity={isInvulnerable ? 0.5 : 1}
-                    depthWrite={!isInvulnerable}
+                    depthWrite={false}
                 />
             </mesh>
         </group>
@@ -548,12 +558,12 @@ function Player({ position, direction, isInvulnerable, shockwaveActive, shockwav
 }
 
 function Floor() {
-    const tex = useLoader(THREE.TextureLoader, '/assets/suelos/floor_texture.jpg');
+    const tex = useLoader(THREE.TextureLoader, '/assets/suelos/floor_texture_2.png');
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(7.5, 9);
+    tex.repeat.set(15, 18);
     return (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[15, -0.1, 18]}>
-            <planeGeometry args={[30, 36]} />
+            <planeGeometry args={[60, 72]} />
             <meshBasicMaterial map={tex} />
         </mesh>
     );
@@ -561,7 +571,7 @@ function Floor() {
 
 // --- Main Level Component ---
 
-export default function Level7({ onBack }) {
+export default function Level7({ onBack, onNextLevel }) {
     const [playerPos, setPlayerPos] = useState(INITIAL_PLAYER_POS);
     const [direction, setDirection] = useState({ x: 0, z: 0 });
     const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -569,6 +579,13 @@ export default function Level7({ onBack }) {
     const [lives, setLives] = useState(3);
     const [tokens, setTokens] = useState(0);
     const [isInvulnerable, setIsInvulnerable] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [showGameOverModal, setShowGameOverModal] = useState(false);
+    const [showVictoryModal, setShowVictoryModal] = useState(false);
+    const [showIntroVideo, setShowIntroVideo] = useState(true);
+    const [isMuted, setIsMuted] = useState(false);
+    const musicRef = useRef(null);
 
     // Power-up State
     const [powerActive, setPowerActive] = useState(false);
@@ -578,14 +595,69 @@ export default function Level7({ onBack }) {
 
     const [barrels, setBarrels] = useState([
         { id: 1, x: 15, z: 9, collected: false },
-        { id: 2, x: 15, z: 27, collected: false },
-        { id: 3, x: 5, z: 18, collected: false },
-        { id: 4, x: 25, z: 18, collected: false },
-        { id: 5, x: 3, z: 3, collected: false },
-        { id: 6, x: 27, z: 33, collected: false },
+        { id: 2, x: 5, z: 18, collected: false },
+        { id: 3, x: 25, z: 18, collected: false },
     ]);
 
     const [enemies, setEnemies] = useState([]);
+    const collectedBarrelsRef = useRef(new Set());
+    const processingHit = useRef(false);
+
+    // --- Audio Logic ---
+    useEffect(() => {
+        if (showIntroVideo) return;
+
+        musicRef.current = new Audio('/assets/audio/music_funky.wav');
+        musicRef.current.loop = true;
+        musicRef.current.volume = 0.3;
+
+        if (!isMuted) {
+            musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+        }
+
+        return () => {
+            if (musicRef.current) {
+                musicRef.current.pause();
+                musicRef.current = null;
+            }
+        };
+    }, [showIntroVideo]);
+
+    useEffect(() => {
+        if (!musicRef.current) return;
+        if (isMuted) {
+            musicRef.current.pause();
+        } else {
+            musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+        }
+    }, [isMuted]);
+
+    const toggleMute = () => setIsMuted(prev => !prev);
+
+    const playCollectSound = () => {
+        if (isMuted) return;
+        const sfx = new Audio('/assets/audio/sfx_collect.mp3');
+        sfx.volume = 0.6;
+        sfx.play().catch(e => console.log("SFX play failed:", e));
+    };
+
+    const playLoseLifeSound = () => {
+        if (isMuted) return;
+        const sfx = new Audio('/assets/audio/sfx_lose_life.mp3');
+        sfx.volume = 0.6;
+        sfx.play().catch(e => console.log("SFX play failed:", e));
+    };
+
+    // --- Victory Logic ---
+    useEffect(() => {
+        const remainingCollectibles = collectibles.filter(c => !c.collected).length;
+        if (remainingCollectibles === 0 && initialCollectibles.length > 0) {
+            setIsPaused(true);
+            setShowVictoryModal(true);
+        }
+    }, [collectibles]);
+
+    // --- Game Logic ---
 
     const activatePower = () => {
         if (tokens > 0 && !powerActive) {
@@ -598,11 +670,13 @@ export default function Level7({ onBack }) {
             // Animate shockwave radius
             let r = 0;
             const interval = setInterval(() => {
-                r += 0.5;
-                setShockwaveRadius(r);
-                if (r >= 5) {
-                    clearInterval(interval);
-                    setShockwaveActive(false);
+                if (!isPaused) {
+                    r += 0.5;
+                    setShockwaveRadius(r);
+                    if (r >= 5) {
+                        clearInterval(interval);
+                        setShockwaveActive(false);
+                    }
                 }
             }, 50);
 
@@ -632,26 +706,43 @@ export default function Level7({ onBack }) {
                 }
                 return e;
             }));
-
-            // Auto turn off power active flag for button cooldown after 6s
-            setTimeout(() => setPowerActive(false), 6000);
         }
     };
 
-    const handleSwipe = (newDir) => setDirection(newDir);
+    useEffect(() => {
+        let interval;
+        if (powerActive && powerTimeLeft > 0 && !isPaused) {
+            interval = setInterval(() => {
+                setPowerTimeLeft((prev) => {
+                    if (prev <= 1) {
+                        setPowerActive(false);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [powerActive, powerTimeLeft, isPaused]);
+
+    const handleSwipe = (newDir) => {
+        if (!isPaused) setDirection(newDir);
+    };
 
     useEffect(() => {
         const k = (e) => {
+            if (isPaused) return;
             if (e.key === 'ArrowUp' || e.key === 'w') setDirection({ x: 0, z: -1 });
             if (e.key === 'ArrowDown' || e.key === 's') setDirection({ x: 0, z: 1 });
             if (e.key === 'ArrowLeft' || e.key === 'a') setDirection({ x: -1, z: 0 });
             if (e.key === 'ArrowRight' || e.key === 'd') setDirection({ x: 1, z: 0 });
+            if (e.key === ' ') activatePower();
         };
         const ku = () => setDirection({ x: 0, z: 0 });
         window.addEventListener('keydown', k);
         window.addEventListener('keyup', ku);
         return () => { window.removeEventListener('keydown', k); window.removeEventListener('keyup', ku); };
-    }, []);
+    }, [isPaused, tokens, powerActive]);
 
     const handleEnemyPositionUpdate = (id, x, z) => {
         setEnemies(prev => prev.map(e => e.id === id ? { ...e, x, z } : e));
@@ -663,6 +754,8 @@ export default function Level7({ onBack }) {
 
     useEffect(() => {
         const interval = setInterval(() => {
+            if (isPaused) return;
+
             // Player Movement
             if (direction.x !== 0 || direction.z !== 0) {
                 const speed = 0.22;
@@ -677,6 +770,7 @@ export default function Level7({ onBack }) {
                         const next = prev.map(c => {
                             if (!c.collected && Math.sqrt((newX - c.x) ** 2 + (newZ - c.z) ** 2) < 0.6) {
                                 setScore(s => s + 10);
+                                playCollectSound();
                                 changed = true;
                                 return { ...c, collected: true };
                             }
@@ -687,24 +781,42 @@ export default function Level7({ onBack }) {
 
                     // Barrels
                     setBarrels(prev => {
-                        let changed = false;
+                        let tokensToAdd = 0;
+                        let pointsToAdd = 0;
+                        let hasChanges = false;
                         const next = prev.map(b => {
-                            if (!b.collected && Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2) < 0.8) {
-                                setTokens(t => t + 1);
-                                setScore(s => s + 25);
-                                changed = true;
+                            // Si ya está en la ref, asegurarse de que esté marcado como collected
+                            if (collectedBarrelsRef.current.has(b.id) && !b.collected) {
+                                hasChanges = true;
+                                return { ...b, collected: true };
+                            }
+                            // Si está cerca y no ha sido recogido
+                            if (!b.collected && !collectedBarrelsRef.current.has(b.id) && Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2) < 0.8) {
+                                collectedBarrelsRef.current.add(b.id);
+                                tokensToAdd++;
+                                pointsToAdd += 25;
+                                hasChanges = true;
                                 return { ...b, collected: true };
                             }
                             return b;
                         });
-                        return changed ? next : prev;
+
+                        if (tokensToAdd > 0) {
+                            setTokens(t => t + tokensToAdd);
+                            setScore(s => s + pointsToAdd);
+                            playCollectSound();
+                        }
+
+                        return hasChanges ? next : prev;
                     });
                 }
             }
 
             // Enemy AI - Global State Updates
             setEnemies(prev => prev.map(e => {
-                // Un-stun check
+                // Un-stun check - only if not paused? (Native code doesn't pause Date.now(), 
+                // effectively pausing reduces stun time relative to gameplay. Ideally paused saves time.)
+                // For simplicity, we just use Date.now(). If paused, time passes, stun wears off.
                 if (e.stunned && Date.now() > e.stunTime) {
                     return { ...e, stunned: false };
                 }
@@ -713,10 +825,22 @@ export default function Level7({ onBack }) {
 
                 // Collision with player
                 const dist = Math.sqrt((playerPos.x - x) ** 2 + (playerPos.z - z) ** 2);
-                if (dist < 0.5 && !isInvulnerable && !isReturning && !e.stunned) {
-                    setLives(l => l - 1);
-                    setIsInvulnerable(true);
-                    setTimeout(() => setIsInvulnerable(false), 3000);
+                if (dist < 0.5 && !isInvulnerable && !isReturning && !e.stunned && !processingHit.current) {
+                    processingHit.current = true;
+                    const newLives = lives - 1;
+                    setLives(newLives);
+
+                    if (newLives <= 0) {
+                        setShowGameOverModal(true);
+                        setIsPaused(true);
+                    } else {
+                        playLoseLifeSound();
+                        setIsInvulnerable(true);
+                        setTimeout(() => {
+                            setIsInvulnerable(false);
+                            processingHit.current = false;
+                        }, 3000);
+                    }
                 }
 
                 // Movement is now handled by the Enemy component itself.
@@ -725,7 +849,7 @@ export default function Level7({ onBack }) {
 
         }, 16);
         return () => clearInterval(interval);
-    }, [direction, playerPos, isInvulnerable]);
+    }, [direction, playerPos, isInvulnerable, isPaused]);
 
     useEffect(() => {
         const timeouts = [
@@ -736,6 +860,30 @@ export default function Level7({ onBack }) {
         ];
         return () => timeouts.forEach(clearTimeout);
     }, []);
+
+    const restartLevel = () => {
+        setPlayerPos(INITIAL_PLAYER_POS);
+        setDirection({ x: 0, z: 0 });
+        setCollectibles(initialCollectibles.map(c => ({ ...c, collected: false })));
+        setScore(0);
+        setLives(3);
+        setTokens(0);
+        setIsInvulnerable(false);
+        setPowerActive(false);
+        setPowerTimeLeft(0);
+        setShockwaveActive(false);
+        setEnemies([]);
+        setIsPaused(false);
+        setShowSettingsModal(false);
+        setShowGameOverModal(false);
+        setShowVictoryModal(false);
+        collectedBarrelsRef.current.clear();
+        setBarrels([
+            { id: 1, x: 15, z: 9, collected: false },
+            { id: 2, x: 5, z: 18, collected: false },
+            { id: 3, x: 25, z: 18, collected: false },
+        ]);
+    };
 
     return (
         <div className="game-container">
@@ -774,6 +922,7 @@ export default function Level7({ onBack }) {
                         rotation={0}
                         onPositionUpdate={(x, z) => handleEnemyPositionUpdate(e.id, x, z)}
                         onReturnComplete={() => handleReturnComplete(e.id)}
+                        isPaused={isPaused}
                     />
                 ))}
 
@@ -788,18 +937,145 @@ export default function Level7({ onBack }) {
                     score={score}
                 />
 
-                <div style={{ position: 'absolute', bottom: 20, right: 20, pointerEvents: 'auto' }}>
+                <div className="power-button-container">
                     <button
                         onClick={activatePower}
-                        style={{ padding: 20, borderRadius: '50%', background: powerTimeLeft > 0 ? 'orange' : (tokens > 0 ? 'gold' : 'grey'), border: '4px solid white', fontSize: 24, color: 'white' }}
+                        disabled={tokens === 0}
+                        className="power-button"
                     >
-                        💥 {tokens}
+                        <img
+                            src="/assets/poderes/image-removebg-preview (16).png"
+                            alt="Power"
+                            className={`power-button-image ${tokens === 0 ? 'disabled' : ''}`}
+                        />
+                        <div className="token-badge">
+                            <span className="token-text">{tokens}</span>
+                        </div>
+                        {powerActive && (
+                            <div className="timer-overlay">
+                                <span className="timer-text">{powerTimeLeft}</span>
+                            </div>
+                        )}
                     </button>
                 </div>
 
-                <button className="back-button" onClick={onBack}>Salir</button>
+                <button className="settings-button" onClick={() => {
+                    setIsPaused(true);
+                    setShowSettingsModal(true);
+                }}>
+                    <Pause size={24} />
+                </button>
+
+                {showSettingsModal && (
+                    <div className="settings-modal">
+                        <div className="settings-content glass-panel">
+                            <h2>PAUSA</h2>
+                            <button className="modal-button" onClick={() => {
+                                setShowSettingsModal(false);
+                                setIsPaused(false);
+                            }}>
+                                <Play size={20} /> Seguir
+                            </button>
+                            <button className="modal-button restart-button" onClick={restartLevel}>
+                                <RotateCcw size={20} /> Reiniciar
+                            </button>
+                            <button className="modal-button" onClick={toggleMute}>
+                                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />} {isMuted ? 'Activar Sonido' : 'Silenciar'}
+                            </button>
+                            <button className="modal-button cancel-button" onClick={onBack}>
+                                <Home size={20} /> Salir
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {showVictoryModal && (
+                    <div className="settings-modal victory-modal">
+                        <div className="settings-content glass-panel victory-content">
+                            <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>¡FELICIDADES! 🎉</h2>
+                            <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has recogido todas las cervezas!</p>
+                            <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#2C1810', marginBottom: '30px' }}>Puntuación: {score}</p>
+                            {onNextLevel && (
+                                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
+                                    <Play size={20} /> Siguiente Nivel
+                                </button>
+                            )}
+                            <button className="modal-button" onClick={restartLevel}>
+                                <RotateCcw size={20} /> Jugar de Nuevo
+                            </button>
+                            <button className="modal-button cancel-button" onClick={onBack}>
+                                <Home size={20} /> Volver al Menú
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {showGameOverModal && (
+                    <div className="game-over-modal">
+                        <div className="game-over-content glass-panel">
+                            <h2 className="game-over-title">¡HAS PERDIDO!</h2>
+                            <p className="game-over-subtitle">Se acabaron las vidas</p>
+                            <div className="game-over-stats">
+                                <p>Puntuación final: {score}</p>
+                                <p>Cervezas recogidas: {initialCollectibles.length - collectibles.filter(c => !c.collected).length}</p>
+                            </div>
+                            {score >= 150 && onNextLevel && (
+                                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
+                                    <Play size={20} /> Avanzar al siguiente nivel
+                                </button>
+                            )}
+                            <button className="modal-button restart-button" onClick={restartLevel}>
+                                <RotateCcw size={20} /> Reintentar
+                            </button>
+                            <button className="modal-button cancel-button" onClick={onBack}>
+                                <Home size={20} /> Volver al menú
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {showIntroVideo && (
+                    <div className="intro-video-overlay" style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'black',
+                        zIndex: 2000,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        flexDirection: 'column'
+                    }}>
+                        <video
+                            src="/assets/videos/GUAJIRA%20NIVEL%206%20(1).mp4"
+                            autoPlay
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onEnded={() => setShowIntroVideo(false)}
+                            onClick={() => setShowIntroVideo(false)}
+                        />
+                        <button
+                            onClick={() => setShowIntroVideo(false)}
+                            style={{
+                                position: 'absolute',
+                                bottom: '20px',
+                                right: '20px',
+                                padding: '10px 20px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                                border: 'none',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                color: 'black',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            Saltar
+                        </button>
+                    </div>
+                )}
             </div>
-        </div>
+        </div >
     );
 }
 

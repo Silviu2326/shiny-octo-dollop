@@ -58,16 +58,16 @@ function LevelSelector({ onSelectLevel }) {
   );
 }
 
-function Game({ level, onBack }) {
+function Game({ level, onBack, onNextLevel }) {
   // Mapping matches Juego.js (off-by-one logic)
-  if (level === 0) return <Level1 onBack={onBack} />;
-  if (level === 1) return <Level2 onBack={onBack} />;
-  if (level === 2) return <Level3 onBack={onBack} />;
-  if (level === 3) return <Level4 onBack={onBack} />;
-  if (level === 4) return <Level5 onBack={onBack} />;
-  if (level === 5) return <Level6 onBack={onBack} />;
-  if (level === 6) return <Level7 onBack={onBack} />;
-  if (level === 7) return <Level8 onBack={onBack} />;
+  if (level === 0) return <Level1 onBack={onBack} onNextLevel={onNextLevel} />;
+  if (level === 1) return <Level2 onBack={onBack} onNextLevel={onNextLevel} />;
+  if (level === 2) return <Level3 onBack={onBack} onNextLevel={onNextLevel} />;
+  if (level === 3) return <Level4 onBack={onBack} onNextLevel={onNextLevel} />;
+  if (level === 4) return <Level5 onBack={onBack} onNextLevel={onNextLevel} />;
+  if (level === 5) return <Level6 onBack={onBack} onNextLevel={onNextLevel} />;
+  if (level === 6) return <Level7 onBack={onBack} onNextLevel={onNextLevel} />;
+  if (level === 7) return <Level8 onBack={onBack} onNextLevel={onNextLevel} />;
 
   return (
     <div className="app-container">
@@ -83,11 +83,15 @@ function Game({ level, onBack }) {
 function App() {
   const [selectedLevel, setSelectedLevel] = useState(null);
 
+  const handleNextLevel = () => {
+    setSelectedLevel(prev => prev + 1);
+  };
+
   if (selectedLevel === null) {
     return <LevelSelector onSelectLevel={setSelectedLevel} />;
   }
 
-  return <Game level={selectedLevel} onBack={() => setSelectedLevel(null)} />;
+  return <Game level={selectedLevel} onBack={() => setSelectedLevel(null)} onNextLevel={handleNextLevel} />;
 }
 
 export default App;

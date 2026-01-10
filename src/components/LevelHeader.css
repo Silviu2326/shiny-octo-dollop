@@ -30,9 +30,32 @@
 
 .level-header-center {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 5px;
+  padding: 0 5px 15px 5px;
+}
+
+.level-header-subtitle {
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+  opacity: 0.9;
+  letter-spacing: 1px;
+  margin-bottom: 2px;
+  text-align: center;
+}
+
+.level-header-subtitle-large {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  margin-bottom: 0px;
+  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  line-height: 1;
+  display: block;
 }
 
 .level-header-right {
@@ -63,7 +86,15 @@
 }
 
 .level-header-metric {
-  font-size: 16px;
+  font-size: 12px;
   font-weight: bold;
   margin: 2px 0;
+}
+
+.level-header-icon {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  margin-bottom: -5px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }

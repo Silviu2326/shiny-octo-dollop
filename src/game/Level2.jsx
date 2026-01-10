@@ -692,7 +692,7 @@ function CameraController({ targetX, targetZ, rotation, distance, height }) {
 
 // --- Main Component ---
 
-export default function Level2({ onBack }) {
+export default function Level2({ onBack, onNextLevel }) {
   const [playerPos, setPlayerPos] = useState({ x: 2, z: 2 });
   const [direction, setDirection] = useState({ x: 0, z: 0 });
   const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -703,6 +703,8 @@ export default function Level2({ onBack }) {
   const [isPaused, setIsPaused] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [showVictoryModal, setShowVictoryModal] = useState(false);
+  const [showIntroVideo, setShowIntroVideo] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [enemies, setEnemies] = useState([]);
   const [isInvulnerable, setIsInvulnerable] = useState(false);
@@ -724,6 +726,8 @@ export default function Level2({ onBack }) {
   const musicRef = useRef(null);
 
   useEffect(() => {
+    if (showIntroVideo) return;
+
     musicRef.current = new Audio('/assets/audio/music_medusa.wav');
     musicRef.current.loop = true;
     musicRef.current.volume = 0.3;
@@ -739,7 +743,7 @@ export default function Level2({ onBack }) {
         musicRef.current = null;
       }
     };
-  }, []); // Only run once on mount
+  }, [showIntroVideo]); // Only run when showIntroVideo changes
 
   // Handle mute toggle for bg music
   useEffect(() => {
@@ -790,6 +794,7 @@ export default function Level2({ onBack }) {
     setIsPaused(false);
     setShowSettingsModal(false);
     setShowGameOverModal(false);
+    setShowVictoryModal(false);
     setShowTutorial(true);
 
     if (invulnerabilityTimerRef.current) {
@@ -1011,6 +1016,15 @@ export default function Level2({ onBack }) {
     });
   };
 
+  // Check if all beers collected
+  const totalBeers = initialCollectibles.length;
+  useEffect(() => {
+    if (beersCollected === totalBeers && beersCollected > 0 && !showVictoryModal) {
+      setIsPaused(true);
+      setShowVictoryModal(true);
+    }
+  }, [beersCollected, totalBeers, showVictoryModal]);
+
   return (
     <div className="game-container">
       <Canvas camera={{ position: [14, 16, 24], fov: cameraConfig.fov }} shadows>
@@ -1108,6 +1122,11 @@ export default function Level2({ onBack }) {
                 <p>Puntuación final: {score}</p>
                 <p>Cervezas recogidas: {beersCollected}</p>
               </div>
+              {score >= 150 && onNextLevel && (
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
+                  <Play size={20} /> Avanzar al siguiente nivel
+                </button>
+              )}
               <button className="modal-button restart-button" onClick={restartLevel}>
                 <RotateCcw size={20} /> Reintentar
               </button>
@@ -1117,7 +1136,69 @@ export default function Level2({ onBack }) {
             </div>
           </div>
         )}
+
+        {showVictoryModal && (
+          <div className="settings-modal victory-modal">
+            <div className="settings-content glass-panel victory-content">
+              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>¡FELICIDADES! 🎉</h2>
+              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has recogido todas las cervezas!</p>
+              <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#FFD700', marginBottom: '30px' }}>Puntuación: {score}</p>
+              {onNextLevel && (
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
+                  <Play size={20} /> Siguiente Nivel
+                </button>
+              )}
+              <button className="modal-button" onClick={restartLevel}>
+                <RotateCcw size={20} /> Jugar de Nuevo
+              </button>
+              <button className="modal-button cancel-button" onClick={onBack}>
+                <Home size={20} /> Volver al Menú
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {showIntroVideo && (
+        <div className="intro-video-overlay" style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'black',
+          zIndex: 2000,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexDirection: 'column'
+        }}>
+          <video
+            src="/assets/videos/NIVEL%201%20FINAL.mp4"
+            autoPlay
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onEnded={() => setShowIntroVideo(false)}
+            onClick={() => setShowIntroVideo(false)}
+          />
+          <button
+            onClick={() => setShowIntroVideo(false)}
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              right: '20px',
+              padding: '10px 20px',
+              backgroundColor: 'rgba(255, 255, 255, 0.5)',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              color: 'black',
+              fontWeight: 'bold'
+            }}
+          >
+            Saltar
+          </button>
+        </div>
+      )}
     </div>
   );
 }

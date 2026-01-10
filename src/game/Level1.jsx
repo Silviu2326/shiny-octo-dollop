@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX } from 'lucide-react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
@@ -381,6 +382,10 @@ export default function Level1({ onBack }) {
   const [showTutorial, setShowTutorial] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showVictoryModal, setShowVictoryModal] = useState(false);
+  const [showIntroVideo, setShowIntroVideo] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const musicRef = useRef(null);
 
   const totalBeers = initialCollectibles.length;
   const beersCollected = totalBeers - collectibles.length;
@@ -397,21 +402,45 @@ export default function Level1({ onBack }) {
 
   // Audio
   useEffect(() => {
-    const music = new Audio('/assets/audio/music_background.mp3');
-    music.loop = true;
-    music.volume = 0.4;
-    music.play().catch(e => console.log("Audio play failed (user interaction required):", e));
+    if (showIntroVideo) return;
+
+    musicRef.current = new Audio('/assets/audio/music_background.mp3');
+    musicRef.current.loop = true;
+    musicRef.current.volume = 0.4;
+
+    // Only play if not muted initially
+    if (!isMuted) {
+      musicRef.current.play().catch(e => console.log("Audio play failed (user interaction required):", e));
+    }
 
     return () => {
-      music.pause();
-      music.currentTime = 0;
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current = null;
+      }
     };
-  }, []);
+  }, [showIntroVideo]);
+
+  // Handle mute toggle for bg music
+  useEffect(() => {
+    if (!musicRef.current) return;
+
+    if (isMuted) {
+      musicRef.current.pause();
+    } else {
+      musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+    }
+  }, [isMuted]);
 
   const playCollectSound = () => {
+    if (isMuted) return;
     const sfx = new Audio('/assets/audio/sfx_collect.mp3');
     sfx.volume = 0.6;
     sfx.play().catch(e => console.log("SFX play failed:", e));
+  };
+
+  const toggleMute = () => {
+    setIsMuted(prev => !prev);
   };
 
   const restartLevel = () => {
@@ -570,6 +599,14 @@ export default function Level1({ onBack }) {
     });
   };
 
+  // Check if all beers collected
+  useEffect(() => {
+    if (collectibles.length === 0 && beersCollected > 0 && !showVictoryModal) {
+      setIsPaused(true);
+      setShowVictoryModal(true);
+    }
+  }, [collectibles.length, beersCollected, showVictoryModal]);
+
   return (
     <div className="game-container">
       <Canvas camera={{ position: [12, 15, 20], fov: cameraConfig.fov }} shadows>
@@ -609,33 +646,93 @@ export default function Level1({ onBack }) {
           score={score}
         />
 
-        <button className="settings-button" onClick={() => setShowSettingsModal(true)}>
-          ⚙️
+        <button className="settings-button" onClick={() => {
+          setIsPaused(true);
+          setShowSettingsModal(true);
+        }}>
+          <Pause size={24} />
         </button>
-
-        <button className="back-button" onClick={onBack}>
-          salir
-        </button>
-
-
 
         {showSettingsModal && (
           <div className="settings-modal">
             <div className="settings-content glass-panel">
-              <h2>MENÚ</h2>
-              <button className="modal-button restart-button" onClick={restartLevel}>
-                🔄 Reiniciar Nivel
+              <h2>PAUSA</h2>
+              <button className="modal-button" onClick={() => {
+                setShowSettingsModal(false);
+                setIsPaused(false);
+              }}>
+                <Play size={20} /> Seguir
               </button>
-              <button className="modal-button" onClick={() => setShowSettingsModal(false)}>
-                ▶️ Continuar
+              <button className="modal-button restart-button" onClick={restartLevel}>
+                <RotateCcw size={20} /> Reiniciar
+              </button>
+              <button className="modal-button" onClick={toggleMute}>
+                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />} {isMuted ? 'Activar Sonido' : 'Silenciar'}
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                🚪 Salir
+                <Home size={20} /> Salir
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showVictoryModal && (
+          <div className="settings-modal victory-modal">
+            <div className="settings-content glass-panel victory-content">
+              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>¡FELICIDADES! 🎉</h2>
+              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has recogido todas las cervezas!</p>
+              <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#FFD700', marginBottom: '30px' }}>Puntuación: {score}</p>
+              <button className="modal-button" onClick={restartLevel}>
+                <RotateCcw size={20} /> Jugar de Nuevo
+              </button>
+              <button className="modal-button cancel-button" onClick={onBack}>
+                <Home size={20} /> Volver al Menú
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {showIntroVideo && (
+        <div className="intro-video-overlay" style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'black',
+          zIndex: 2000,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexDirection: 'column'
+        }}>
+          <video
+            src="/assets/videos/nivel0%20coolcat.mp4"
+            autoPlay
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onEnded={() => setShowIntroVideo(false)}
+            onClick={() => setShowIntroVideo(false)}
+          />
+          <button
+            onClick={() => setShowIntroVideo(false)}
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              right: '20px',
+              padding: '10px 20px',
+              backgroundColor: 'rgba(255, 255, 255, 0.5)',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              color: 'black',
+              fontWeight: 'bold'
+            }}
+          >
+            Saltar
+          </button>
+        </div>
+      )}
     </div>
   );
 }

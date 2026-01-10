@@ -31,11 +31,19 @@ const walls = [
   { x: 20, z: 8, length: 7.5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
   { x: 20, z: 16.5, length: 7.5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 
-  // SECTION 4: INNER RING
-  { x: 12, z: 12, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 12, z: 20, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 12, z: 12, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 16, z: 12, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  // SECTION 4: INNER RING (con aberturas para acceso)
+  // Pared superior dividida (abertura en el medio)
+  { x: 12, z: 12, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 14.5, z: 12, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  // Pared inferior dividida (abertura en el medio)
+  { x: 12, z: 20, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 14.5, z: 20, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  // Pared izquierda dividida (abertura en el medio)
+  { x: 12, z: 12, length: 3.5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 12, z: 16.5, length: 3.5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  // Pared derecha dividida (abertura en el medio)
+  { x: 16, z: 12, length: 3.5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 16, z: 16.5, length: 3.5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 
   // SECTION 5: DECORATIVE OBSTACLES
   { x: 5, z: 6, length: 2, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
@@ -560,7 +568,7 @@ function CameraController({ targetX, targetZ, rotation, distance, height }) {
 
 const doghousePos = { x: 2.5, z: 4 };
 
-export default function Level3({ onBack }) {
+export default function Level3({ onBack, onNextLevel }) {
   const [playerPos, setPlayerPos] = useState({ x: 2, z: 2 });
   const [direction, setDirection] = useState({ x: 0, z: 0 });
   const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -575,7 +583,6 @@ export default function Level3({ onBack }) {
     { id: 1, x: 3.5, z: 3, collected: false },
     { id: 2, x: 6, z: 16, collected: false },
     { id: 3, x: 22, z: 16, collected: false },
-    { id: 4, x: 14, z: 16, collected: false },
   ]);
   const [enemies, setEnemies] = useState([]);
   const enemyIdRef = useRef(1);
@@ -590,9 +597,38 @@ export default function Level3({ onBack }) {
   const comboTimerRef = useRef(null);
   const [livesLost, setLivesLost] = useState(false);
   const [showWinModal, setShowWinModal] = useState(false);
+  const [showIntroVideo, setShowIntroVideo] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
 
   // --- Main Component ---
+
+  const playCollectSound = () => {
+    if (isMuted) return;
+    const sfx = new Audio('/assets/audio/sfx_collect.mp3');
+    sfx.volume = 0.6;
+    sfx.play().catch(e => console.log("SFX play failed:", e));
+  };
+
+  const playBarrelSound = () => {
+    if (isMuted) return;
+    const sfx = new Audio('/assets/audio/sfx_barrel.mp3');
+    sfx.volume = 1.0;
+    sfx.play().catch(e => console.log("SFX play failed:", e));
+  };
+
+  const playLoseLifeSound = () => {
+    if (isMuted) return;
+    const sfx = new Audio('/assets/audio/sfx_lose_life.mp3');
+    sfx.volume = 0.6;
+    sfx.play().catch(e => console.log("SFX play failed:", e));
+  };
+
+  const playGameOverSound = () => {
+    if (isMuted) return;
+    const sfx = new Audio('/assets/audio/sfx_game_over.mp3');
+    sfx.volume = 0.6;
+    sfx.play().catch(e => console.log("SFX play failed:", e));
+  };
 
   // Game Loop
   const handlePositionUpdate = React.useCallback((newX, newZ) => {
@@ -718,6 +754,8 @@ export default function Level3({ onBack }) {
   const musicRef = useRef(null);
 
   useEffect(() => {
+    if (showIntroVideo) return;
+
     musicRef.current = new Audio('/assets/audio/music_funky.wav');
     musicRef.current.loop = true;
     musicRef.current.volume = 0.3;
@@ -732,7 +770,7 @@ export default function Level3({ onBack }) {
         musicRef.current = null;
       }
     };
-  }, []);
+  }, [showIntroVideo]);
 
   // Handle mute toggle for bg music
   useEffect(() => {
@@ -749,33 +787,7 @@ export default function Level3({ onBack }) {
     setIsMuted(prev => !prev);
   };
 
-  const playCollectSound = () => {
-    if (isMuted) return;
-    const sfx = new Audio('/assets/audio/sfx_collect.mp3');
-    sfx.volume = 0.6;
-    sfx.play().catch(e => console.log("SFX play failed:", e));
-  };
 
-  const playBarrelSound = () => {
-    if (isMuted) return;
-    const sfx = new Audio('/assets/audio/sfx_barrel.mp3');
-    sfx.volume = 0.6;
-    sfx.play().catch(e => console.log("SFX play failed:", e));
-  };
-
-  const playLoseLifeSound = () => {
-    if (isMuted) return;
-    const sfx = new Audio('/assets/audio/sfx_lose_life.mp3');
-    sfx.volume = 0.6;
-    sfx.play().catch(e => console.log("SFX play failed:", e));
-  };
-
-  const playGameOverSound = () => {
-    if (isMuted) return;
-    const sfx = new Audio('/assets/audio/sfx_game_over.mp3');
-    sfx.volume = 0.6;
-    sfx.play().catch(e => console.log("SFX play failed:", e));
-  };
 
   const restartLevel = () => {
     setPlayerPos({ x: 2, z: 2 });
@@ -789,7 +801,6 @@ export default function Level3({ onBack }) {
       { id: 1, x: 3.5, z: 3, collected: false },
       { id: 2, x: 6, z: 16, collected: false },
       { id: 3, x: 22, z: 16, collected: false },
-      { id: 4, x: 14, z: 16, collected: false },
     ]);
     setEnemies([]);
     enemyIdRef.current = 1;
@@ -1175,6 +1186,11 @@ export default function Level3({ onBack }) {
                 <p>Puntuación final: {score}</p>
                 <p>Cervezas recogidas: {beersCollected}</p>
               </div>
+              {score >= 150 && onNextLevel && (
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
+                  <Play size={20} /> Avanzar al siguiente nivel
+                </button>
+              )}
               <button className="modal-button restart-button" onClick={restartLevel}>
                 <RotateCcw size={20} /> Reintentar
               </button>
@@ -1186,33 +1202,67 @@ export default function Level3({ onBack }) {
         )}
 
         {showWinModal && (
-          <div className="win-modal">
-            <div className="win-content glass-panel">
-              <h2 className="win-title">¡NIVEL COMPLETADO!</h2>
-              <p className="win-subtitle">¡Excelente trabajo!</p>
-              <div className="win-stats">
-                <p>Puntuación Base: {score}</p>
-                {!livesLost && (
-                  <p className="bonus-text">★ Sin perder vidas: +100</p>
-                )}
-                {tokens > 0 && (
-                  <p className="bonus-text-blue">★ Barriles guardados: +{tokens * 50}</p>
-                )}
-                <div className="stats-divider"></div>
-                <p className="total-score">
-                  TOTAL: {Math.max(150, score + (!livesLost ? 100 : 0) + (tokens * 50))}
-                </p>
-              </div>
-              <button className="modal-button restart-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> Jugar de nuevo
+          <div className="settings-modal victory-modal">
+            <div className="settings-content glass-panel victory-content">
+              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>¡FELICIDADES! 🎉</h2>
+              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has recogido todas las cervezas!</p>
+              <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#2C1810', marginBottom: '30px' }}>Puntuación: {score}</p>
+              {onNextLevel && (
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
+                  <Play size={20} /> Siguiente Nivel
+                </button>
+              )}
+              <button className="modal-button" onClick={restartLevel}>
+                <RotateCcw size={20} /> Jugar de Nuevo
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> Volver al menú
+                <Home size={20} /> Volver al Menú
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {showIntroVideo && (
+        <div className="intro-video-overlay" style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'black',
+          zIndex: 2000,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexDirection: 'column'
+        }}>
+          <video
+            src="/assets/videos/NIVEL%202%20FINAL.mp4"
+            autoPlay
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onEnded={() => setShowIntroVideo(false)}
+            onClick={() => setShowIntroVideo(false)}
+          />
+          <button
+            onClick={() => setShowIntroVideo(false)}
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              right: '20px',
+              padding: '10px 20px',
+              backgroundColor: 'rgba(255, 255, 255, 0.5)',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              color: 'black',
+              fontWeight: 'bold'
+            }}
+          >
+            Saltar
+          </button>
+        </div>
+      )}
     </div>
   );
 }

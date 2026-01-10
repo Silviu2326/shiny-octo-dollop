@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX } from 'lucide-react';
 import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
@@ -619,8 +620,10 @@ function InstancedCollectibles({ collectibles }) {
 function Barrel({ position }) {
   const texture = useLoader(THREE.TextureLoader, '/assets/barriles/image-removebg-preview (21) (2).png');
 
-  texture.magFilter = THREE.NearestFilter;
-  texture.minFilter = THREE.NearestFilter;
+  useMemo(() => {
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+  }, [texture]);
 
   return (
     <mesh position={[position.x, 0.5, position.z]} rotation={[-Math.PI / 8, 0, 0]}>
@@ -630,6 +633,7 @@ function Barrel({ position }) {
         transparent={true}
         side={THREE.DoubleSide}
         alphaTest={0.5}
+        depthWrite={true}
       />
     </mesh>
   );
@@ -668,6 +672,21 @@ function Floor() {
       <meshStandardMaterial map={texture} />
     </mesh>
   );
+}
+
+// Preload enemy textures to prevent black screen flash
+function PreloadTextures() {
+  const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_9.png');
+  const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_10.png');
+
+  useMemo(() => {
+    spritesheet1.magFilter = THREE.NearestFilter;
+    spritesheet1.minFilter = THREE.NearestFilter;
+    spritesheet2.magFilter = THREE.NearestFilter;
+    spritesheet2.minFilter = THREE.NearestFilter;
+  }, [spritesheet1, spritesheet2]);
+
+  return null;
 }
 
 function SpecialBonus({ position }) {
@@ -714,7 +733,7 @@ function Camera({ targetX, targetZ, rotation, distance, height }) {
   return null;
 }
 
-export default function Level4({ onBack }) {
+export default function Level4({ onBack, onNextLevel }) {
   const [playerPos, setPlayerPos] = useState({ x: 3, z: 3 });
   const [direction, setDirection] = useState({ x: 0, z: 0 });
   const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -729,8 +748,6 @@ export default function Level4({ onBack }) {
     { id: 1, x: 4, z: 4, collected: false },
     { id: 2, x: 9, z: 12, collected: false },
     { id: 3, x: 14, z: 20, collected: false },
-    { id: 4, x: 24, z: 8, collected: false },
-    { id: 5, x: 19, z: 28, collected: false },
   ]);
   const collectedBarrelsRef = useRef(new Set());
   const [enemies, setEnemies] = useState([]);
@@ -746,11 +763,48 @@ export default function Level4({ onBack }) {
   const comboTimerRef = useRef(null);
   const [livesLost, setLivesLost] = useState(false);
   const [showWinModal, setShowWinModal] = useState(false);
+  const [showIntroVideo, setShowIntroVideo] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const musicRef = useRef(null);
 
   const doghousePos = { x: 3, z: 5 };
 
+  // Audio
+  useEffect(() => {
+    if (showIntroVideo) return;
+
+    musicRef.current = new Audio('/assets/audio/music_tech.mp3');
+    musicRef.current.loop = true;
+    musicRef.current.volume = 0.3;
+
+    if (!isMuted) {
+      musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+    }
+
+    return () => {
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current = null;
+      }
+    };
+  }, [showIntroVideo]);
+
+  // Handle mute toggle for bg music
+  useEffect(() => {
+    if (!musicRef.current) return;
+
+    if (isMuted) {
+      musicRef.current.pause();
+    } else {
+      musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+    }
+  }, [isMuted]);
+
+  const toggleMute = () => {
+    setIsMuted(prev => !prev);
+  };
+
   const cameraConfig = {
-    rotation: Math.PI / 4.8,
     distance: 8,
     height: 6,
     fov: 60,
@@ -768,8 +822,6 @@ export default function Level4({ onBack }) {
       { id: 1, x: 4, z: 4, collected: false },
       { id: 2, x: 9, z: 12, collected: false },
       { id: 3, x: 14, z: 20, collected: false },
-      { id: 4, x: 24, z: 8, collected: false },
-      { id: 5, x: 19, z: 28, collected: false },
     ]);
     collectedBarrelsRef.current.clear();
     setEnemies([]);
@@ -966,21 +1018,40 @@ export default function Level4({ onBack }) {
     });
 
     setBarrels(prevBarrels => {
-      return prevBarrels.map(barrel => {
+      let tokensToAdd = 0;
+      let pointsToAdd = 0;
+      let hasChanges = false;
+
+      const nextBarrels = prevBarrels.map(barrel => {
+        // Si ya está en la ref, asegurarse de que esté marcado como collected
+        if (collectedBarrelsRef.current.has(barrel.id) && !barrel.collected) {
+          hasChanges = true;
+          return { ...barrel, collected: true };
+        }
+
+        // Si está cerca y no ha sido recogido
         if (!barrel.collected && !collectedBarrelsRef.current.has(barrel.id)) {
           const distance = Math.sqrt(
             Math.pow(x - barrel.x, 2) + Math.pow(z - barrel.z, 2)
           );
           if (distance < 0.6) {
-            // Mark as collected in the ref immediately to prevent double collection
             collectedBarrelsRef.current.add(barrel.id);
-            setTokens(prev => prev + 1);
-            setScore(prev => prev + 25);
+            tokensToAdd++;
+            pointsToAdd += 25;
+            hasChanges = true;
+            console.log('Barrel collected! ID:', barrel.id);
             return { ...barrel, collected: true };
           }
         }
         return barrel;
       });
+
+      if (tokensToAdd > 0) {
+        setTokens(prev => prev + tokensToAdd);
+        setScore(prev => prev + pointsToAdd);
+      }
+
+      return hasChanges ? nextBarrels : prevBarrels;
     });
 
     setCollectibles(prevCollectibles => {
@@ -1142,17 +1213,13 @@ export default function Level4({ onBack }) {
         <ambientLight intensity={1.5} />
         <directionalLight position={[14, 22, 17]} intensity={1.0} />
 
+        <PreloadTextures />
         <Maze walls={walls} />
         <Floor />
 
         <InstancedCollectibles collectibles={collectibles} />
 
-        {barrels.filter(barrel => !barrel.collected).map(barrel => (
-          <Barrel
-            key={barrel.id}
-            position={{ x: barrel.x, z: barrel.z }}
-          />
-        ))}
+        {barrels.map(b => !b.collected && <Barrel key={b.id} position={b} />)}
 
         {specialBonuses.filter(b => !b.collected).map(b => (
           <SpecialBonus key={b.id} position={{ x: b.x, z: b.z }} />
@@ -1258,6 +1325,11 @@ export default function Level4({ onBack }) {
                 <p>Puntuación final: {score}</p>
                 <p>Cervezas recogidas: {beersCollected}</p>
               </div>
+              {score >= 150 && onNextLevel && (
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
+                  Avanzar al siguiente nivel
+                </button>
+              )}
               <button className="modal-button restart-button" onClick={restartLevel}>
                 Reintentar
               </button>
@@ -1269,33 +1341,67 @@ export default function Level4({ onBack }) {
         )}
 
         {showWinModal && (
-          <div className="win-modal">
-            <div className="win-content glass-panel">
-              <h2 className="win-title">¡NIVEL COMPLETADO!</h2>
-              <p className="win-subtitle">¡Excelente trabajo!</p>
-              <div className="win-stats">
-                <p>Puntuación Base: {score}</p>
-                {!livesLost && (
-                  <p className="bonus-text">★ Sin perder vidas: +100</p>
-                )}
-                {tokens > 0 && (
-                  <p className="bonus-text-blue">★ Barriles guardados: +{tokens * 50}</p>
-                )}
-                <div className="stats-divider"></div>
-                <p className="total-score">
-                  TOTAL: {Math.max(150, score + (!livesLost ? 100 : 0) + (tokens * 50))}
-                </p>
-              </div>
-              <button className="modal-button restart-button" onClick={restartLevel}>
-                Jugar de nuevo
+          <div className="settings-modal victory-modal">
+            <div className="settings-content glass-panel victory-content">
+              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>¡FELICIDADES! 🎉</h2>
+              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has recogido todas las cervezas!</p>
+              <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#2C1810', marginBottom: '30px' }}>Puntuación: {score}</p>
+              {onNextLevel && (
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
+                  <Play size={20} /> Siguiente Nivel
+                </button>
+              )}
+              <button className="modal-button" onClick={restartLevel}>
+                <RotateCcw size={20} /> Jugar de Nuevo
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                Volver al menú
+                <Home size={20} /> Volver al Menú
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {showIntroVideo && (
+        <div className="intro-video-overlay" style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'black',
+          zIndex: 2000,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexDirection: 'column'
+        }}>
+          <video
+            src="/assets/videos/NIVEL%203%20FINAL.mp4"
+            autoPlay
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onEnded={() => setShowIntroVideo(false)}
+            onClick={() => setShowIntroVideo(false)}
+          />
+          <button
+            onClick={() => setShowIntroVideo(false)}
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              right: '20px',
+              padding: '10px 20px',
+              backgroundColor: 'rgba(255, 255, 255, 0.5)',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              color: 'black',
+              fontWeight: 'bold'
+            }}
+          >
+            Saltar
+          </button>
+        </div>
+      )}
     </div>
   );
 }
