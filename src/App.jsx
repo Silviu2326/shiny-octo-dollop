@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Home, Ghost, Cookie, Sun, WheatOff, Flame, Palmtree, PartyPopper, Play, Lock } from 'lucide-react';
+import { Home, Ghost, Cookie, Sun, WheatOff, Flame, Palmtree, PartyPopper, Play, Lock, Trophy } from 'lucide-react';
 import './App.css';
 import Level1 from './game/Level1';
 import Level2 from './game/Level2';
@@ -9,28 +9,14 @@ import Level5 from './game/Level5';
 import Level6 from './game/Level6';
 import Level7 from './game/Level7';
 import Level8 from './game/Level8';
+import Ranking from './components/Ranking';
 
 console.log('App.jsx loaded successfully');
 
 // Utility functions for level progression
 const getUnlockedLevels = () => {
-  try {
-    const saved = localStorage.getItem('beerRunProgress');
-    if (saved) {
-      try {
-        const progress = JSON.parse(saved);
-        return Array.isArray(progress.unlockedLevels) ? progress.unlockedLevels : [0];
-      } catch (e) {
-        console.error('Error parsing progress:', e);
-        localStorage.removeItem('beerRunProgress');
-        return [0];
-      }
-    }
-    return [0]; // Only level 0 unlocked by default
-  } catch (e) {
-    console.error('Error accessing localStorage:', e);
-    return [0];
-  }
+  // [TESTING] Unlocking all levels temporarily
+  return [0, 1, 2, 3, 4, 5, 6, 7];
 };
 
 const unlockLevel = (levelId) => {
@@ -51,8 +37,9 @@ const isLevelUnlocked = (levelId) => {
   return unlocked.includes(levelId);
 };
 
-function LevelSelector({ onSelectLevel }) {
+function LevelSelector({ onSelectLevel, userId }) {
   const [unlockedLevels, setUnlockedLevels] = useState(getUnlockedLevels());
+  const [showRanking, setShowRanking] = useState(false);
 
   // Update unlocked levels when component mounts or when returning from a level
   useEffect(() => {
@@ -83,6 +70,38 @@ function LevelSelector({ onSelectLevel }) {
         <h1 className="title">BEER RUN</h1>
         <p className="subtitle">Selecciona tu nivel</p>
         <div className="title-underline" />
+
+        <button
+          className="ranking-button"
+          onClick={() => setShowRanking(true)}
+          style={{
+            marginTop: '20px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '25px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+            transition: 'transform 0.2s, box-shadow 0.2s'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+          }}
+        >
+          <Trophy size={20} />
+          Ver Ranking
+        </button>
       </div>
 
       <div className="scroll-view">
@@ -142,20 +161,27 @@ function LevelSelector({ onSelectLevel }) {
           })}
         </div>
       </div>
+
+      {showRanking && (
+        <Ranking
+          onClose={() => setShowRanking(false)}
+          userId={userId}
+        />
+      )}
     </div>
   );
 }
 
-function Game({ level, onBack, onNextLevel, onLevelComplete }) {
+function Game({ level, onBack, onNextLevel, onLevelComplete, userId }) {
   // Mapping with off-by-one: Nivel 0 (selector) = Level1.jsx, Nivel 1 = Level2.jsx, etc.
-  if (level === 0) return <Level1 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
-  if (level === 1) return <Level2 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
-  if (level === 2) return <Level3 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
-  if (level === 3) return <Level4 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
-  if (level === 4) return <Level5 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
-  if (level === 5) return <Level6 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
-  if (level === 6) return <Level7 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
-  if (level === 7) return <Level8 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} />;
+  if (level === 0) return <Level1 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 1) return <Level2 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 2) return <Level3 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 3) return <Level4 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 4) return <Level5 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 5) return <Level6 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 6) return <Level7 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 7) return <Level8 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
 
   return (
     <div className="app-container">
@@ -171,8 +197,25 @@ function Game({ level, onBack, onNextLevel, onLevelComplete }) {
 function App() {
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [userId, setUserId] = useState(null);
 
   console.log('App rendering, selectedLevel:', selectedLevel);
+
+  // Obtener userId de los parámetros URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const userIdParam = urlParams.get('userId');
+
+    if (userIdParam) {
+      setUserId(userIdParam);
+      console.log('👤 [App] Usuario identificado:', userIdParam);
+    } else {
+      // Si no hay userId, usar uno genérico
+      const guestId = 'guest_' + Date.now();
+      setUserId(guestId);
+      console.warn('⚠️ [App] No se proporcionó userId, usando:', guestId);
+    }
+  }, []);
 
   const handleNextLevel = () => {
     console.log('handleNextLevel called');
@@ -194,7 +237,7 @@ function App() {
 
   if (selectedLevel === null) {
     console.log('Rendering LevelSelector');
-    return <LevelSelector key={refreshKey} onSelectLevel={setSelectedLevel} />;
+    return <LevelSelector key={refreshKey} onSelectLevel={setSelectedLevel} userId={userId} />;
   }
 
   console.log('Rendering Game with level:', selectedLevel);
@@ -203,6 +246,7 @@ function App() {
     onBack={handleBack}
     onNextLevel={handleNextLevel}
     onLevelComplete={handleLevelComplete}
+    userId={userId}
   />;
 }
 

@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Pause, Play, RotateCcw, Home, Volume2, VolumeX } from 'lucide-react';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
-import { mergeBufferGeometries } from 'three-stdlib';
 import './Level1.css';
 import LevelHeader from '../components/LevelHeader';
+import GamePlayer from '../components/game/GamePlayer';
+import MazeWalls from '../components/game/MazeWalls';
+import Collectible from '../components/game/Collectible';
+import GameFloor from '../components/game/GameFloor';
+import CameraController from '../components/game/CameraController';
 
 // --- Configuration & Constants ---
 const CELL_SIZE = 5;
@@ -149,227 +153,12 @@ function generateCollectibles(count) {
   return collectibles;
 }
 
-const initialCollectibles = generateCollectibles(80);
+const initialCollectibles = generateCollectibles(40);
 
 // --- 3D Components ---
 
-function Maze({ walls }) {
-  const textureUrls = {
-    brick: '/assets/paredes/wall_brick.jpg',
-    gold: '/assets/paredes/wall_gold.png',
-    background: '/assets/paredes/wall_background.png'
-  };
 
-  const brickTexture = useLoader(THREE.TextureLoader, textureUrls.brick);
-  const goldTexture = useLoader(THREE.TextureLoader, textureUrls.gold);
-  const backgroundTexture = useLoader(THREE.TextureLoader, textureUrls.background);
 
-  useMemo(() => {
-    [brickTexture, goldTexture, backgroundTexture].forEach(t => {
-      t.magFilter = THREE.NearestFilter;
-      t.minFilter = THREE.NearestFilter;
-      t.wrapS = THREE.RepeatWrapping;
-      t.wrapT = THREE.RepeatWrapping;
-    });
-  }, [brickTexture, goldTexture, backgroundTexture]);
-
-  const { brickGeometry, goldGeometry, backgroundGeometry } = useMemo(() => {
-    const brickGeometries = [];
-    const goldGeometries = [];
-    const backgroundGeometries = [];
-
-    walls.forEach(wall => {
-      const isHorizontal = wall.orientation === 'horizontal';
-      const isBackgroundWall = wall.height > 2;
-
-      const centerX = isHorizontal ? wall.x + wall.length / 2 : wall.x;
-      const centerZ = isHorizontal ? wall.z : wall.z + wall.length / 2;
-      const width = isHorizontal ? wall.length : wall.thickness;
-      const depth = isHorizontal ? wall.thickness : wall.length;
-
-      if (isBackgroundWall) {
-        const geometry = new THREE.BoxGeometry(width, wall.height, depth);
-        geometry.translate(centerX, wall.height / 2, centerZ);
-        const uvs = geometry.attributes.uv;
-        for (let i = 0; i < uvs.count; i++) {
-          uvs.setXY(i, uvs.getX(i), uvs.getY(i));
-        }
-        backgroundGeometries.push(geometry);
-      } else {
-        const bottomHeight = wall.height * 0.8;
-        const topHeight = wall.height * 0.2;
-        const bottomY = bottomHeight / 2;
-        const topY = bottomHeight + topHeight / 2;
-
-        const bottomGeo = new THREE.BoxGeometry(width, bottomHeight, depth);
-        bottomGeo.translate(centerX, bottomY, centerZ);
-        const bottomUVs = bottomGeo.attributes.uv;
-        for (let i = 0; i < bottomUVs.count; i++) {
-          bottomUVs.setXY(i, bottomUVs.getX(i) * wall.length, bottomUVs.getY(i));
-        }
-        brickGeometries.push(bottomGeo);
-
-        const topGeo = new THREE.BoxGeometry(width, topHeight, depth);
-        topGeo.translate(centerX, topY, centerZ);
-        const topUVs = topGeo.attributes.uv;
-        for (let i = 0; i < topUVs.count; i++) {
-          topUVs.setXY(i, topUVs.getX(i) * wall.length, topUVs.getY(i));
-        }
-        goldGeometries.push(topGeo);
-      }
-    });
-
-    return {
-      brickGeometry: brickGeometries.length > 0 ? mergeBufferGeometries(brickGeometries) : null,
-      goldGeometry: goldGeometries.length > 0 ? mergeBufferGeometries(goldGeometries) : null,
-      backgroundGeometry: backgroundGeometries.length > 0 ? mergeBufferGeometries(backgroundGeometries) : null
-    };
-  }, [walls]);
-
-  return (
-    <group>
-      {backgroundGeometry && (
-        <mesh geometry={backgroundGeometry}>
-          <meshBasicMaterial map={backgroundTexture} color="#ffffff" />
-        </mesh>
-      )}
-      {brickGeometry && (
-        <mesh geometry={brickGeometry}>
-          <meshBasicMaterial map={brickTexture} />
-        </mesh>
-      )}
-      {goldGeometry && (
-        <mesh geometry={goldGeometry}>
-          <meshBasicMaterial map={goldTexture} />
-        </mesh>
-      )}
-    </group>
-  );
-}
-
-function Player({ position, direction, onPositionUpdate, walls, rotation, isPaused }) {
-  const meshRef = useRef();
-  const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
-  const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
-
-  const [currentFrame, setCurrentFrame] = useState(0);
-
-  useMemo(() => {
-    spritesheet1.magFilter = THREE.NearestFilter;
-    spritesheet1.minFilter = THREE.NearestFilter;
-    spritesheet2.magFilter = THREE.NearestFilter;
-    spritesheet2.minFilter = THREE.NearestFilter;
-  }, [spritesheet1, spritesheet2]);
-
-  const frameCount = 8;
-  const animationSpeed = 10;
-
-  useFrame((state, delta) => {
-    if (isPaused) return;
-
-    if (direction.x !== 0 || direction.z !== 0) {
-      const speed = 4.5;
-      const newX = position.x + direction.x * speed * delta;
-      const newZ = position.z + direction.z * speed * delta;
-
-      if (!checkCollision(newX, newZ)) {
-        onPositionUpdate(newX, newZ);
-      }
-
-      const time = state.clock.getElapsedTime();
-      const newFrame = Math.floor(time * animationSpeed) % frameCount;
-      setCurrentFrame(newFrame);
-    }
-  });
-
-  const getCurrentTexture = () => {
-    if (direction.z < 0) return spritesheet1;
-    if (direction.x < 0) return spritesheet1;
-    if (direction.x > 0) return spritesheet2;
-    if (direction.z > 0) return spritesheet2;
-    return spritesheet2;
-  };
-
-  const getFlipX = () => {
-    if (direction.x < 0) return -1;
-    if (direction.z > 0) return -1;
-    return 1;
-  };
-
-  const texture = getCurrentTexture().clone();
-  texture.repeat.set(1 / frameCount, 1);
-  texture.offset.x = currentFrame / frameCount;
-
-  return (
-    <mesh
-      ref={meshRef}
-      position={[position.x, 0.5, position.z]}
-      rotation={[-Math.PI / 4, rotation, 0]}
-      scale={[getFlipX(), 1, 1]}
-    >
-      <planeGeometry args={[1.1, 1.1]} />
-      <meshStandardMaterial
-        map={texture}
-        transparent={true}
-        side={THREE.DoubleSide}
-        alphaTest={0.5}
-      />
-    </mesh>
-  );
-}
-
-function Collectible({ position }) {
-  const texture = useLoader(THREE.TextureLoader, '/assets/collectible_bottle.png');
-  useMemo(() => {
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-  }, [texture]);
-
-  return (
-    <mesh position={[position.x, 0.4, position.z]} rotation={[-Math.PI / 4, Math.PI / 4.8, 0]}>
-      <planeGeometry args={[0.6, 0.6]} />
-      <meshStandardMaterial
-        map={texture}
-        transparent={true}
-        side={THREE.DoubleSide}
-        alphaTest={0.5}
-        depthWrite={false}
-      />
-    </mesh>
-  );
-}
-
-function Floor() {
-  const texture = useLoader(THREE.TextureLoader, '/assets/suelos/floor_texture.jpg');
-  useMemo(() => {
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(40 / 5, 45 / 5);
-  }, [texture]);
-
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[12, -0.1, 14]}>
-      <planeGeometry args={[40, 45]} />
-      <meshBasicMaterial map={texture} />
-    </mesh>
-  );
-}
-
-function CameraController({ targetX, targetZ, rotation, distance, height }) {
-  useFrame(({ camera }) => {
-    const offsetX = Math.sin(rotation) * distance;
-    const offsetZ = Math.cos(rotation) * distance;
-
-    camera.position.x += (targetX + offsetX - camera.position.x) * 0.1;
-    camera.position.y = height;
-    camera.position.z += (targetZ + offsetZ - camera.position.z) * 0.1;
-
-    camera.lookAt(targetX, 0, targetZ);
-  });
-  return null;
-}
 
 // --- Main Component ---
 
@@ -510,77 +299,7 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
     };
   }, [direction]);
 
-  // Touch/Swipe Controls for Mobile
-  useEffect(() => {
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchEndX = 0;
-    let touchEndY = 0;
 
-    const minSwipeDistance = 30;
-
-    const handleTouchStart = (e) => {
-      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-        return;
-      }
-
-      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-        return;
-      }
-
-      // Tutorial check removed
-      e.preventDefault();
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    };
-
-    const handleTouchMove = (e) => {
-      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-        return;
-      }
-
-      e.preventDefault();
-      touchEndX = e.touches[0].clientX;
-      touchEndY = e.touches[0].clientY;
-    };
-
-    const handleTouchEnd = () => {
-      // Tutorial check removed
-
-      const deltaX = touchEndX - touchStartX;
-      const deltaY = touchEndY - touchStartY;
-      const absDeltaX = Math.abs(deltaX);
-      const absDeltaY = Math.abs(deltaY);
-
-      if (absDeltaX < minSwipeDistance && absDeltaY < minSwipeDistance) {
-        return;
-      }
-
-      if (absDeltaX > absDeltaY) {
-        if (deltaX > 0) {
-          setDirection({ x: 1, z: 0 });
-        } else {
-          setDirection({ x: -1, z: 0 });
-        }
-      } else {
-        if (deltaY > 0) {
-          setDirection({ x: 0, z: 1 });
-        } else {
-          setDirection({ x: 0, z: -1 });
-        }
-      }
-    };
-
-    window.addEventListener('touchstart', handleTouchStart, { passive: false });
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
-
-    return () => {
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, []);
 
   const handlePositionUpdate = (x, z) => {
     setPlayerPos({ x, z });
@@ -599,16 +318,16 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
     });
   };
 
-  // Check for victory (150 points)
+  // Check for victory (all collectibles collected)
   useEffect(() => {
-    if (score >= 150 && !showVictoryModal) {
+    if (collectibles.length === 0 && !showVictoryModal) {
       setIsPaused(true);
       setShowVictoryModal(true);
       if (onLevelComplete) {
         onLevelComplete(0); // Nivel 0 completed (Level1.jsx), unlock Nivel 1 (Medusa)
       }
     }
-  }, [score, showVictoryModal, onLevelComplete]);
+  }, [collectibles, showVictoryModal, onLevelComplete]);
 
   return (
     <div className="game-container">
@@ -616,13 +335,13 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
         <ambientLight intensity={1.5} />
         <pointLight position={[10, 10, 10]} intensity={2.0} />
 
-        <Maze walls={walls} />
-        <Floor />
-        <Player
+        <MazeWalls walls={walls} />
+        <GameFloor position={[12, -0.1, 14]} width={40} depth={45} textureRepeat={[40 / 5, 45 / 5]} />
+        <GamePlayer
           position={playerPos}
           direction={direction}
           onPositionUpdate={handlePositionUpdate}
-          walls={walls}
+          checkCollision={checkCollision}
           rotation={playerRotation}
           isPaused={isPaused}
         />
@@ -642,6 +361,48 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
 
       {/* UI Overlay */}
       <div className="ui-overlay">
+        {/* D-Pad Controls */}
+        <div className="d-pad-container">
+          <div className="d-pad-row">
+            <button
+              className="d-pad-button up"
+              onPointerDown={() => setDirection({ x: 0, z: -1 })}
+              onPointerUp={() => setDirection({ x: 0, z: 0 })}
+              onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+            >
+              <ArrowUp size={24} />
+            </button>
+          </div>
+          <div className="d-pad-row middle">
+            <button
+              className="d-pad-button left"
+              onPointerDown={() => setDirection({ x: -1, z: 0 })}
+              onPointerUp={() => setDirection({ x: 0, z: 0 })}
+              onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+            >
+              <ArrowLeft size={24} />
+            </button>
+            <div className="d-pad-center"></div>
+            <button
+              className="d-pad-button right"
+              onPointerDown={() => setDirection({ x: 1, z: 0 })}
+              onPointerUp={() => setDirection({ x: 0, z: 0 })}
+              onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+            >
+              <ArrowRight size={24} />
+            </button>
+          </div>
+          <div className="d-pad-row">
+            <button
+              className="d-pad-button down"
+              onPointerDown={() => setDirection({ x: 0, z: 1 })}
+              onPointerUp={() => setDirection({ x: 0, z: 0 })}
+              onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+            >
+              <ArrowDown size={24} />
+            </button>
+          </div>
+        </div>
         <LevelHeader
           lives={lives}
           levelNumber={1}
@@ -649,12 +410,14 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
           score={score}
         />
 
-        <button className="settings-button" onClick={() => {
-          setIsPaused(true);
-          setShowSettingsModal(true);
-        }}>
-          <Pause size={24} />
-        </button>
+        {!showSettingsModal && (
+          <button className="settings-button" onClick={() => {
+            setIsPaused(true);
+            setShowSettingsModal(true);
+          }}>
+            <Pause size={24} />
+          </button>
+        )}
 
         {showSettingsModal && (
           <div className="settings-modal">

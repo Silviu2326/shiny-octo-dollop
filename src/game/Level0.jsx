@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
 import './Level0.css';
 import LevelHeader from '../components/LevelHeader';
+import { saveScore } from '../services/supabase';
 
 // --- Configuration & Constants ---
 const CELL_SIZE = 5;
@@ -336,7 +337,7 @@ function CameraController({ targetX, targetZ }) {
 
 // --- Main Component ---
 
-export default function Level0({ onBack, onNextLevel, onLevelComplete }) {
+export default function Level0({ onBack, onNextLevel, onLevelComplete, userId }) {
     const [playerPos, setPlayerPos] = useState(INITIAL_PLAYER_POS);
     const [direction, setDirection] = useState({ x: 0, z: 0 });
     const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -345,6 +346,7 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete }) {
     const [isPaused, setIsPaused] = useState(false);
     const [lives, setLives] = useState(3);
     const [showVictory, setShowVictory] = useState(false);
+    const [startTime] = useState(Date.now()); // Para medir tiempo de juego
 
     const totalBeers = initialCollectibles.length;
     const beersCollected = totalBeers - collectibles.length;
@@ -354,11 +356,44 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete }) {
         if (score >= 150 && !showVictory) {
             setShowVictory(true);
             setIsPaused(true);
+
+            // Calcular tiempo transcurrido
+            const timeSeconds = Math.floor((Date.now() - startTime) / 1000);
+
+            // Guardar puntuación en Supabase
+            if (userId) {
+                console.log('💾 [Level0] Guardando puntuación para usuario:', userId);
+                saveScore(userId, 0, score, beersCollected, timeSeconds)
+                    .then(result => {
+                        if (result.success) {
+                            console.log('✅ [Level0] Puntuación guardada exitosamente');
+
+                            // Enviar mensaje a la app nativa si existe
+                            if (window.ReactNativeWebView) {
+                                window.ReactNativeWebView.postMessage(JSON.stringify({
+                                    type: 'SCORE_SAVED',
+                                    level: 0,
+                                    score: score,
+                                    beersCollected: beersCollected,
+                                    time: timeSeconds
+                                }));
+                            }
+                        } else {
+                            console.error('❌ [Level0] Error guardando puntuación:', result.error);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('❌ [Level0] Excepción guardando puntuación:', err);
+                    });
+            } else {
+                console.warn('⚠️ [Level0] No hay userId, no se guardó la puntuación');
+            }
+
             if (onLevelComplete) {
                 onLevelComplete(0); // Level 0 completed, unlock level 1
             }
         }
-    }, [score, showVictory, onLevelComplete]);
+    }, [score, showVictory, onLevelComplete, userId, beersCollected, startTime]);
 
     // Audio
     useEffect(() => {

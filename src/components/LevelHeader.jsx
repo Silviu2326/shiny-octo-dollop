@@ -1,7 +1,7 @@
 import './LevelHeader.css';
 
 const levelConfig = {
-  1: { name: "La Casa del Gato", backgroundColor: "#F3E9C6", textColor: "#2C1810", borderColor: "#D4D4C8", totalBeers: 80, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png' },
+  1: { name: "La Casa del Gato", backgroundColor: "#F3E9C6", textColor: "#2C1810", borderColor: "#D4D4C8", totalBeers: 40, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png' },
   2: { name: "Medusa", backgroundColor: "#7EC8E3", textColor: "#2C1810", borderColor: "#5DA8C3", totalBeers: 110, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png' },
   3: { name: "Morena", backgroundColor: "#8A5A2B", textColor: "#FFFFFF", borderColor: "#6A3A0B", totalBeers: 140, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png' },
   4: { name: "La Cararera del Ziaagzag", backgroundColor: "#F2C94C", textColor: "#2C1810", borderColor: "#D2A92C", totalBeers: 150, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png' },
