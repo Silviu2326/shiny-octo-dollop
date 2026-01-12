@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
-import { useDrag } from '@use-gesture/react';
-import { Pause, Play, RotateCcw, Home, Volume2, VolumeX } from 'lucide-react';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import LevelHeader from '../components/LevelHeader';
+import Enemy from '../components/game/Enemy';
+import { AIRoles, createPatrolZones, assignZone } from './ai/EnemyAI';
 import './Level8.css';
 
 // --- Constants & Configuration ---
@@ -177,7 +178,7 @@ function generateCollectibles(count) {
     return collectibles;
 }
 
-const initialCollectibles = generateCollectibles(160);
+const initialCollectibles = generateCollectibles(100);
 
 // --- Preload Textures ---
 useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_1.png');
@@ -317,260 +318,10 @@ function Barrel({ position }) {
     );
 }
 
-function Enemy({ position, playerPos, walls, isPowerActive, isPaused, enemyId, onPositionUpdate, role = 'normal', isReturning = false }) {
-    const meshRef = useRef();
-    const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_1.png');
-    const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_2.png');
+// Enemy component moved to src/components/game/Enemy.jsx
 
-    const [currentFrame, setCurrentFrame] = useState(0);
-    const [animationTime, setAnimationTime] = useState(0);
-    const [direction, setDirection] = useState({ x: 1, z: 0 });
-    const [mode, setMode] = useState('scatter');
-    const [modeTimer, setModeTimer] = useState(0);
-    const [lastIntersectionPos, setLastIntersectionPos] = useState({ x: -999, z: -999 });
-
-    const frameCount = 8;
-    const animationSpeed = 10;
-
-    useMemo(() => {
-        spritesheet1.magFilter = THREE.NearestFilter;
-        spritesheet1.minFilter = THREE.NearestFilter;
-        spritesheet2.magFilter = THREE.NearestFilter;
-        spritesheet2.minFilter = THREE.NearestFilter;
-    }, [spritesheet1, spritesheet2]);
-
-    const timerConfig = useMemo(() => {
-        const baseVariation = Math.random() * 2;
-
-        switch (role) {
-            case 'chaser':
-                return {
-                    scatterDuration: 4 + baseVariation,
-                    chaseDuration: 8 + baseVariation,
-                    straightBias: 0.8,
-                };
-            case 'cutter':
-                return {
-                    scatterDuration: 6 + baseVariation,
-                    chaseDuration: 4 + baseVariation,
-                    straightBias: 0.3,
-                };
-            case 'rotator':
-                return {
-                    scatterDuration: 3 + baseVariation,
-                    chaseDuration: 3 + baseVariation,
-                    straightBias: 0.5,
-                };
-            case 'lazy':
-                return {
-                    scatterDuration: 7 + baseVariation,
-                    chaseDuration: 3 + baseVariation,
-                    straightBias: 0.6,
-                };
-            default:
-                return {
-                    scatterDuration: 5 + baseVariation,
-                    chaseDuration: 5 + baseVariation,
-                    straightBias: 0.5,
-                };
-        }
-    }, [role]);
-
-    const isAtIntersection = (x, z, lastPos) => {
-        const distanceFromLast = Math.sqrt(
-            Math.pow(x - lastPos.x, 2) + Math.pow(z - lastPos.z, 2)
-        );
-
-        if (distanceFromLast < 1.5) return false;
-
-        const directions = [
-            { x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 },
-        ];
-
-        let availableDirections = 0;
-        directions.forEach(dir => {
-            const testX = x + dir.x * 0.6;
-            const testZ = z + dir.z * 0.6;
-            if (!checkCollision(testX, testZ, walls)) {
-                availableDirections++;
-            }
-        });
-
-        return availableDirections > 2;
-    };
-
-    const getValidDirections = (x, z, currentDir) => {
-        const directions = [
-            { x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 },
-        ];
-
-        return directions.filter(dir => {
-            if (dir.x === -currentDir.x && dir.z === -currentDir.z) return false;
-
-            const testX = x + dir.x * 0.5;
-            const testZ = z + dir.z * 0.5;
-            return !checkCollision(testX, testZ, walls);
-        });
-    };
-
-    useFrame((state, delta) => {
-        if (isPaused) return;
-
-        // Si está regresando a la casa, movimiento directo rápido
-        if (isReturning) {
-            const targetX = DOGHOUSE_POS.x;
-            const targetZ = DOGHOUSE_POS.z;
-            const dx = targetX - position.x;
-            const dz = targetZ - position.z;
-            const dist = Math.sqrt(dx * dx + dz * dz);
-
-            if (dist > 0.5) {
-                const angle = Math.atan2(dz, dx);
-                const returnSpeed = 8.0; // Velocidad rápida de regreso
-                const moveX = Math.cos(angle) * returnSpeed * delta;
-                const moveZ = Math.sin(angle) * returnSpeed * delta;
-                const nextX = position.x + moveX;
-                const nextZ = position.z + moveZ;
-
-                if (!checkCollision(nextX, nextZ, walls)) {
-                    onPositionUpdate(nextX, nextZ);
-                }
-            }
-
-            setAnimationTime(prev => {
-                const newTime = prev + delta * animationSpeed * 2;
-                const newFrame = Math.floor(newTime) % frameCount;
-                setCurrentFrame(newFrame);
-                return newTime;
-            });
-            return;
-        }
-
-        const distance = Math.sqrt(
-            Math.pow(playerPos.x - position.x, 2) +
-            Math.pow(playerPos.z - position.z, 2)
-        );
-
-        // Si el poder está activo, moverse más lento (aturdido)
-        const stunned = isPowerActive;
-        if (stunned && meshRef.current) {
-            meshRef.current.rotation.z += delta * 5;
-        } else if (meshRef.current) {
-            meshRef.current.rotation.z = 0;
-        }
-
-        if (distance > 30) return;
-
-        setModeTimer(prev => {
-            const newTimer = prev + delta;
-            const currentDuration = mode === 'scatter'
-                ? timerConfig.scatterDuration
-                : timerConfig.chaseDuration;
-
-            if (newTimer >= currentDuration) {
-                setMode(currentMode => currentMode === 'scatter' ? 'chase' : 'scatter');
-                return 0;
-            }
-            return newTimer;
-        });
-
-        // Velocidad según rol y estado
-        let baseSpeed = 4.28;
-        if (role === 'lazy') baseSpeed = 3.5;
-        if (role === 'chaser') baseSpeed = 5.0;
-        const speed = stunned ? baseSpeed * 0.4 : baseSpeed;
-
-        const nextX = position.x + direction.x * speed * delta;
-        const nextZ = position.z + direction.z * speed * delta;
-
-        const canMove = !checkCollision(nextX, nextZ, walls);
-        const atIntersection = isAtIntersection(position.x, position.z, lastIntersectionPos);
-
-        if (atIntersection || !canMove) {
-            const validDirs = getValidDirections(position.x, position.z, direction);
-
-            if (validDirs.length > 0) {
-                let newDir;
-
-                if (mode === 'scatter') {
-                    const continueDir = validDirs.find(dir =>
-                        dir.x === direction.x && dir.z === direction.z
-                    );
-
-                    if (continueDir && Math.random() < timerConfig.straightBias) {
-                        newDir = continueDir;
-                    } else {
-                        newDir = validDirs[Math.floor(Math.random() * validDirs.length)];
-                    }
-                } else {
-                    const dx = playerPos.x - position.x;
-                    const dz = playerPos.z - position.z;
-
-                    newDir = validDirs.reduce((best, dir) => {
-                        const score = dir.x * dx + dir.z * dz;
-                        const bestScore = best.x * dx + best.z * dz;
-                        return score > bestScore ? dir : best;
-                    });
-                }
-
-                setDirection(newDir);
-
-                if (atIntersection) {
-                    setLastIntersectionPos({ x: position.x, z: position.z });
-                }
-            }
-        }
-
-        if (canMove) {
-            onPositionUpdate(nextX, nextZ);
-
-            setAnimationTime(prev => {
-                const newTime = prev + delta * animationSpeed;
-                const newFrame = Math.floor(newTime) % frameCount;
-                setCurrentFrame(newFrame);
-                return newTime;
-            });
-        }
-    });
-
-    const getCurrentTexture = () => {
-        if (direction.x > 0 || direction.z > 0) {
-            return spritesheet1;
-        } else {
-            return spritesheet2;
-        }
-    };
-
-    const getFlipX = () => {
-        if (direction.z > 0) return -1;
-        if (direction.x < 0) return -1;
-        return 1;
-    };
-
-    const texture = getCurrentTexture();
-    texture.repeat.set(1 / frameCount, 1);
-    texture.offset.x = currentFrame / frameCount;
-
-    return (
-        <group position={[position.x, 0.5, position.z]}>
-            <mesh
-                ref={meshRef}
-                rotation={[-Math.PI / 4, PLAYER_ROTATION, 0]}
-                scale={[getFlipX(), 1, 1]}
-            >
-                <planeGeometry args={[1.3, 1.3]} />
-                <meshStandardMaterial
-                    map={texture}
-                    transparent
-                    side={THREE.DoubleSide}
-                    color={isReturning ? 'grey' : 'white'}
-                    alphaTest={0.5}
-                    depthWrite={true}
-                />
-            </mesh>
-        </group>
-    );
-}
+// Crear zonas de patrulla para el mapa (32x38)
+const patrolZones = createPatrolZones(32, 38, 2);
 
 function Player({ position, direction, isInvulnerable, isPowerActive, isPaused }) {
     const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
@@ -591,6 +342,7 @@ function Player({ position, direction, isInvulnerable, isPowerActive, isPaused }
     }, [t2]);
 
     const [frame, setFrame] = useState(0);
+    const [lastDirection, setLastDirection] = useState({ x: 1, z: 0 });
     const trailRef = useRef([]);
     const frameCount = 8;
     const animationSpeed = 10;
@@ -601,6 +353,10 @@ function Player({ position, direction, isInvulnerable, isPowerActive, isPaused }
         const newFrame = Math.floor(state.clock.getElapsedTime() * animationSpeed) % frameCount;
         setFrame(newFrame);
 
+        if (direction.x !== 0 || direction.z !== 0) {
+            setLastDirection(direction);
+        }
+
         if (isPowerActive) {
             trailRef.current.unshift({ x: position.x, z: position.z });
             if (trailRef.current.length > 5) trailRef.current.pop();
@@ -610,20 +366,20 @@ function Player({ position, direction, isInvulnerable, isPowerActive, isPaused }
     });
 
     const getCurrentTexture = () => {
-        if (direction.z < 0) return spritesheet1; // Up
-        if (direction.x < 0) return spritesheet1; // Left
-        if (direction.x > 0) return spritesheet2; // Right
-        if (direction.z > 0) return spritesheet2; // Down
+        if (lastDirection.z < 0) return spritesheet1; // Up
+        if (lastDirection.x < 0) return spritesheet1; // Left
+        if (lastDirection.x > 0) return spritesheet2; // Right
+        if (lastDirection.z > 0) return spritesheet2; // Down
         return spritesheet2; // Default
     };
 
     const getFlipX = () => {
-        if (direction.x < 0) return -1; // Flip for Left
-        if (direction.z > 0) return -1; // Flip for Down
+        if (lastDirection.x < 0) return -1; // Flip for Left
+        if (lastDirection.z > 0) return -1; // Flip for Down
         return 1;
     };
 
-    const texture = getCurrentTexture();
+    const texture = getCurrentTexture().clone();
     texture.repeat.set(1 / frameCount, 1);
     texture.offset.x = frame / frameCount;
 
@@ -691,6 +447,10 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
     const [isMuted, setIsMuted] = useState(false);
     const musicRef = useRef(null);
 
+    // Alert States
+    const [enemyAlert, setEnemyAlert] = useState(null);
+    const [powerAlert, setPowerAlert] = useState(null);
+
     // Power-up State
     const [powerActive, setPowerActive] = useState(false);
     const [powerTimeLeft, setPowerTimeLeft] = useState(0);
@@ -746,6 +506,20 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
 
     const toggleMute = () => setIsMuted(prev => !prev);
 
+    const showEnemyAlert = (text) => {
+        setEnemyAlert(text);
+        setTimeout(() => {
+            setEnemyAlert(null);
+        }, 2000);
+    };
+
+    const showPowerAlert = (text) => {
+        setPowerAlert(text);
+        setTimeout(() => {
+            setPowerAlert(null);
+        }, 2000);
+    };
+
     const playCollectSound = () => {
         if (isMuted) return;
         const sfx = new Audio('/assets/audio/sfx_collect.mp3');
@@ -761,13 +535,15 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
     };
 
     // --- Victory Logic ---
+    const beersCollected = useMemo(() => collectibles.filter(c => c.collected).length, [collectibles]);
+
     useEffect(() => {
-        if (score >= 150 && !showVictoryModal) {
+        if (beersCollected === initialCollectibles.length && !showVictoryModal) {
             setIsPaused(true);
             setShowVictoryModal(true);
             // Level 8 is the final level, no need to unlock next level
         }
-    }, [score, showVictoryModal]);
+    }, [beersCollected, showVictoryModal]);
 
     const handleEnemyPositionUpdate = (enemyId, x, z) => {
         setEnemies(prevEnemies =>
@@ -782,6 +558,7 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
             setTokens(t => t - 1);
             setPowerActive(true);
             setPowerTimeLeft(6);
+            showPowerAlert("¡SUPER VELOCIDAD ACTIVADA!");
         }
     };
 
@@ -801,9 +578,7 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
         return () => clearInterval(interval);
     }, [powerActive, powerTimeLeft, isPaused]);
 
-    const handleSwipe = (newDir) => {
-        if (!isPaused) setDirection(newDir);
-    };
+
 
     useEffect(() => {
         const k = (e) => {
@@ -892,28 +667,30 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
             setEnemies(prev => prev.map(e => {
                 const dist = Math.sqrt((playerPos.x - e.x) ** 2 + (playerPos.z - e.z) ** 2);
 
-                if (dist < 0.6) {
-                    if (powerActive && !e.isReturning) {
-                        setScore(s => s + 200);
-                        return { ...e, isReturning: true };
-                    } else if (!isInvulnerableRef.current && !e.isReturning && !powerActive) {
-                        isInvulnerableRef.current = true;
-                        setLives(l => {
-                            const newLives = l - 1;
-                            if (newLives <= 0) {
-                                setShowGameOverModal(true);
-                                setIsPaused(true);
-                            } else {
-                                playLoseLifeSound();
-                                setIsInvulnerable(true);
-                                setTimeout(() => {
-                                    setIsInvulnerable(false);
-                                    isInvulnerableRef.current = false;
-                                }, 3000);
-                            }
-                            return newLives;
-                        });
-                    }
+                // Si el jugador toca al enemigo con poder activo
+                if (dist < 0.6 && powerActive && !e.isReturning) {
+                    setScore(s => s + 200);
+                    return { ...e, isReturning: true };
+                }
+
+                // Si el enemigo toca al jugador sin poder
+                if (dist < 0.6 && !isInvulnerableRef.current && !e.isReturning && !powerActive) {
+                    isInvulnerableRef.current = true;
+                    setLives(l => {
+                        const newLives = l - 1;
+                        if (newLives <= 0) {
+                            setShowGameOverModal(true);
+                            setIsPaused(true);
+                        } else {
+                            playLoseLifeSound();
+                            setIsInvulnerable(true);
+                            setTimeout(() => {
+                                setIsInvulnerable(false);
+                                isInvulnerableRef.current = false;
+                            }, 3000);
+                        }
+                        return newLives;
+                    });
                 }
 
                 // Check if enemy reached doghouse while returning
@@ -938,59 +715,134 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
             setEnemies(prevEnemies => [
                 ...prevEnemies,
                 {
-                    id: enemyIdRef.current++,
+                    id: enemyIdRef.current,
                     x: DOGHOUSE_POS.x,
                     z: DOGHOUSE_POS.z,
-                    role: 'chaser',
-                    isReturning: false,
+                    role: AIRoles.STRAIGHT,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
                 }
             ]);
+            showEnemyAlert("¡Apareció un enemigo!");
+            enemyIdRef.current++;
         }, 1000);
 
         const timer2 = setTimeout(() => {
             setEnemies(prevEnemies => [
                 ...prevEnemies,
                 {
-                    id: enemyIdRef.current++,
+                    id: enemyIdRef.current,
                     x: DOGHOUSE_POS.x,
                     z: DOGHOUSE_POS.z,
-                    role: 'cutter',
-                    isReturning: false,
+                    role: AIRoles.TURNER,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
                 }
             ]);
+            showEnemyAlert("¡Cuidado, otro enemigo!");
+            enemyIdRef.current++;
         }, 3000);
 
         const timer3 = setTimeout(() => {
             setEnemies(prevEnemies => [
                 ...prevEnemies,
                 {
-                    id: enemyIdRef.current++,
+                    id: enemyIdRef.current,
                     x: DOGHOUSE_POS.x,
                     z: DOGHOUSE_POS.z,
-                    role: 'rotator',
-                    isReturning: false,
+                    role: AIRoles.FREQUENT,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
                 }
             ]);
+            showEnemyAlert("¡Más peligro!");
+            enemyIdRef.current++;
         }, 6000);
 
         const timer4 = setTimeout(() => {
             setEnemies(prevEnemies => [
                 ...prevEnemies,
                 {
-                    id: enemyIdRef.current++,
+                    id: enemyIdRef.current,
                     x: DOGHOUSE_POS.x,
                     z: DOGHOUSE_POS.z,
-                    role: 'lazy',
-                    isReturning: false,
+                    role: AIRoles.CHASER,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
                 }
             ]);
+            enemyIdRef.current++;
         }, 9000);
+
+        const timer5 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: DOGHOUSE_POS.x,
+                    z: DOGHOUSE_POS.z,
+                    role: AIRoles.CUTTER,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            enemyIdRef.current++;
+        }, 12000);
+
+        const timer6 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: DOGHOUSE_POS.x,
+                    z: DOGHOUSE_POS.z,
+                    role: AIRoles.ROTATOR,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            enemyIdRef.current++;
+        }, 15000);
+
+        const timer7 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: DOGHOUSE_POS.x,
+                    z: DOGHOUSE_POS.z,
+                    role: AIRoles.LAZY,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            enemyIdRef.current++;
+        }, 18000);
+
+        const timer8 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: DOGHOUSE_POS.x,
+                    z: DOGHOUSE_POS.z,
+                    role: AIRoles.AMBUSHER,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            enemyIdRef.current++;
+        }, 21000);
 
         return () => {
             clearTimeout(timer1);
             clearTimeout(timer2);
             clearTimeout(timer3);
             clearTimeout(timer4);
+            clearTimeout(timer5);
+            clearTimeout(timer6);
+            clearTimeout(timer7);
+            clearTimeout(timer8);
         };
     }, []);
 
@@ -1027,7 +879,7 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
 
     return (
         <div className="game-container">
-            <GestureLayer onSwipe={handleSwipe} />
+
 
             <Canvas camera={{ position: [16, 18, 26], fov: CAMERA_CONFIG.fov }} shadows>
                 <ambientLight intensity={1.5} />
@@ -1049,12 +901,20 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
                         enemyId={enemy.id}
                         position={{ x: enemy.x, z: enemy.z }}
                         playerPos={playerPos}
+                        playerDirection={direction}
                         walls={walls}
                         onPositionUpdate={(x, z) => handleEnemyPositionUpdate(enemy.id, x, z)}
+                        checkCollision={checkCollision}
                         isPowerActive={powerActive}
                         isPaused={isPaused}
+                        rotation={PLAYER_ROTATION}
                         role={enemy.role}
+                        assignedZone={enemy.zone}
+                        doghousePos={DOGHOUSE_POS}
                         isReturning={enemy.isReturning || false}
+                        spritesheet1Path="/assets/personajes/enemy_type_1.png"
+                        spritesheet2Path="/assets/personajes/enemy_type_2.png"
+                        debugMode={false}
                     />
                 ))}
 
@@ -1069,26 +929,66 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
                     score={score}
                 />
 
-                <div className="power-button-container">
-                    <button
-                        onClick={activatePower}
-                        disabled={tokens === 0}
-                        className="power-button"
-                    >
-                        <img
-                            src="/assets/poderes/power_icon.png"
-                            alt="Power"
-                            className={`power-button-image ${tokens === 0 ? 'disabled' : ''}`}
-                        />
-                        <div className="token-badge">
-                            <span className="token-text">{tokens}</span>
+                <div className="d-pad-container">
+                    <div className="d-pad-row">
+                        <button
+                            className="d-pad-button up"
+                            onPointerDown={() => setDirection({ x: 0, z: -1 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowUp size={24} />
+                        </button>
+                    </div>
+                    <div className="d-pad-row middle">
+                        <button
+                            className="d-pad-button left"
+                            onPointerDown={() => setDirection({ x: -1, z: 0 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowLeft size={24} />
+                        </button>
+                        <div className="d-pad-center">
+                            <button
+                                onClick={activatePower}
+                                disabled={tokens === 0 || powerActive}
+                                className="power-button"
+                            >
+                                <img
+                                    src="/assets/poderes/image-removebg-preview (15).png"
+                                    alt="Power"
+                                    className={`power-button-image ${tokens === 0 ? 'disabled' : ''}`}
+                                />
+                                <div className="token-badge">
+                                    <span className="token-text">{tokens}</span>
+                                </div>
+                                {powerActive && (
+                                    <div className="timer-overlay">
+                                        <span className="timer-text">{powerTimeLeft}</span>
+                                    </div>
+                                )}
+                            </button>
                         </div>
-                        {powerActive && (
-                            <div className="timer-overlay">
-                                <span className="timer-text">{powerTimeLeft}</span>
-                            </div>
-                        )}
-                    </button>
+                        <button
+                            className="d-pad-button right"
+                            onPointerDown={() => setDirection({ x: 1, z: 0 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowRight size={24} />
+                        </button>
+                    </div>
+                    <div className="d-pad-row">
+                        <button
+                            className="d-pad-button down"
+                            onPointerDown={() => setDirection({ x: 0, z: 1 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowDown size={24} />
+                        </button>
+                    </div>
                 </div>
 
                 <button className="settings-button" onClick={() => {
@@ -1195,6 +1095,18 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
                         </button>
                     </div>
                 )}
+
+                {powerAlert && (
+                    <div className="enemy-alert" style={{ background: 'rgba(255, 0, 255, 0.7)', borderColor: '#ff44ff', textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
+                        {powerAlert}
+                    </div>
+                )}
+
+                {enemyAlert && (
+                    <div className="enemy-alert">
+                        {enemyAlert}
+                    </div>
+                )}
             </div>
         </div >
     );
@@ -1213,16 +1125,4 @@ function CameraController({ targetX, targetZ }) {
     return null;
 }
 
-function GestureLayer({ onSwipe }) {
-    const bind = useDrag(({ movement: [mx, my], last }) => {
-        const threshold = 10;
-        if (Math.abs(mx) > threshold || Math.abs(my) > threshold) {
-            if (Math.abs(mx) > Math.abs(my)) {
-                onSwipe(mx > 0 ? { x: 1, z: 0 } : { x: -1, z: 0 });
-            } else {
-                onSwipe(my > 0 ? { x: 0, z: 1 } : { x: 0, z: -1 });
-            }
-        }
-    }, { filterTaps: true, threshold: 10 });
-    return <div {...bind()} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 5, touchAction: 'none' }} />;
-}
+

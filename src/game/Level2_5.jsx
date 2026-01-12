@@ -3,55 +3,94 @@ import { Pause, Play, RotateCcw, Home, Volume2, VolumeX, ArrowUp, ArrowDown, Arr
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
-import './Level2.css';
+import './Level2_5.css';
 import LevelHeader from '../components/LevelHeader';
-import Enemy from '../components/game/Enemy';
+import EnemyAdvanced from '../components/game/Enemy_Advanced';
 import { AIRoles, createPatrolZones, assignZone } from './ai/EnemyAI';
+import { EnemyCoordinator, AdvancedAIConfig } from './ai/EnemyAI_Advanced';
 
 // --- Configuration & Constants ---
-const CELL_SIZE = 5;
+const CELL_SIZE = 4;
 
+// Configurar IA avanzada para nivel difícil
+AdvancedAIConfig.VISION_ANGLE = Math.PI * 0.85; // 153 grados (muy buena visión)
+AdvancedAIConfig.HEARING_RADIUS = 14; // Buena audición
+AdvancedAIConfig.COORDINATION_RADIUS = 18; // Alta coordinación
+AdvancedAIConfig.PLAYER_MEMORY_LENGTH = 35; // Buena memoria
+AdvancedAIConfig.PATTERN_DETECTION_THRESHOLD = 4; // Detecta patrones rápido
+AdvancedAIConfig.PATH_RECALC_INTERVAL = 0.4; // Recalcula rutas frecuentemente
+
+// Mapa más pequeño y MUCHO más difícil: 24×28 (más compacto que Level2)
 const walls = [
   // Background walls
-  { x: -2, z: -10, length: 60, height: 5, thickness: 1, orientation: 'vertical' },
-  { x: -10, z: -2, length: 60, height: 5, thickness: 1, orientation: 'horizontal' },
+  { x: -2, z: -10, length: 50, height: 5, thickness: 1, orientation: 'vertical' },
+  { x: -10, z: -2, length: 50, height: 5, thickness: 1, orientation: 'horizontal' },
 
-  // Exterior walls (28×32)
-  { x: 0, z: 0, length: 28, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 0, z: 32, length: 28, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 0, z: 0, length: 32, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 28, z: 0, length: 32, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  // Exterior walls (24×28)
+  { x: 0, z: 0, length: 24, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 0, z: 28, length: 24, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 0, z: 0, length: 28, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 24, z: 0, length: 28, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 
-  // FIRST RING - WITH 4 DOORS
-  { x: 3, z: 3, length: 7, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 12, z: 3, length: 13, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 3, z: 3, length: 9, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 3, z: 17, length: 11, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 25, z: 3, length: 9, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 25, z: 17, length: 11, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 3, z: 28, length: 14, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 19, z: 28, length: 6, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  // LABERINTO COMPLEJO - Estilo espiral difícil
+  // Anillo exterior con pocas salidas
+  { x: 2, z: 2, length: 20, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 2, z: 2, length: 7, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 2, z: 12, length: 12, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 22, z: 2, length: 7, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 22, z: 12, length: 12, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 2, z: 24, length: 8, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 14, z: 24, length: 8, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
 
-  // SECOND RING - WITH 4 DOORS
-  { x: 6, z: 6, length: 6, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 14, z: 6, length: 8, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 6, z: 6, length: 7, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 6, z: 17, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 22, z: 6, length: 7, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 22, z: 17, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 6, z: 25, length: 9, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 17, z: 25, length: 5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  // Segundo anillo - más cerrado
+  { x: 4, z: 4, length: 16, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 4, z: 4, length: 5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 4, z: 11, length: 11, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 20, z: 4, length: 5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 20, z: 11, length: 11, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 4, z: 22, length: 6, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 13, z: 22, length: 7, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
 
-  // THIRD RING - INNER OBSTACLES
-  { x: 9, z: 9, length: 5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 16, z: 9, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 9, z: 13, length: 5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 9, z: 10, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 19, z: 10, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 9, z: 18, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 19, z: 18, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 9, z: 22, length: 5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 16, z: 22, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  // Tercer anillo - muy estrecho
+  { x: 6, z: 6, length: 12, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 6, z: 6, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 6, z: 12, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 18, z: 6, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 18, z: 12, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 6, z: 20, length: 5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 13, z: 20, length: 5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+
+  // Centro - laberinto interno complejo
+  { x: 8, z: 8, length: 8, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 8, z: 11, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 13, z: 11, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 8, z: 14, length: 8, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 8, z: 17, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 13, z: 17, length: 3, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 8, z: 8, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 11, z: 8, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 13, z: 8, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 16, z: 8, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 8, z: 14, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 11, z: 14, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 13, z: 14, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 16, z: 14, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+
+  // Obstáculos adicionales para hacer más difícil la navegación
+  { x: 3, z: 5, length: 2, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 3, z: 15, length: 2, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 19, z: 5, length: 2, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 19, z: 15, length: 2, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 5, z: 10, length: 2, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 5, z: 18, length: 2, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 17, z: 10, length: 2, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 17, z: 18, length: 2, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+
+  // Trampas estrechas en el centro
+  { x: 10, z: 12, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 12.5, z: 12, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 12, z: 10, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 12, z: 13.5, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 ];
 
 // Spatial Grid
@@ -123,8 +162,8 @@ function generateCollectibles(count) {
   let id = 1;
 
   while (collectibles.length < count) {
-    const x = Math.random() * 26 + 1;
-    const z = Math.random() * 30 + 1;
+    const x = Math.random() * 22 + 1;
+    const z = Math.random() * 26 + 1;
 
     if (!checkCollision(x, z)) {
       const tooClose = collectibles.some(c => {
@@ -141,7 +180,7 @@ function generateCollectibles(count) {
   return collectibles;
 }
 
-const initialCollectibles = generateCollectibles(55);
+const initialCollectibles = generateCollectibles(60);
 
 // --- 3D Components ---
 
@@ -389,15 +428,13 @@ function Doghouse({ position }) {
 useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_13.png');
 useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_14.png');
 
-
-
 function Floor() {
   const meshRef = useRef();
   const texture = useLoader(THREE.TextureLoader, '/assets/suelos/floor_texture_3.png');
 
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(8, 8);
+  texture.repeat.set(7, 7);
 
   useFrame((state) => {
     if (meshRef.current) {
@@ -415,11 +452,11 @@ function Floor() {
     }
   });
 
-  const floorWidth = 44;
-  const floorDepth = 48;
+  const floorWidth = 36;
+  const floorDepth = 40;
 
   return (
-    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[14, -0.1, 16]}>
+    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[12, -0.1, 14]}>
       <planeGeometry args={[floorWidth, floorDepth]} />
       <meshStandardMaterial
         map={texture}
@@ -435,7 +472,7 @@ function Floor() {
 
 function Bubbles() {
   const meshRef = useRef();
-  const count = 80;
+  const count = 70;
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
   const texture = useLoader(THREE.TextureLoader, '/assets/bubble.jpg');
@@ -448,8 +485,8 @@ function Bubbles() {
     for (let i = 0; i < count; i++) {
       const factor = 20 + Math.random() * 100;
       const speed = 0.01 + Math.random() / 100;
-      const x = Math.random() * 32 - 2;
-      const z = Math.random() * 36 - 2;
+      const x = Math.random() * 26 - 1;
+      const z = Math.random() * 30 - 1;
       const y = Math.random() * 10;
       const scale = 0.2 + Math.random() * 0.3;
       temp.push({ factor, speed, x, z, y, scale, initialScale: scale });
@@ -470,8 +507,8 @@ function Bubbles() {
 
       if (particle.y > 8) {
         particle.y = -1;
-        particle.x = Math.random() * 32 - 2;
-        particle.z = Math.random() * 36 - 2;
+        particle.x = Math.random() * 26 - 1;
+        particle.z = Math.random() * 30 - 1;
       }
 
       const time = state.clock.elapsedTime;
@@ -529,13 +566,12 @@ function CameraController({ targetX, targetZ, rotation, distance, height }) {
 
 // --- Main Component ---
 
-export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
-  const [playerPos, setPlayerPos] = useState({ x: 2, z: 2 });
+export default function Level2_5({ onBack, onNextLevel, onLevelComplete }) {
+  const [playerPos, setPlayerPos] = useState({ x: 3, z: 3 });
   const [direction, setDirection] = useState({ x: 0, z: 0 });
   const [collectibles, setCollectibles] = useState(initialCollectibles);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
-  const [showTutorial, setShowTutorial] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
@@ -547,25 +583,24 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
   const enemyIdRef = useRef(1);
   const invulnerabilityTimerRef = useRef(null);
 
-  const [enemyAlert, setEnemyAlert] = useState(null);
+  // NUEVO: Coordinador de IA avanzada
+  const coordinatorRef = useRef(null);
 
-  const showEnemyAlert = (text) => {
-    setEnemyAlert(text);
-    setTimeout(() => {
-      setEnemyAlert(null);
-    }, 2000);
-  };
+  useEffect(() => {
+    coordinatorRef.current = new EnemyCoordinator();
+    console.log('🧠 Level 2.5: Advanced AI Coordinator initialized');
+  }, []);
 
-  // Patrol zones
-  const patrolZones = useMemo(() => createPatrolZones(28, 32, 2), []);
+  // Patrol zones para mapa 24x28
+  const patrolZones = useMemo(() => createPatrolZones(24, 28, 2), []);
 
-  const doghousePos = { x: 5, z: 5 };
+  const doghousePos = { x: 12, z: 14 }; // Centro del mapa
 
   const cameraConfig = {
     rotation: Math.PI / 4.8,
-    distance: 7,
-    height: 5,
-    fov: 60,
+    distance: 6.5,
+    height: 5.5,
+    fov: 65,
   };
 
   const playerRotation = 1.1;
@@ -580,7 +615,6 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
     musicRef.current.loop = true;
     musicRef.current.volume = 0.3;
 
-    // Only play if not muted initially (though muted state starts false)
     if (!isMuted) {
       musicRef.current.play().catch(e => console.log("Audio play failed:", e));
     }
@@ -591,9 +625,8 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
         musicRef.current = null;
       }
     };
-  }, [showIntroVideo]); // Only run when showIntroVideo changes
+  }, [showIntroVideo]);
 
-  // Handle mute toggle for bg music
   useEffect(() => {
     if (!musicRef.current) return;
 
@@ -630,7 +663,7 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
   };
 
   const restartLevel = () => {
-    setPlayerPos({ x: 2, z: 2 });
+    setPlayerPos({ x: 3, z: 3 });
     setDirection({ x: 0, z: 0 });
     setCollectibles(initialCollectibles.map(c => ({ ...c, collected: false })));
     setScore(0);
@@ -642,15 +675,19 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
     setShowSettingsModal(false);
     setShowGameOverModal(false);
     setShowVictoryModal(false);
-    setShowTutorial(true);
 
     if (invulnerabilityTimerRef.current) {
       clearTimeout(invulnerabilityTimerRef.current);
       invulnerabilityTimerRef.current = null;
     }
+
+    // Reiniciar coordinador
+    if (coordinatorRef.current) {
+      coordinatorRef.current = new EnemyCoordinator();
+    }
   };
 
-  // Spawn enemies
+  // Spawn 4 enemies con roles diferentes y tiempos escalonados
   useEffect(() => {
     const timer1 = setTimeout(() => {
       setEnemies(prev => [
@@ -659,13 +696,13 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
           id: enemyIdRef.current++,
           x: doghousePos.x,
           z: doghousePos.z,
-          role: AIRoles.CHASER,
+          role: AIRoles.CHASER, // Perseguidor agresivo
           zone: assignZone(0, patrolZones),
           isReturning: false
         }
       ]);
-      showEnemyAlert("¡Apareció un enemigo!");
-    }, 5000);
+      console.log('🎯 Enemy 1 (CHASER) spawned - Advanced AI');
+    }, 3000);
 
     const timer2 = setTimeout(() => {
       setEnemies(prev => [
@@ -674,19 +711,51 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
           id: enemyIdRef.current++,
           x: doghousePos.x,
           z: doghousePos.z,
-          role: AIRoles.PATROL,
+          role: AIRoles.CUTTER, // Interceptor
           zone: assignZone(1, patrolZones),
           isReturning: false
         }
       ]);
-      showEnemyAlert("¡Cuidado, otro enemigo!");
-    }, 10000);
+      console.log('✂️ Enemy 2 (CUTTER) spawned - Advanced AI');
+    }, 6000);
+
+    const timer3 = setTimeout(() => {
+      setEnemies(prev => [
+        ...prev,
+        {
+          id: enemyIdRef.current++,
+          x: doghousePos.x,
+          z: doghousePos.z,
+          role: AIRoles.TURNER, // Impredecible
+          zone: assignZone(2, patrolZones),
+          isReturning: false
+        }
+      ]);
+      console.log('🔄 Enemy 3 (TURNER) spawned - Advanced AI');
+    }, 9000);
+
+    const timer4 = setTimeout(() => {
+      setEnemies(prev => [
+        ...prev,
+        {
+          id: enemyIdRef.current++,
+          x: doghousePos.x,
+          z: doghousePos.z,
+          role: AIRoles.FLANKER, // Flanqueador
+          zone: assignZone(3, patrolZones),
+          isReturning: false
+        }
+      ]);
+      console.log('🔀 Enemy 4 (FLANKER) spawned - Advanced AI');
+    }, 12000);
 
     return () => {
       clearTimeout(timer1);
       clearTimeout(timer2);
+      clearTimeout(timer3);
+      clearTimeout(timer4);
     };
-  }, [showTutorial]);
+  }, [showVictoryModal, showGameOverModal]);
 
   useEffect(() => {
     return () => {
@@ -718,7 +787,7 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
     return () => clearInterval(interval);
   }, [isPaused]);
 
-  // Constant collision check (Fix for idle player not getting hit)
+  // Constant collision check
   useEffect(() => {
     if (isPaused || isInvulnerable) return;
 
@@ -760,7 +829,8 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
   // Keyboard Controls
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Tutorial check removed
+      if (isPaused) return;
+
       switch (e.key) {
         case 'ArrowUp':
         case 'w':
@@ -808,7 +878,7 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showTutorial, direction]);
+  }, [direction, isPaused]);
 
   const handleEnemyPositionUpdate = (enemyId, x, z) => {
     setEnemies(prevEnemies =>
@@ -897,28 +967,32 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
     if (beersCollected >= totalBeers && !showVictoryModal) {
       setIsPaused(true);
       setShowVictoryModal(true);
+      console.log('🎉 Level 2.5 completed with Advanced AI!');
       if (onLevelComplete) {
-        onLevelComplete(1); // Nivel 1 completed (Level2.jsx), unlock Nivel 2
+        onLevelComplete(2.5); // Level 2.5 completed
       }
     }
   }, [beersCollected, totalBeers, showVictoryModal, onLevelComplete]);
 
   return (
-    <div className="game-container">
-      <Canvas camera={{ position: [14, 16, 24], fov: cameraConfig.fov }} shadows>
-        <ambientLight intensity={1.5} />
-        <directionalLight position={[14, 20, 16]} intensity={1.0} />
+    <div className="game-container-level2_5">
+      <Canvas camera={{ position: [12, 14, 20], fov: cameraConfig.fov }} shadows>
+        <ambientLight intensity={1.2} />
+        <pointLight position={[12, 15, 14]} intensity={2.0} />
+        <pointLight position={[6, 10, 7]} intensity={1.2} />
+        <pointLight position={[18, 10, 21]} intensity={1.2} />
 
         <Maze walls={walls} />
         <Floor />
+        <Bubbles />
 
         <InstancedCollectibles collectibles={collectibles} />
-        <Bubbles />
 
         <Doghouse position={doghousePos} />
 
+        {/* ENEMIGOS CON IA AVANZADA */}
         {enemies.map(enemy => (
-          <Enemy
+          <EnemyAdvanced
             key={enemy.id}
             enemyId={enemy.id}
             position={{ x: enemy.x, z: enemy.z }}
@@ -927,22 +1001,23 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
             walls={walls}
             onPositionUpdate={(x, z) => handleEnemyPositionUpdate(enemy.id, x, z)}
             checkCollision={checkCollision}
-            isPowerActive={false}
-            isPaused={isPaused}
             rotation={playerRotation}
+            isPaused={isPaused}
             role={enemy.role}
             assignedZone={enemy.zone}
             doghousePos={doghousePos}
             isReturning={enemy.isReturning}
             spritesheet1Path="/assets/personajes/enemy_type_13.png"
             spritesheet2Path="/assets/personajes/enemy_type_14.png"
+            coordinator={coordinatorRef.current}
+            debugMode={false} // Cambiar a true para ver visualización de IA
           />
         ))}
 
         <Player
           position={playerPos}
           direction={direction}
-          onPositionUpdate={(x, z) => handlePositionUpdate(x, z)}
+          onPositionUpdate={handlePositionUpdate}
           rotation={playerRotation}
           isPaused={isPaused}
           isInvulnerable={isInvulnerable}
@@ -958,13 +1033,25 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
 
       {/* UI Overlay */}
       <div className="ui-overlay">
-        <LevelHeader
-          levelNumber={2}
-          lives={lives}
-          score={score}
-          beersCollected={beersCollected}
-          onBack={onBack}
-        />
+        {/* Indicador de IA Avanzada */}
+        <div className="challenge-indicator" style={{
+          position: 'fixed',
+          top: '80px',
+          left: '20px',
+          padding: '8px 16px',
+          background: 'linear-gradient(145deg, rgba(156, 39, 176, 0.9), rgba(123, 31, 162, 0.9))',
+          border: '2px solid rgba(255, 255, 255, 0.3)',
+          borderRadius: '8px',
+          color: 'white',
+          fontSize: '12px',
+          fontWeight: '700',
+          textTransform: 'uppercase',
+          letterSpacing: '1px',
+          boxShadow: '0 4px 15px rgba(156, 39, 176, 0.5)',
+          zIndex: 150
+        }}>
+          🧠 Advanced AI
+        </div>
 
         {/* D-Pad Controls */}
         <div className="d-pad-container">
@@ -1008,6 +1095,14 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
             </button>
           </div>
         </div>
+        <LevelHeader
+          lives={lives}
+          levelNumber="2.5"
+          levelName="Medusa Oscura 🧠"
+          beersCollected={beersCollected}
+          totalBeers={totalBeers}
+          score={score}
+        />
 
         <button className="settings-button" onClick={() => {
           setIsPaused(true);
@@ -1015,17 +1110,6 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
         }}>
           <Pause size={24} />
         </button>
-
-        {showTutorial && (
-          <div className="tutorial-modal">
-            <div className="tutorial-content glass-panel animate-fade-in">
-              <h2>¡NIVEL 2: LAS MEDUSAS!</h2>
-              <p>Evita a los enemigos y recoge las medusas.</p>
-              <p>¡Cuidado! Atravesar paredes te hará daño.</p>
-              <button onClick={() => setShowTutorial(false)}>¡ENTENDIDO!</button>
-            </div>
-          </div>
-        )}
 
         {showSettingsModal && (
           <div className="settings-modal">
@@ -1054,11 +1138,19 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
           <div className="game-over-modal">
             <div className="game-over-content glass-panel">
               <h2 className="game-over-title">¡HAS PERDIDO!</h2>
-              <p className="game-over-subtitle">Se acabaron las vidas</p>
+              <p className="game-over-subtitle">Los enemigos inteligentes te atraparon</p>
               <div className="game-over-stats">
                 <p>Puntuación final: {score}</p>
                 <p>Cervezas recogidas: {beersCollected}</p>
+                <p style={{ fontSize: '0.9em', color: '#9C27B0', marginTop: '10px' }}>
+                  🧠 Los enemigos usaron IA avanzada
+                </p>
               </div>
+              {beersCollected >= totalBeers && onNextLevel && (
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
+                  <Play size={20} /> Avanzar al siguiente nivel
+                </button>
+              )}
               <button className="modal-button restart-button" onClick={restartLevel}>
                 <RotateCcw size={20} /> Reintentar
               </button>
@@ -1070,31 +1162,23 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
         )}
 
         {showVictoryModal && (
-          <div className="victory-modal">
-            <div className="victory-content glass-panel">
-              <h2 className="victory-title">¡VICTORIA!</h2>
-              <p className="victory-subtitle">¡Nivel Completado!</p>
-              <div className="victory-stats">
-                <p>Puntuación Final: {score}</p>
-              </div>
+          <div className="settings-modal victory-modal">
+            <div className="settings-content glass-panel victory-content">
+              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
+              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has conseguido {score} puntos!</p>
+              <p style={{ fontSize: '1em', marginBottom: '10px', color: '#4CAF50' }}>¡Has superado el nivel desafío!</p>
+              <p style={{ fontSize: '0.9em', marginBottom: '30px', color: '#9C27B0' }}>
+                🧠 ¡Venciste a los enemigos con IA avanzada!
+              </p>
               {onNextLevel && (
-                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78' }}>
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
                   <Play size={20} /> Siguiente Nivel
                 </button>
               )}
-              <button className="modal-button restart-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> Jugar de nuevo
-              </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> Volver al menú
+                <Home size={20} /> Volver al Menú
               </button>
             </div>
-          </div>
-        )}
-
-        {enemyAlert && (
-          <div className="enemy-alert">
-            {enemyAlert}
           </div>
         )}
       </div>
@@ -1143,4 +1227,3 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
     </div>
   );
 }
-

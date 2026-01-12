@@ -3,9 +3,11 @@ import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
 import { useDrag } from '@use-gesture/react';
-import { Pause, Play, RotateCcw, Home, Volume2, VolumeX } from 'lucide-react';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import LevelHeader from '../components/LevelHeader';
 import './Level5.css';
+import Enemy from '../components/game/Enemy';
+import { AIRoles, createPatrolZones, assignZone } from './ai/EnemyAI';
 
 // --- Constants & Configuration ---
 const CELL_SIZE = 5;
@@ -138,52 +140,8 @@ const walls = [
     { x: 26, z: 24, length: 2, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
     { x: 27, z: 22, length: 2, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 
-    // Technical Details
-    { x: 3, z: 5, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 5, z: 7, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 8, z: 6, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-    { x: 10, z: 11, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+    // Obstaculos adicionales eliminados para simplificar el laberinto
 
-    { x: 19, z: 5, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 23, z: 7, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 25, z: 6, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-    { x: 27, z: 11, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-
-    { x: 3, z: 25, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 5, z: 28, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 8, z: 26, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-    { x: 10, z: 31, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-
-    { x: 19, z: 25, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 23, z: 28, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 25, z: 26, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-    { x: 27, z: 31, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-
-    // Precision Obstacles
-    { x: 10, z: 13, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-    { x: 10, z: 21, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-    { x: 18, z: 13, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-    { x: 18, z: 21, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-
-    { x: 9, z: 17, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 19, z: 17, length: 1.5, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-
-    // Narrow Connectors
-    { x: 4, z: 9, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-    { x: 6, z: 11, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 8, z: 9, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-
-    { x: 20, z: 9, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-    { x: 22, z: 11, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 25, z: 9, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-
-    { x: 4, z: 29, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-    { x: 6, z: 31, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 8, z: 29, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-
-    { x: 20, z: 29, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-    { x: 22, z: 31, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 25, z: 29, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
 ];
 
 const doghousePos = { x: 6, z: 8 };
@@ -245,7 +203,7 @@ function generateCollectibles(count) {
     return collectibles;
 }
 
-const initialCollectibles = generateCollectibles(145);
+const initialCollectibles = generateCollectibles(80);
 
 // Precargar texturas de enemigos ANTES de que se monte cualquier componente
 useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_7.png');
@@ -382,227 +340,13 @@ function Barrel({ position }) {
     );
 }
 
-function Enemy({ position, playerPos, walls, isPowerActive, isPaused, enemyId, onPositionUpdate, role = 'normal' }) {
-    const meshRef = useRef();
-    const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_7.png');
-    const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_8.png');
-
-    const [currentFrame, setCurrentFrame] = useState(0);
-    const [animationTime, setAnimationTime] = useState(0);
-    const [direction, setDirection] = useState({ x: 1, z: 0 });
-    const [mode, setMode] = useState('scatter');
-    const [modeTimer, setModeTimer] = useState(0);
-    const [lastIntersectionPos, setLastIntersectionPos] = useState({ x: -999, z: -999 });
-
-    const frameCount = 8;
-    const animationSpeed = 10;
-
-    useMemo(() => {
-        spritesheet1.magFilter = THREE.NearestFilter;
-        spritesheet1.minFilter = THREE.NearestFilter;
-        spritesheet2.magFilter = THREE.NearestFilter;
-        spritesheet2.minFilter = THREE.NearestFilter;
-    }, [spritesheet1, spritesheet2]);
-
-    const timerConfig = useMemo(() => {
-        const baseVariation = Math.random() * 2;
-
-        switch (role) {
-            case 'straight':
-                return {
-                    scatterDuration: 6 + baseVariation,
-                    chaseDuration: 5 + baseVariation,
-                    straightBias: 0.7,
-                };
-            case 'turner':
-                return {
-                    scatterDuration: 5 + baseVariation,
-                    chaseDuration: 6 + baseVariation,
-                    straightBias: 0.2,
-                };
-            case 'frequent':
-                return {
-                    scatterDuration: 3 + baseVariation,
-                    chaseDuration: 3 + baseVariation,
-                    straightBias: 0.5,
-                };
-            default:
-                return {
-                    scatterDuration: 5 + baseVariation,
-                    chaseDuration: 5 + baseVariation,
-                    straightBias: 0.5,
-                };
-        }
-    }, [role]);
-
-    const isAtIntersection = (x, z, lastPos) => {
-        const distanceFromLast = Math.sqrt(
-            Math.pow(x - lastPos.x, 2) + Math.pow(z - lastPos.z, 2)
-        );
-
-        if (distanceFromLast < 1.5) return false;
-
-        const directions = [
-            { x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 },
-        ];
-
-        let availableDirections = 0;
-        directions.forEach(dir => {
-            const testX = x + dir.x * 0.6;
-            const testZ = z + dir.z * 0.6;
-            if (!checkCollision(testX, testZ, walls)) {
-                availableDirections++;
-            }
-        });
-
-        return availableDirections > 2;
-    };
-
-    const getValidDirections = (x, z, currentDir) => {
-        const directions = [
-            { x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 },
-        ];
-
-        return directions.filter(dir => {
-            if (dir.x === -currentDir.x && dir.z === -currentDir.z) return false;
-
-            const testX = x + dir.x * 0.5;
-            const testZ = z + dir.z * 0.5;
-            return !checkCollision(testX, testZ, walls);
-        });
-    };
-
-    useFrame((state, delta) => {
-        if (isPaused) return;
-
-        const distance = Math.sqrt(
-            Math.pow(playerPos.x - position.x, 2) +
-            Math.pow(playerPos.z - position.z, 2)
-        );
-
-        // Si está cerca y el poder está activo, aturdir (no mover)
-        if (distance < 5 && isPowerActive) {
-            // Mantener animación pero no mover
-            setAnimationTime(prev => {
-                const newTime = prev + delta * animationSpeed;
-                const newFrame = Math.floor(newTime) % frameCount;
-                setCurrentFrame(newFrame);
-                return newTime;
-            });
-            return;
-        }
-
-        if (distance > 25) return;
-
-        setModeTimer(prev => {
-            const newTimer = prev + delta;
-            const currentDuration = mode === 'scatter'
-                ? timerConfig.scatterDuration
-                : timerConfig.chaseDuration;
-
-            if (newTimer >= currentDuration) {
-                setMode(currentMode => currentMode === 'scatter' ? 'chase' : 'scatter');
-                return 0;
-            }
-            return newTimer;
-        });
-
-        const speed = 4.28;
-        const nextX = position.x + direction.x * speed * delta;
-        const nextZ = position.z + direction.z * speed * delta;
-
-        const canMove = !checkCollision(nextX, nextZ, walls);
-        const atIntersection = isAtIntersection(position.x, position.z, lastIntersectionPos);
-
-        if (atIntersection || !canMove) {
-            const validDirs = getValidDirections(position.x, position.z, direction);
-
-            if (validDirs.length > 0) {
-                let newDir;
-
-                if (mode === 'scatter') {
-                    const continueDir = validDirs.find(dir =>
-                        dir.x === direction.x && dir.z === direction.z
-                    );
-
-                    if (continueDir && Math.random() < timerConfig.straightBias) {
-                        newDir = continueDir;
-                    } else {
-                        newDir = validDirs[Math.floor(Math.random() * validDirs.length)];
-                    }
-                } else {
-                    const dx = playerPos.x - position.x;
-                    const dz = playerPos.z - position.z;
-
-                    newDir = validDirs.reduce((best, dir) => {
-                        const score = dir.x * dx + dir.z * dz;
-                        const bestScore = best.x * dx + best.z * dz;
-                        return score > bestScore ? dir : best;
-                    });
-                }
-
-                setDirection(newDir);
-
-                if (atIntersection) {
-                    setLastIntersectionPos({ x: position.x, z: position.z });
-                }
-            }
-        }
-
-        if (canMove) {
-            onPositionUpdate(nextX, nextZ);
-
-            setAnimationTime(prev => {
-                const newTime = prev + delta * animationSpeed;
-                const newFrame = Math.floor(newTime) % frameCount;
-                setCurrentFrame(newFrame);
-                return newTime;
-            });
-        }
-    });
-
-    const getCurrentTexture = () => {
-        if (direction.x > 0 || direction.z > 0) {
-            return spritesheet1;
-        } else {
-            return spritesheet2;
-        }
-    };
-
-    const getFlipX = () => {
-        if (direction.z > 0) return -1;
-        if (direction.x < 0) return -1;
-        return 1;
-    };
-
-    const texture = getCurrentTexture();
-    texture.repeat.set(1 / frameCount, 1);
-    texture.offset.x = currentFrame / frameCount;
-
-    return (
-        <mesh
-            ref={meshRef}
-            position={[position.x, 0.5, position.z]}
-            rotation={[-Math.PI / 4, PLAYER_ROTATION, 0]}
-            scale={[getFlipX(), 1, 1]}
-        >
-            <planeGeometry args={[1.3, 1.3]} />
-            <meshStandardMaterial
-                map={texture}
-                transparent
-                side={THREE.DoubleSide}
-                color={isPowerActive ? '#6666ff' : 'white'}
-                alphaTest={0.5}
-                depthWrite={true}
-            />
-        </mesh>
-    );
-}
+// Enemy component moved to src/components/game/Enemy.jsx
 
 function Player({ position, direction, isPowerActive, isInvulnerable, isPaused }) {
     const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
     const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
     const [frame, setFrame] = useState(0);
+    const [lastDirection, setLastDirection] = useState({ x: 1, z: 0 });
 
     useMemo(() => {
         spritesheet1.magFilter = THREE.NearestFilter;
@@ -614,23 +358,27 @@ function Player({ position, direction, isPowerActive, isInvulnerable, isPaused }
     useFrame((state) => {
         if (isPaused) return;
         setFrame(Math.floor(state.clock.getElapsedTime() * 10) % 8);
+
+        if (direction.x !== 0 || direction.z !== 0) {
+            setLastDirection(direction);
+        }
     });
 
     const getCurrentTexture = () => {
-        if (direction.z < 0) return spritesheet1;
-        if (direction.x < 0) return spritesheet1;
-        if (direction.x > 0) return spritesheet2;
-        if (direction.z > 0) return spritesheet2;
+        if (lastDirection.z < 0) return spritesheet1;
+        if (lastDirection.x < 0) return spritesheet1;
+        if (lastDirection.x > 0) return spritesheet2;
+        if (lastDirection.z > 0) return spritesheet2;
         return spritesheet2;
     };
 
     const getFlipX = () => {
-        if (direction.x < 0) return -1;
-        if (direction.z > 0) return -1;
+        if (lastDirection.x < 0) return -1;
+        if (lastDirection.z > 0) return -1;
         return 1;
     };
 
-    const tex = getCurrentTexture();
+    const tex = getCurrentTexture().clone();
     tex.repeat.set(1 / 8, 1);
     tex.offset.x = frame / 8;
 
@@ -688,6 +436,9 @@ function EnemyTextureLoader({ children }) {
 
 // --- Main Level Component ---
 
+// Crear zonas de patrulla para el mapa (30x34)
+const patrolZones = createPatrolZones(30, 34, 2);
+
 export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
     const [playerPos, setPlayerPos] = useState(INITIAL_PLAYER_POS);
     const [direction, setDirection] = useState({ x: 0, z: 0 });
@@ -707,22 +458,39 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
     const [showIntroVideo, setShowIntroVideo] = useState(true);
     const beersCollected = useMemo(() => collectibles.filter(c => c.collected).length, [collectibles]);
     const prevBeersCollectedRef = useRef(0);
+    const [barrels, setBarrels] = useState([
+        { id: 1, x: 3.5, z: 9, collected: false },
+        { id: 2, x: 27.5, z: 4.5, collected: false },
+        { id: 3, x: 19.5, z: 29.5, collected: false },
+    ]);
+    const barrelsCollected = useMemo(() => barrels.filter(b => b.collected).length, [barrels]);
+    const prevBarrelsCollectedRef = useRef(0);
     const invulnerabilityTimerRef = useRef(null);
 
     // Audio State
     const [isMuted, setIsMuted] = useState(false);
     const musicRef = useRef(null);
 
-    // Initial Barrels
-    const [barrels, setBarrels] = useState([
-        { id: 1, x: 3.5, z: 9, collected: false },
-        { id: 2, x: 27.5, z: 4.5, collected: false },
-        { id: 3, x: 19.5, z: 29.5, collected: false },
-    ]);
 
     const [enemies, setEnemies] = useState([]);
     const enemyIdRef = useRef(1);
-    const collectedBarrelsRef = useRef(new Set());
+
+    const [enemyAlert, setEnemyAlert] = useState(null);
+    const [powerAlert, setPowerAlert] = useState(null);
+
+    const showEnemyAlert = (text) => {
+        setEnemyAlert(text);
+        setTimeout(() => {
+            setEnemyAlert(null);
+        }, 2000);
+    };
+
+    const showPowerAlert = (text) => {
+        setPowerAlert(text);
+        setTimeout(() => {
+            setPowerAlert(null);
+        }, 2000);
+    };
 
     // --- Audio Logic ---
     useEffect(() => {
@@ -801,6 +569,18 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
         prevBeersCollectedRef.current = beersCollected;
     }, [beersCollected]);
 
+    // Sync score/tokens with collected barrels
+    useEffect(() => {
+        if (barrelsCollected > prevBarrelsCollectedRef.current) {
+            const diff = barrelsCollected - prevBarrelsCollectedRef.current;
+            // Assuming 1 barrel = 1 token + 25 score
+            setTokens(t => t + diff);
+            setScore(s => s + diff * 25);
+            playBarrelSound();
+        }
+        prevBarrelsCollectedRef.current = barrelsCollected;
+    }, [barrelsCollected]);
+
     const restartLevel = () => {
         setPlayerPos(INITIAL_PLAYER_POS);
         setDirection({ x: 0, z: 0 });
@@ -808,7 +588,8 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
         setScore(0);
         setLives(3);
         setTokens(0);
-        collectedBarrelsRef.current.clear();
+        prevBeersCollectedRef.current = 0;
+        prevBarrelsCollectedRef.current = 0;
         setBarrels([
             { id: 1, x: 3.5, z: 9, collected: false },
             { id: 2, x: 27.5, z: 4.5, collected: false },
@@ -833,13 +614,12 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
         if (tokens > 0 && !powerActive) {
             setTokens(prev => prev - 1);
             setPowerActive(true);
-            setPowerTimeLeft(6);
+            setPowerTimeLeft(10);
+            showPowerAlert("¡INVENCIBILIDAD! ¡APROVECHA!");
         }
     };
 
-    const handleSwipe = (newDir) => {
-        if (!isPaused) setDirection(newDir);
-    };
+
 
     // Power timer
     useEffect(() => {
@@ -869,14 +649,14 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
 
     // Check win condition
     useEffect(() => {
-        if (score >= 150 && !showWinModal) {
+        if (beersCollected === initialCollectibles.length && !showWinModal) {
             setIsPaused(true);
             setShowWinModal(true);
             if (onLevelComplete) {
                 onLevelComplete(4); // Nivel 4 completed (Level5.jsx), unlock Nivel 5
             }
         }
-    }, [score, showWinModal, onLevelComplete]);
+    }, [beersCollected, showWinModal, onLevelComplete]);
 
     // Keyboard controls
     useEffect(() => {
@@ -920,152 +700,269 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
     useEffect(() => {
         const interval = setInterval(() => {
             if (isPaused) return;
-            if (direction.x !== 0 || direction.z !== 0) {
+
+            // Determine if moving
+            const isMoving = direction.x !== 0 || direction.z !== 0;
+            let currentX = playerPos.x;
+            let currentZ = playerPos.z;
+
+            if (isMoving) {
                 // Move logic
-                const speed = 0.2; // approx per tick
+                const speed = 0.2; // Fixed speed, no boost for Shield
                 const newX = playerPos.x + direction.x * speed;
                 const newZ = playerPos.z + direction.z * speed;
                 if (!checkCollision(newX, newZ, walls)) {
                     setPlayerPos({ x: newX, z: newZ });
-
-                    // Collectibles
-                    setCollectibles(prev => {
-                        let changed = false;
-                        const next = prev.map(c => {
-                            if (!c.collected && Math.sqrt((newX - c.x) ** 2 + (newZ - c.z) ** 2) < 0.6) {
-                                changed = true;
-                                return { ...c, collected: true };
-                            }
-                            return c;
-                        });
-                        return changed ? next : prev;
-                    });
-
-                    // Barrels
-                    setBarrels(prev => {
-                        let tokensToAdd = 0;
-                        let pointsToAdd = 0;
-                        let hasChanges = false;
-                        const next = prev.map(b => {
-                            // Si ya está en la ref, asegurarse de que esté marcado como collected
-                            if (collectedBarrelsRef.current.has(b.id) && !b.collected) {
-                                hasChanges = true;
-                                return { ...b, collected: true };
-                            }
-                            // Si está cerca y no ha sido recogido
-                            if (!b.collected && !collectedBarrelsRef.current.has(b.id) && Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2) < 0.8) {
-                                collectedBarrelsRef.current.add(b.id);
-                                tokensToAdd++;
-                                pointsToAdd += 25;
-                                hasChanges = true;
-                                return { ...b, collected: true };
-                            }
-                            return b;
-                        });
-
-                        if (tokensToAdd > 0) {
-                            setTokens(t => t + tokensToAdd);
-                            setScore(s => s + pointsToAdd);
-                            playBarrelSound();
-                        }
-
-                        return hasChanges ? next : prev;
-                    });
+                    currentX = newX;
+                    currentZ = newZ;
                 }
             }
+
+            // --- Collision Logic (Runs every frame) ---
+
+            // 1. Collectibles
+            setCollectibles(prev => {
+                let changed = false;
+                const next = prev.map(c => {
+                    if (!c.collected) {
+                        const dist = Math.sqrt((currentX - c.x) ** 2 + (currentZ - c.z) ** 2);
+                        if (dist < 0.6) {
+                            changed = true;
+                            return { ...c, collected: true };
+                        }
+                    }
+                    return c;
+                });
+                return changed ? next : prev;
+            });
+
+            // 2. Barrels
+            setBarrels(prev => {
+                let changed = false;
+                const next = prev.map(b => {
+                    if (!b.collected) {
+                        const dist = Math.sqrt((currentX - b.x) ** 2 + (currentZ - b.z) ** 2);
+                        if (dist < 0.8) {
+                            changed = true;
+                            return { ...b, collected: true };
+                        }
+                    }
+                    return b;
+                });
+                return changed ? next : prev;
+            });
+
+            // 3. Enemies
+            if (!isInvulnerable) {
+                enemies.forEach(enemy => {
+                    if (enemy.isReturning) return; // Ignore returning enemies
+
+                    const dist = Math.sqrt((currentX - enemy.x) ** 2 + (currentZ - enemy.z) ** 2);
+
+                    // Hit by enemy
+                    if (dist < 0.5) {
+                        // Shield active: Push enemy away
+                        if (powerActive) {
+                            const dx = enemy.x - currentX;
+                            const dz = enemy.z - currentZ;
+                            // Normalize push direction
+                            const pushStrength = 1.5;
+                            // dist is already calculated and < 0.5
+                            // If completely overlapping, pick a random direction or just X
+                            const nx = dist > 0.01 ? dx / dist : 1;
+                            const nz = dist > 0.01 ? dz / dist : 0;
+
+                            const targetX = enemy.x + nx * pushStrength;
+                            const targetZ = enemy.z + nz * pushStrength;
+
+                            // Only move if valid position (simple wall check)
+                            if (!checkCollision(targetX, targetZ, walls)) {
+                                setEnemies(prev => prev.map(e =>
+                                    e.id === enemy.id ? { ...e, x: targetX, z: targetZ } : e
+                                ));
+                            }
+                            return;
+                        }
+
+                        // Normal hit
+                        playLoseLifeSound();
+                        setLives(prev => {
+                            const newLives = prev - 1;
+                            if (newLives <= 0) {
+                                setIsPaused(true);
+                                setShowGameOverModal(true);
+                                playGameOverSound();
+                                return 0;
+                            }
+                            return newLives;
+                        });
+
+                        setIsInvulnerable(true);
+                        invulnerabilityTimerRef.current = setTimeout(() => {
+                            setIsInvulnerable(false);
+                            invulnerabilityTimerRef.current = null;
+                        }, 3000);
+                    }
+                });
+            }
+
         }, 16); // 60fps logic
         return () => clearInterval(interval);
-    }, [direction, playerPos, isPaused]);
+    }, [direction, playerPos, isPaused, enemies, powerActive, isInvulnerable, lives]);
 
-    // Enemy Spawning with roles
+    // Enemy Spawning with roles (5 enemigos total para Level 5)
     useEffect(() => {
         const timer1 = setTimeout(() => {
             setEnemies(prevEnemies => [
                 ...prevEnemies,
                 {
-                    id: enemyIdRef.current++,
+                    id: enemyIdRef.current,
                     x: doghousePos.x,
                     z: doghousePos.z,
-                    role: 'straight',
+                    role: AIRoles.STRAIGHT,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
                 }
             ]);
-        }, 4000);
+            showEnemyAlert("¡Apareció un enemigo!");
+            enemyIdRef.current++;
+        }, 5000);
 
         const timer2 = setTimeout(() => {
             setEnemies(prevEnemies => [
                 ...prevEnemies,
                 {
-                    id: enemyIdRef.current++,
+                    id: enemyIdRef.current,
                     x: doghousePos.x,
                     z: doghousePos.z,
-                    role: 'turner',
+                    role: AIRoles.TURNER,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
                 }
             ]);
-        }, 8000);
+            showEnemyAlert("¡Cuidado, otro enemigo!");
+            enemyIdRef.current++;
+        }, 10000);
 
         const timer3 = setTimeout(() => {
             setEnemies(prevEnemies => [
                 ...prevEnemies,
                 {
-                    id: enemyIdRef.current++,
+                    id: enemyIdRef.current,
                     x: doghousePos.x,
                     z: doghousePos.z,
-                    role: 'frequent',
+                    role: AIRoles.FREQUENT,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
                 }
             ]);
+            showEnemyAlert("¡Más peligro!");
+            enemyIdRef.current++;
         }, 15000);
+
+        const timer4 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: doghousePos.x,
+                    z: doghousePos.z,
+                    role: AIRoles.CHASER,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            enemyIdRef.current++;
+        }, 20000);
+
+        const timer5 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: doghousePos.x,
+                    z: doghousePos.z,
+                    role: AIRoles.CUTTER,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            enemyIdRef.current++;
+        }, 25000);
 
         return () => {
             clearTimeout(timer1);
             clearTimeout(timer2);
             clearTimeout(timer3);
+            clearTimeout(timer4);
+            clearTimeout(timer5);
         };
     }, [showWinModal, showGameOverModal]);
 
     // Enemy collision detection with player
     useEffect(() => {
         const interval = setInterval(() => {
-            if (isPaused || isInvulnerable) return;
+            if (isPaused) return;
 
-            const hitByEnemy = enemies.some(enemy => {
-                const distance = Math.sqrt(
-                    Math.pow(playerPos.x - enemy.x, 2) + Math.pow(playerPos.z - enemy.z, 2)
+            setEnemies(prev => prev.map(enemy => {
+                const dist = Math.sqrt(
+                    (playerPos.x - enemy.x) ** 2 +
+                    (playerPos.z - enemy.z) ** 2
                 );
-                return distance < 0.4;
-            });
 
-            if (hitByEnemy) {
-                const newLives = lives - 1;
-
-                if (newLives <= 0) {
-                    setLives(0);
-                    setShowGameOverModal(true);
-                    setIsPaused(true);
-                    playGameOverSound();
-                } else {
-                    setLives(newLives);
-                    playLoseLifeSound();
-                    setIsInvulnerable(true);
-
-                    if (invulnerabilityTimerRef.current) {
-                        clearTimeout(invulnerabilityTimerRef.current);
-                    }
-
-                    invulnerabilityTimerRef.current = setTimeout(() => {
-                        setIsInvulnerable(false);
-                        invulnerabilityTimerRef.current = null;
-                    }, 3000);
+                // Si el jugador toca al enemigo con poder activo
+                if (dist < 0.6 && powerActive && !enemy.isReturning) {
+                    setScore(s => s + 200);
+                    return { ...enemy, isReturning: true };
                 }
-            }
+
+                // Si el enemigo toca al jugador sin poder
+                if (dist < 0.4 && !powerActive && !enemy.isReturning && !isInvulnerable) {
+                    const newLives = lives - 1;
+
+                    if (newLives <= 0) {
+                        setLives(0);
+                        setShowGameOverModal(true);
+                        setIsPaused(true);
+                        playGameOverSound();
+                    } else {
+                        setLives(newLives);
+                        playLoseLifeSound();
+                        setIsInvulnerable(true);
+
+                        if (invulnerabilityTimerRef.current) {
+                            clearTimeout(invulnerabilityTimerRef.current);
+                        }
+
+                        invulnerabilityTimerRef.current = setTimeout(() => {
+                            setIsInvulnerable(false);
+                            invulnerabilityTimerRef.current = null;
+                        }, 3000);
+                    }
+                }
+
+                // Si el enemigo regresó a casa
+                if (enemy.isReturning) {
+                    const distToDoghouse = Math.sqrt(
+                        (enemy.x - doghousePos.x) ** 2 +
+                        (enemy.z - doghousePos.z) ** 2
+                    );
+                    if (distToDoghouse < 0.5) {
+                        return { ...enemy, isReturning: false };
+                    }
+                }
+
+                return enemy;
+            }));
         }, 50);
 
         return () => clearInterval(interval);
-    }, [enemies, playerPos, isInvulnerable, isPaused, lives]);
+    }, [enemies, playerPos, powerActive, isInvulnerable, isPaused, lives]);
 
 
     return (
         <div className="game-container">
-            <GestureLayer onSwipe={handleSwipe} />
+
 
             <Canvas camera={{ position: [14, 18, 26], fov: CAMERA_CONFIG.fov }} shadows>
                 <ambientLight intensity={1.5} />
@@ -1087,13 +984,23 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                             <Enemy
                                 key={enemy.id}
                                 enemyId={enemy.id}
-                                role={enemy.role || 'normal'}
                                 position={{ x: enemy.x, z: enemy.z }}
                                 playerPos={playerPos}
+                                playerDirection={direction}
                                 walls={walls}
                                 onPositionUpdate={(x, z) => handleEnemyPositionUpdate(enemy.id, x, z)}
+                                checkCollision={checkCollision}
                                 isPowerActive={powerActive}
                                 isPaused={isPaused}
+                                rotation={PLAYER_ROTATION}
+                                role={enemy.role}
+                                assignedZone={enemy.zone}
+                                doghousePos={doghousePos}
+                                isReturning={enemy.isReturning}
+                                spritesheet1Path="/assets/personajes/enemy_type_7.png"
+                                spritesheet2Path="/assets/personajes/enemy_type_8.png"
+                                debugMode={false}
+                                slowDownOnPower={false}
                             />
                         ))}
                     </EnemyTextureLoader>
@@ -1111,26 +1018,66 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                     score={score}
                 />
 
-                <div className="power-button-container">
-                    <button
-                        onClick={activatePower}
-                        disabled={tokens === 0}
-                        className="power-button"
-                    >
-                        <img
-                            src="/assets/poderes/power_icon_l5.png"
-                            alt="Power"
-                            className={`power-button-image ${tokens === 0 ? 'disabled' : ''}`}
-                        />
-                        <div className="token-badge">
-                            <span className="token-text">{tokens}</span>
+                <div className="d-pad-container">
+                    <div className="d-pad-row">
+                        <button
+                            className="d-pad-button up"
+                            onPointerDown={() => setDirection({ x: 0, z: -1 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowUp size={24} />
+                        </button>
+                    </div>
+                    <div className="d-pad-row middle">
+                        <button
+                            className="d-pad-button left"
+                            onPointerDown={() => setDirection({ x: -1, z: 0 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowLeft size={24} />
+                        </button>
+                        <div className="d-pad-center">
+                            <button
+                                onClick={activatePower}
+                                disabled={tokens === 0 || powerActive}
+                                className="power-button"
+                            >
+                                <img
+                                    src="/assets/poderes/power_icon_l5.png"
+                                    alt="Power"
+                                    className={`power-button-image ${tokens === 0 ? 'disabled' : ''}`}
+                                />
+                                <div className="token-badge">
+                                    <span className="token-text">{tokens}</span>
+                                </div>
+                                {powerActive && (
+                                    <div className="timer-overlay">
+                                        <span className="timer-text">{powerTimeLeft}</span>
+                                    </div>
+                                )}
+                            </button>
                         </div>
-                        {powerActive && (
-                            <div className="timer-overlay">
-                                <span className="timer-text">{powerTimeLeft}</span>
-                            </div>
-                        )}
-                    </button>
+                        <button
+                            className="d-pad-button right"
+                            onPointerDown={() => setDirection({ x: 1, z: 0 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowRight size={24} />
+                        </button>
+                    </div>
+                    <div className="d-pad-row">
+                        <button
+                            className="d-pad-button down"
+                            onPointerDown={() => setDirection({ x: 0, z: 1 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowDown size={24} />
+                        </button>
+                    </div>
                 </div>
 
                 <button className="settings-button" onClick={() => {
@@ -1172,11 +1119,7 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                                 <p>Puntuación final: {score}</p>
                                 <p>Cervezas recogidas: {beersCollected}</p>
                             </div>
-                            {score >= 150 && onNextLevel && (
-                                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
-                                    Avanzar al siguiente nivel
-                                </button>
-                            )}
+
                             <button className="modal-button restart-button" onClick={restartLevel}>
                                 Reintentar
                             </button>
@@ -1247,23 +1190,22 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                     </button>
                 </div>
             )}
+            {powerAlert && (
+                <div className="enemy-alert" style={{ background: 'rgba(0, 100, 255, 0.7)', borderColor: '#4488ff', textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
+                    {powerAlert}
+                </div>
+            )}
+
+            {enemyAlert && (
+                <div className="enemy-alert">
+                    {enemyAlert}
+                </div>
+            )}
         </div>
     );
 }
 
-function GestureLayer({ onSwipe }) {
-    const bind = useDrag(({ movement: [mx, my], last }) => {
-        const threshold = 10;
-        if (Math.abs(mx) > threshold || Math.abs(my) > threshold) {
-            if (Math.abs(mx) > Math.abs(my)) {
-                onSwipe(mx > 0 ? { x: 1, z: 0 } : { x: -1, z: 0 });
-            } else {
-                onSwipe(my > 0 ? { x: 0, z: 1 } : { x: 0, z: -1 });
-            }
-        }
-    }, { filterTaps: true, threshold: 10 });
-    return <div {...bind()} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 5, touchAction: 'none' }} />;
-}
+
 
 function CameraController({ targetX, targetZ }) {
     useFrame(({ camera }) => {

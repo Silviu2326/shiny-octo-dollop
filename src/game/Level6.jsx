@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
-import { useDrag } from '@use-gesture/react';
-import { Pause, Play, RotateCcw, Home, Volume2, VolumeX } from 'lucide-react';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import LevelHeader from '../components/LevelHeader';
+import Enemy from '../components/game/Enemy';
+import { AIRoles, createPatrolZones, assignZone } from './ai/EnemyAI';
 import './Level6.css';
 
 // --- Constants & Configuration ---
@@ -148,7 +149,7 @@ function generateCollectibles(count) {
     return collectibles;
 }
 
-const initialCollectibles = generateCollectibles(155);
+const initialCollectibles = generateCollectibles(85);
 
 // --- Components ---
 
@@ -258,215 +259,7 @@ function Barrel({ position }) {
     );
 }
 
-function Enemy({ position, playerPos, walls, onPositionUpdate, rotation, isPowerActive, isPaused, doghousePos, isReturning, onReturnComplete }) {
-    const meshRef = useRef();
-
-    // Load both spritesheets
-    // Texture 1: Right/Down (enemy_type_5.png)
-    // Texture 2: Left/Up   (enemy_type_6.png)
-    const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_5.png');
-    const t2 = useLoader(THREE.TextureLoader, '/assets/personajes/enemy_type_6.png');
-
-    // Clone textures to allow independent frame updates per enemy instance
-    const spritesheet1 = useMemo(() => {
-        const t = t1.clone();
-        t.magFilter = THREE.NearestFilter;
-        t.minFilter = THREE.NearestFilter;
-        return t;
-    }, [t1]);
-
-    const spritesheet2 = useMemo(() => {
-        const t = t2.clone();
-        t.magFilter = THREE.NearestFilter;
-        t.minFilter = THREE.NearestFilter;
-        return t;
-    }, [t2]);
-
-    const [currentFrame, setCurrentFrame] = useState(0);
-    const [direction, setDirection] = useState({ x: 1, z: 0 }); // Start moving right
-    const [mode, setMode] = useState('scatter');
-    const [modeTimer, setModeTimer] = useState(Math.random() * 2);
-    const [lastIntersectionPos, setLastIntersectionPos] = useState({ x: -999, z: -999 });
-
-    const stunTimerRef = useRef(0);
-
-    // Constants
-    const frameCount = 8;
-    const animationSpeed = 10;
-    const chaseTime = useMemo(() => 5 + Math.random() * 4, []);
-    const scatterTime = useMemo(() => 5 + Math.random() * 4, []);
-
-    // Helper: Check for intersections
-    const isAtIntersection = (x, z, lastPos) => {
-        const distanceFromLast = Math.sqrt(Math.pow(x - lastPos.x, 2) + Math.pow(z - lastPos.z, 2));
-        if (distanceFromLast < 1.5) return false;
-
-        const directions = [{ x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }];
-        let availableDirections = 0;
-        directions.forEach(dir => {
-            if (!checkCollision(x + dir.x * 0.6, z + dir.z * 0.6, walls)) {
-                availableDirections++;
-            }
-        });
-        return availableDirections > 2;
-    };
-
-    const getValidDirections = (x, z, currentDir) => {
-        const directions = [{ x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }];
-        return directions.filter(dir => {
-            if (dir.x === -currentDir.x && dir.z === -currentDir.z) return false; // Don't reverse
-            return !checkCollision(x + dir.x * 0.5, z + dir.z * 0.5, walls);
-        });
-    };
-
-    useFrame((state, delta) => {
-        if (isPaused) return;
-
-        if (isPowerActive) {
-            stunTimerRef.current += delta;
-        }
-
-        // --- Logic matching Level6.js (native) ---
-        const distToPlayer = Math.sqrt(Math.pow(playerPos.x - position.x, 2) + Math.pow(playerPos.z - position.z, 2));
-
-        // Return to Doghouse Logic
-        if (isReturning) {
-            const distToHome = Math.sqrt(Math.pow(doghousePos.x - position.x, 2) + Math.pow(doghousePos.z - position.z, 2));
-            if (distToHome < 0.5) {
-                setMode('scatter');
-                onReturnComplete();
-                return;
-            }
-
-            // Move towards home
-            const returnSpeed = 3.5;
-            const dx = doghousePos.x - position.x;
-            const dz = doghousePos.z - position.z;
-            const totalDist = Math.sqrt(dx * dx + dz * dz);
-
-            if (totalDist > 0) {
-                const dirX = dx / totalDist;
-                const dirZ = dz / totalDist;
-                // Simple movement towards home, taking checkCollision into account only if needed
-                // Native code does: if (!checkCollision) move.
-                const nextX = position.x + dirX * returnSpeed * delta;
-                const nextZ = position.z + dirZ * returnSpeed * delta;
-
-                if (!checkCollision(nextX, nextZ, walls)) {
-                    onPositionUpdate(nextX, nextZ);
-                }
-            }
-            // Animate
-            const newFrame = Math.floor(state.clock.elapsedTime * animationSpeed) % frameCount;
-            setCurrentFrame(newFrame);
-            return;
-        }
-
-        // Logic Limit
-        if (distToPlayer > 30) return;
-
-        // Mode Switching
-        if (!isPowerActive) {
-            setModeTimer(prev => {
-                const newTimer = prev + delta;
-                const limit = mode === 'scatter' ? scatterTime : chaseTime;
-                if (newTimer >= limit) {
-                    setMode(curr => curr === 'scatter' ? 'chase' : 'scatter');
-                    return 0;
-                }
-                return newTimer;
-            });
-        }
-
-        // Movement
-        const speed = isPowerActive ? 0.5 : 4.95;
-        const nextX = position.x + direction.x * speed * delta;
-        const nextZ = position.z + direction.z * speed * delta;
-
-        const canMove = !checkCollision(nextX, nextZ, walls);
-        const atInt = isAtIntersection(position.x, position.z, lastIntersectionPos);
-        const shouldChangeStunDir = isPowerActive && stunTimerRef.current > 0.2;
-
-        if (atInt || !canMove || shouldChangeStunDir) {
-            const validDirs = getValidDirections(position.x, position.z, direction);
-            if (validDirs.length > 0) {
-                let newDir;
-                if (isPowerActive) {
-                    newDir = validDirs[Math.floor(Math.random() * validDirs.length)];
-                    stunTimerRef.current = 0;
-                } else if (mode === 'scatter') {
-                    newDir = validDirs[Math.floor(Math.random() * validDirs.length)];
-                } else {
-                    // Chase
-                    const dx = playerPos.x - position.x;
-                    const dz = playerPos.z - position.z;
-                    newDir = validDirs.reduce((best, dir) => {
-                        const score = dir.x * dx + dir.z * dz;
-                        const bestScore = best.x * dx + best.z * dz;
-                        return score > bestScore ? dir : best;
-                    });
-                }
-                setDirection(newDir);
-                if (atInt) setLastIntersectionPos({ x: position.x, z: position.z });
-            } else if (!canMove) {
-                // Dead end, turn around
-                setDirection({ x: -direction.x, z: -direction.z });
-            }
-        }
-
-        if (canMove) {
-            onPositionUpdate(nextX, nextZ);
-            // Animate
-            const newFrame = Math.floor(state.clock.elapsedTime * animationSpeed) % frameCount;
-            setCurrentFrame(newFrame);
-        }
-    });
-
-    // Determine correct texture and flip based on direction
-    const getCurrentTexture = () => {
-        // Texture 1 (Type 5) is for Right/Down (usually)
-        // Texture 2 (Type 6) is for Left/Up
-        // Native logic: if (dir.x > 0 || dir.z > 0) -> spritesheet1
-        if (direction.x > 0 || direction.z > 0) {
-            return spritesheet1;
-        } else {
-            return spritesheet2;
-        }
-    };
-
-    const getFlipX = () => {
-        // Native logic: Left or Down -> flip?
-        // Native: if (direction.z > 0) return -1;
-        //         if (direction.x < 0) return -1;
-        if (direction.z > 0) return -1;
-        if (direction.x < 0) return -1;
-        return 1;
-    };
-
-    const texture = getCurrentTexture();
-    texture.repeat.set(1 / frameCount, 1);
-    texture.offset.x = currentFrame / frameCount;
-
-    return (
-        <mesh
-            ref={meshRef}
-            position={[position.x, 0.5, position.z]}
-            rotation={[-Math.PI / 4, 0, 0]} // Keep 0 Y rotation, flip handling via scale
-            scale={[getFlipX(), 1, 1]}
-        >
-            <planeGeometry args={[1.3, 1.3]} />
-            <meshStandardMaterial
-                map={texture}
-                transparent
-                side={THREE.DoubleSide}
-                alphaTest={0.5}
-                color={isReturning ? 'grey' : isPowerActive ? 'blue' : 'white'}
-                emissive={isReturning ? "#888888" : (isPowerActive ? "#0000FF" : "#000000")}
-                emissiveIntensity={isReturning ? 0.5 : (isPowerActive ? 0.6 : 0)}
-            />
-        </mesh>
-    );
-}
+// Enemy component moved to src/components/game/Enemy.jsx
 
 function Player({ position, direction, isPowerActive, isInvulnerable }) {
     const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
@@ -488,35 +281,34 @@ function Player({ position, direction, isPowerActive, isInvulnerable }) {
     }, [t2]);
 
     const [currentFrame, setCurrentFrame] = useState(0);
+    const [lastDirection, setLastDirection] = useState({ x: 1, z: 0 });
     const frameCount = 8;
     const animationSpeed = 10;
 
     useFrame((state, delta) => {
-        // Always animate or only when moving? Native animates when moving. 
-        // But here we might want idle loop? 
-        // Native: checks "if (direction.x !== 0 || direction.z !== 0)" inside Player useFrame
-        // But we are passing "direction" prop which is current input. 
-        // However, "position" is updated by parent.
-        // Let's just loop animation for now to be safe/lively.
         const newFrame = Math.floor(state.clock.elapsedTime * animationSpeed) % frameCount;
         setCurrentFrame(newFrame);
+
+        if (direction.x !== 0 || direction.z !== 0) {
+            setLastDirection(direction);
+        }
     });
 
     const getCurrentTexture = () => {
-        if (direction.z < 0) return spritesheet1; // Up
-        if (direction.x < 0) return spritesheet1; // Left
-        if (direction.x > 0) return spritesheet2; // Right
-        if (direction.z > 0) return spritesheet2; // Down
+        if (lastDirection.z < 0) return spritesheet1; // Up
+        if (lastDirection.x < 0) return spritesheet1; // Left
+        if (lastDirection.x > 0) return spritesheet2; // Right
+        if (lastDirection.z > 0) return spritesheet2; // Down
         return spritesheet2; // Default
     };
 
     const getFlipX = () => {
-        if (direction.x < 0) return -1; // Flip for Left
-        if (direction.z > 0) return -1; // Flip for Down
+        if (lastDirection.x < 0) return -1; // Flip for Left
+        if (lastDirection.z > 0) return -1; // Flip for Down
         return 1;
     };
 
-    const texture = getCurrentTexture();
+    const texture = getCurrentTexture().clone();
     texture.repeat.set(1 / frameCount, 1);
     texture.offset.x = currentFrame / frameCount;
 
@@ -563,6 +355,8 @@ function Floor() {
 
 // --- Main Level Component ---
 
+const patrolZones = createPatrolZones(30, 36, 2);
+
 export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     const [playerPos, setPlayerPos] = useState(INITIAL_PLAYER_POS);
     const [direction, setDirection] = useState({ x: 0, z: 0 });
@@ -581,6 +375,10 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     const [isMuted, setIsMuted] = useState(false);
     const musicRef = useRef(null);
 
+    // Alert States
+    const [enemyAlert, setEnemyAlert] = useState(null);
+    const [powerAlert, setPowerAlert] = useState(null);
+
     // Initial Barrels
     const [barrels, setBarrels] = useState([
         { id: 1, x: 15, z: 18, collected: false },
@@ -591,6 +389,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     const [enemies, setEnemies] = useState([]);
     const enemiesRef = useRef(enemies);
     const lastHitTimeRef = useRef(0);
+    const enemyIdRef = useRef(1);
 
     useEffect(() => {
         enemiesRef.current = enemies;
@@ -627,6 +426,20 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
 
     const toggleMute = () => setIsMuted(prev => !prev);
 
+    const showEnemyAlert = (text) => {
+        setEnemyAlert(text);
+        setTimeout(() => {
+            setEnemyAlert(null);
+        }, 2000);
+    };
+
+    const showPowerAlert = (text) => {
+        setPowerAlert(text);
+        setTimeout(() => {
+            setPowerAlert(null);
+        }, 2000);
+    };
+
     const playCollectSound = () => {
         if (isMuted) return;
         const sfx = new Audio('/assets/audio/sfx_collect.mp3');
@@ -642,15 +455,17 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     };
 
     // --- Victory Logic ---
+    const beersCollected = useMemo(() => collectibles.filter(c => c.collected).length, [collectibles]);
+
     useEffect(() => {
-        if (score >= 150 && !showVictoryModal) {
+        if (beersCollected === initialCollectibles.length && !showVictoryModal) {
             setIsPaused(true);
             setShowVictoryModal(true);
             if (onLevelComplete) {
                 onLevelComplete(5); // Nivel 5 completed (Level6.jsx), unlock Nivel 6
             }
         }
-    }, [score, showVictoryModal, onLevelComplete]);
+    }, [beersCollected, showVictoryModal, onLevelComplete]);
 
     // --- Game Logic ---
 
@@ -659,6 +474,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
             setTokens(prev => prev - 1);
             setPowerActive(true);
             setPowerTimeLeft(6);
+            showPowerAlert("¡PODER ACTIVADO! ¡APROVECHA!");
         }
     };
 
@@ -679,9 +495,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     }, [powerActive, powerTimeLeft, isPaused]);
 
 
-    const handleSwipe = (newDir) => {
-        if (!isPaused) setDirection(newDir);
-    };
+
 
     // Keyboard controls
     useEffect(() => {
@@ -704,117 +518,236 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
         const interval = setInterval(() => {
             if (isPaused) return;
 
+            // Determine if moving
+            const isMoving = direction.x !== 0 || direction.z !== 0;
+            let currentX = playerPos.x;
+            let currentZ = playerPos.z;
+
             // Player Movement
-            if (direction.x !== 0 || direction.z !== 0) {
+            if (isMoving) {
                 const speed = 0.22;
                 const newX = playerPos.x + direction.x * speed;
                 const newZ = playerPos.z + direction.z * speed;
                 if (!checkCollision(newX, newZ, walls)) {
                     setPlayerPos({ x: newX, z: newZ });
-
-                    // Collectibles
-                    setCollectibles(prev => {
-                        let changed = false;
-                        const next = prev.map(c => {
-                            if (!c.collected && Math.sqrt((newX - c.x) ** 2 + (newZ - c.z) ** 2) < 0.6) {
-                                setScore(s => s + 10);
-                                playCollectSound();
-                                changed = true;
-                                return { ...c, collected: true };
-                            }
-                            return c;
-                        });
-                        return changed ? next : prev;
-                    });
-
-                    // Barrels
-                    let tokensToAdd = 0;
-                    let scoreToAdd = 0;
-                    let barrelsChanged = false;
-
-                    const newBarrels = barrels.map(b => {
-                        if (!b.collected && Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2) < 0.8) {
-                            tokensToAdd += 1;
-                            scoreToAdd += 25;
-                            barrelsChanged = true;
-                            return { ...b, collected: true };
-                        }
-                        return b;
-                    });
-
-                    if (barrelsChanged) {
-                        setTokens(t => t + tokensToAdd);
-                        setScore(s => s + scoreToAdd);
-                        playCollectSound();
-                        setBarrels(newBarrels);
-                    }
+                    currentX = newX;
+                    currentZ = newZ;
                 }
             }
 
-            // Enemy AI and Collision
-            // Enemy AI and Collision
-            const currentEnemies = enemiesRef.current;
-            let hitOccurred = false;
-            let updates = [];
+            // --- Collision Logic (Runs every frame) ---
 
-            currentEnemies.forEach(e => {
-                const { x, z, isReturning, id } = e;
-                const dist = Math.sqrt((playerPos.x - x) ** 2 + (playerPos.z - z) ** 2);
-
-                if (dist < 0.8 && powerActive && !isReturning) {
-                    setScore(s => s + 200);
-                    updates.push({ id, isReturning: true });
-                } else if (dist < 0.5 && !powerActive && !isInvulnerable && !isReturning) {
-                    hitOccurred = true;
-                }
+            // 1. Collectibles
+            setCollectibles(prev => {
+                let changed = false;
+                const next = prev.map(c => {
+                    if (!c.collected && Math.sqrt((currentX - c.x) ** 2 + (currentZ - c.z) ** 2) < 0.6) {
+                        setScore(s => s + 10);
+                        playCollectSound();
+                        changed = true;
+                        return { ...c, collected: true };
+                    }
+                    return c;
+                });
+                return changed ? next : prev;
             });
 
-            if (updates.length > 0) {
-                setEnemies(prev => prev.map(e => {
-                    const update = updates.find(u => u.id === e.id);
-                    return update ? { ...e, ...update } : e;
-                }));
-            }
-
-            if (hitOccurred) {
-                const now = Date.now();
-                if (now - lastHitTimeRef.current > 500) {
-                    const newLives = lives - 1;
-                    setLives(newLives);
-
-                    if (newLives <= 0) {
-                        setShowGameOverModal(true);
-                        setIsPaused(true);
-                    } else {
-                        playLoseLifeSound();
-                        setIsInvulnerable(true);
-                        setTimeout(() => setIsInvulnerable(false), 3000);
+            // 2. Barrels
+            setBarrels(prev => {
+                let tokensToAdd = 0;
+                let scoreToAdd = 0;
+                let changed = false;
+                const next = prev.map(b => {
+                    if (!b.collected && Math.sqrt((currentX - b.x) ** 2 + (currentZ - b.z) ** 2) < 0.8) {
+                        tokensToAdd += 1;
+                        scoreToAdd += 25;
+                        changed = true;
+                        return { ...b, collected: true };
                     }
-                    lastHitTimeRef.current = now;
+                    return b;
+                });
+
+                if (tokensToAdd > 0) {
+                    setTokens(t => t + tokensToAdd);
+                    setScore(s => s + scoreToAdd);
+                    playCollectSound();
                 }
+
+                return changed ? next : prev;
+            });
+
+            // 3. Enemies
+            if (!isInvulnerable) {
+                enemies.forEach(enemy => {
+                    if (enemy.isReturning) return; // Ignore returning enemies
+
+                    const dist = Math.sqrt((currentX - enemy.x) ** 2 + (currentZ - enemy.z) ** 2);
+
+                    // Hit by enemy
+                    if (dist < 0.5) {
+                        // Power active: enemy goes back to doghouse
+                        if (powerActive) {
+                            setScore(s => s + 200);
+                            setEnemies(prev => prev.map(e =>
+                                e.id === enemy.id ? { ...e, isReturning: true } : e
+                            ));
+                            return;
+                        }
+
+                        // Normal hit
+                        playLoseLifeSound();
+                        setLives(prev => {
+                            const newLives = prev - 1;
+                            if (newLives <= 0) {
+                                setIsPaused(true);
+                                setShowGameOverModal(true);
+                                return 0;
+                            }
+                            return newLives;
+                        });
+
+                        setIsInvulnerable(true);
+                        setTimeout(() => {
+                            setIsInvulnerable(false);
+                        }, 3000);
+                    }
+                });
             }
 
         }, 16);
         return () => clearInterval(interval);
-    }, [direction, playerPos, isInvulnerable, powerActive, isPaused, barrels]);
+    }, [direction, playerPos, isPaused, enemies, powerActive, isInvulnerable]);
+
+    // Enemy returning to doghouse logic
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (isPaused) return;
+
+            setEnemies(prev => prev.map(enemy => {
+                // Si el enemigo está regresando a casa
+                if (enemy.isReturning) {
+                    const distToDoghouse = Math.sqrt(
+                        (enemy.x - DOGHOUSE_POS.x) ** 2 +
+                        (enemy.z - DOGHOUSE_POS.z) ** 2
+                    );
+                    if (distToDoghouse < 0.5) {
+                        return { ...enemy, isReturning: false };
+                    }
+                }
+                return enemy;
+            }));
+        }, 50);
+
+        return () => clearInterval(interval);
+    }, [enemies, isPaused]);
 
     // Enemy Spawning
     useEffect(() => {
-        const timeouts = [
-            setTimeout(() => setEnemies(e => [...e, { id: 1, x: DOGHOUSE_POS.x, z: DOGHOUSE_POS.z }]), 100),
-            setTimeout(() => setEnemies(e => [...e, { id: 2, x: DOGHOUSE_POS.x, z: DOGHOUSE_POS.z }]), 5000),
-            setTimeout(() => setEnemies(e => [...e, { id: 3, x: DOGHOUSE_POS.x, z: DOGHOUSE_POS.z }]), 9000),
-            setTimeout(() => setEnemies(e => [...e, { id: 4, x: DOGHOUSE_POS.x, z: DOGHOUSE_POS.z }]), 15000),
-        ];
-        return () => timeouts.forEach(clearTimeout);
+        const timer1 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: DOGHOUSE_POS.x,
+                    z: DOGHOUSE_POS.z,
+                    role: AIRoles.STRAIGHT,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            showEnemyAlert("¡Apareció un enemigo!");
+            enemyIdRef.current++;
+        }, 100);
+
+        const timer2 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: DOGHOUSE_POS.x,
+                    z: DOGHOUSE_POS.z,
+                    role: AIRoles.TURNER,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            showEnemyAlert("¡Cuidado, otro enemigo!");
+            enemyIdRef.current++;
+        }, 5000);
+
+        const timer3 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: DOGHOUSE_POS.x,
+                    z: DOGHOUSE_POS.z,
+                    role: AIRoles.FREQUENT,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            showEnemyAlert("¡Más peligro!");
+            enemyIdRef.current++;
+        }, 9000);
+
+        const timer4 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: DOGHOUSE_POS.x,
+                    z: DOGHOUSE_POS.z,
+                    role: AIRoles.CHASER,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            enemyIdRef.current++;
+        }, 12000);
+
+        const timer5 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: DOGHOUSE_POS.x,
+                    z: DOGHOUSE_POS.z,
+                    role: AIRoles.CUTTER,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            enemyIdRef.current++;
+        }, 15000);
+
+        const timer6 = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: DOGHOUSE_POS.x,
+                    z: DOGHOUSE_POS.z,
+                    role: AIRoles.ROTATOR,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            enemyIdRef.current++;
+        }, 18000);
+
+        return () => {
+            clearTimeout(timer1);
+            clearTimeout(timer2);
+            clearTimeout(timer3);
+            clearTimeout(timer4);
+            clearTimeout(timer5);
+            clearTimeout(timer6);
+        };
     }, []);
 
     const handleEnemyPositionUpdate = (id, x, z) => {
         setEnemies(prev => prev.map(e => e.id === id ? { ...e, x, z } : e));
-    };
-
-    const handleReturnComplete = (id) => {
-        setEnemies(prev => prev.map(e => e.id === id ? { ...e, isReturning: false } : e));
     };
 
     const restartLevel = () => {
@@ -826,7 +759,8 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
         setTokens(0);
         setPowerActive(false);
         setPowerTimeLeft(0);
-        setEnemies([]); // Logic to respawn needed, but simple clear is okay for now
+        setEnemies([]);
+        enemyIdRef.current = 1;
         setIsInvulnerable(false);
         setIsPaused(false);
         setShowSettingsModal(false);
@@ -846,7 +780,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
 
     return (
         <div className="game-container">
-            <GestureLayer onSwipe={handleSwipe} />
+
 
             <Canvas camera={{ position: [14, 16, 24], fov: 60 }} shadows>
                 <ambientLight intensity={1.5} />
@@ -865,16 +799,23 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                 {enemies.map(e => (
                     <Enemy
                         key={e.id}
-                        position={e}
+                        enemyId={e.id}
+                        position={{ x: e.x, z: e.z }}
                         playerPos={playerPos}
+                        playerDirection={direction}
                         walls={walls}
-                        doghousePos={DOGHOUSE_POS}
-                        isPowerActive={powerActive}
-                        isReturning={e.isReturning}
-                        rotation={0}
                         onPositionUpdate={(x, z) => handleEnemyPositionUpdate(e.id, x, z)}
-                        onReturnComplete={() => handleReturnComplete(e.id)}
+                        checkCollision={checkCollision}
+                        isPowerActive={powerActive}
                         isPaused={isPaused}
+                        rotation={PLAYER_ROTATION}
+                        role={e.role}
+                        assignedZone={e.zone}
+                        doghousePos={DOGHOUSE_POS}
+                        isReturning={e.isReturning}
+                        spritesheet1Path="/assets/personajes/enemy_type_5.png"
+                        spritesheet2Path="/assets/personajes/enemy_type_6.png"
+                        debugMode={false}
                     />
                 ))}
 
@@ -889,26 +830,66 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                     score={score}
                 />
 
-                <div className="power-button-container">
-                    <button
-                        onClick={activatePower}
-                        disabled={tokens === 0}
-                        className="power-button"
-                    >
-                        <img
-                            src="/assets/poderes/image-removebg-preview (15).png"
-                            alt="Power"
-                            className={`power-button-image ${tokens === 0 ? 'disabled' : ''}`}
-                        />
-                        <div className="token-badge">
-                            <span className="token-text">{tokens}</span>
+                <div className="d-pad-container">
+                    <div className="d-pad-row">
+                        <button
+                            className="d-pad-button up"
+                            onPointerDown={() => setDirection({ x: 0, z: -1 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowUp size={24} />
+                        </button>
+                    </div>
+                    <div className="d-pad-row middle">
+                        <button
+                            className="d-pad-button left"
+                            onPointerDown={() => setDirection({ x: -1, z: 0 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowLeft size={24} />
+                        </button>
+                        <div className="d-pad-center">
+                            <button
+                                onClick={activatePower}
+                                disabled={tokens === 0 || powerActive}
+                                className="power-button"
+                            >
+                                <img
+                                    src="/assets/poderes/image-removebg-preview (15).png"
+                                    alt="Power"
+                                    className={`power-button-image ${tokens === 0 ? 'disabled' : ''}`}
+                                />
+                                <div className="token-badge">
+                                    <span className="token-text">{tokens}</span>
+                                </div>
+                                {powerActive && (
+                                    <div className="timer-overlay">
+                                        <span className="timer-text">{powerTimeLeft}</span>
+                                    </div>
+                                )}
+                            </button>
                         </div>
-                        {powerActive && (
-                            <div className="timer-overlay">
-                                <span className="timer-text">{powerTimeLeft}</span>
-                            </div>
-                        )}
-                    </button>
+                        <button
+                            className="d-pad-button right"
+                            onPointerDown={() => setDirection({ x: 1, z: 0 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowRight size={24} />
+                        </button>
+                    </div>
+                    <div className="d-pad-row">
+                        <button
+                            className="d-pad-button down"
+                            onPointerDown={() => setDirection({ x: 0, z: 1 })}
+                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
+                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                        >
+                            <ArrowDown size={24} />
+                        </button>
+                    </div>
                 </div>
 
                 <button className="settings-button" onClick={() => {
@@ -1024,24 +1005,24 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                         </button>
                     </div>
                 )}
+
+                {powerAlert && (
+                    <div className="enemy-alert" style={{ background: 'rgba(0, 100, 255, 0.7)', borderColor: '#4488ff', textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
+                        {powerAlert}
+                    </div>
+                )}
+
+                {enemyAlert && (
+                    <div className="enemy-alert">
+                        {enemyAlert}
+                    </div>
+                )}
             </div>
         </div >
     );
 }
 
-function GestureLayer({ onSwipe }) {
-    const bind = useDrag(({ movement: [mx, my], last }) => {
-        const threshold = 10;
-        if (Math.abs(mx) > threshold || Math.abs(my) > threshold) {
-            if (Math.abs(mx) > Math.abs(my)) {
-                onSwipe(mx > 0 ? { x: 1, z: 0 } : { x: -1, z: 0 });
-            } else {
-                onSwipe(my > 0 ? { x: 0, z: 1 } : { x: 0, z: -1 });
-            }
-        }
-    }, { filterTaps: true, threshold: 10 });
-    return <div {...bind()} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 5, touchAction: 'none' }} />;
-}
+
 
 function CameraController({ targetX, targetZ }) {
     useFrame(({ camera }) => {

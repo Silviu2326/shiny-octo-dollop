@@ -5,7 +5,9 @@
       "Bash(findstr:*)",
       "Bash(npm run dev:*)",
       "Bash(npx vite build:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }
