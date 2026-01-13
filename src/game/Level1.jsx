@@ -173,8 +173,10 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
   const [showIntroVideo, setShowIntroVideo] = useState(true);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const musicRef = useRef(null);
+  const videoRef = useRef(null);
 
   const totalBeers = initialCollectibles.length;
   const beersCollected = totalBeers - collectibles.length;
@@ -408,16 +410,13 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
           levelNumber={1}
           beersCollected={beersCollected}
           score={score}
-        />
-
-        {!showSettingsModal && (
-          <button className="settings-button" onClick={() => {
+          onSettingsClick={() => {
             setIsPaused(true);
             setShowSettingsModal(true);
-          }}>
-            <Pause size={24} />
-          </button>
-        )}
+          }}
+        />
+
+
 
         {showSettingsModal && (
           <div className="settings-modal">
@@ -445,9 +444,9 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
         {showVictoryModal && (
           <div className="settings-modal victory-modal">
             <div className="settings-content glass-panel victory-content">
-              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
-              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has conseguido {score} puntos!</p>
-              <p style={{ fontSize: '1em', marginBottom: '30px', color: '#4CAF50' }}>¡El siguiente nivel está desbloqueado!</p>
+              <h2>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
+              <p className="score-text">¡Has conseguido {score} puntos!</p>
+              <p className="unlock-text">¡El siguiente nivel está desbloqueado!</p>
               <button className="modal-button" onClick={() => {
                 if (onNextLevel) onNextLevel();
               }}>
@@ -476,6 +475,7 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
           flexDirection: 'column'
         }}>
           <video
+            ref={videoRef}
             src="/assets/videos/nivel0 coolcat.mp4"
             autoPlay
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -483,6 +483,37 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
             onClick={() => setShowIntroVideo(false)}
             onError={() => setShowIntroVideo(false)}
           />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (videoRef.current) {
+                if (isVideoPlaying) {
+                  videoRef.current.pause();
+                } else {
+                  videoRef.current.play();
+                }
+                setIsVideoPlaying(!isVideoPlaying);
+              }
+            }}
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              right: '120px',
+              padding: '10px 20px',
+              backgroundColor: 'rgba(255, 255, 255, 0.5)',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              color: 'black',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+          >
+            {isVideoPlaying ? <Pause size={16} color="black" /> : <Play size={16} color="black" />}
+            {isVideoPlaying ? "Parar" : "Reproducir"}
+          </button>
           <button
             onClick={() => setShowIntroVideo(false)}
             style={{

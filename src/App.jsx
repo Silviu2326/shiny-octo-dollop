@@ -15,8 +15,19 @@ console.log('App.jsx loaded successfully');
 
 // Utility functions for level progression
 const getUnlockedLevels = () => {
-  // [TESTING] Unlocking all levels temporarily
-  return [0, 1, 2, 3, 4, 5, 6, 7];
+  try {
+    const saved = localStorage.getItem('beerRunProgress');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && Array.isArray(parsed.unlockedLevels)) {
+        return parsed.unlockedLevels;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading progress:', e);
+  }
+  // Por defecto solo el nivel 0 está desbloqueado
+  return [0];
 };
 
 const unlockLevel = (levelId) => {
@@ -195,6 +206,7 @@ function Game({ level, onBack, onNextLevel, onLevelComplete, userId }) {
 }
 
 function App() {
+  const [showIntro, setShowIntro] = useState(true);
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [userId, setUserId] = useState(null);
@@ -234,6 +246,63 @@ function App() {
     setSelectedLevel(null);
     setRefreshKey(k => k + 1); // Force update to refresh unlocked levels in selector
   };
+
+  const handleIntroFinish = () => {
+    setShowIntro(false);
+  };
+
+  if (showIntro) {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'black',
+        zIndex: 9999,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
+        <video
+          src="/assets/videos/intro.mp4"
+          autoPlay
+          playsInline
+          onEnded={handleIntroFinish}
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        />
+        <button
+          onClick={handleIntroFinish}
+          style={{
+            position: 'absolute',
+            bottom: '30px',
+            right: '30px',
+            padding: '12px 24px',
+            background: 'rgba(255, 255, 255, 0.2)',
+            color: 'white',
+            border: '1px solid rgba(255, 255, 255, 0.5)',
+            borderRadius: '30px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            backdropFilter: 'blur(5px)',
+            transition: 'all 0.3s ease',
+            zIndex: 10000
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.4)';
+            e.currentTarget.style.transform = 'scale(1.05)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+        >
+          Saltar Intro
+        </button>
+      </div>
+    );
+  }
 
   if (selectedLevel === null) {
     console.log('Rendering LevelSelector');

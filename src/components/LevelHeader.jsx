@@ -20,7 +20,8 @@ export default function LevelHeader({
   levelNumber,
   backgroundColor,
   textColor,
-  borderColor
+  borderColor,
+  onSettingsClick
 }) {
   const baseConfig = levelConfig[levelNumber] || {
     name: levelName || `Nivel ${levelNumber || ''}`,
@@ -90,7 +91,11 @@ export default function LevelHeader({
         <div className="level-header-section level-header-right">
           <div className="level-header-right-content">
             {/* Botón de ajustes */}
-            <button className="level-header-settings-button" style={{ borderColor: displayConfig.borderColor }}>
+            <button
+              className="level-header-settings-button"
+              style={{ borderColor: displayConfig.borderColor }}
+              onClick={onSettingsClick}
+            >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={displayConfig.textColor} strokeWidth="2">
                 <circle cx="12" cy="12" r="3"></circle>
                 <path d="M12 1v6m0 6v6m6-12h-6m6 6h-6m-6 0h6m-6 6h6"></path>

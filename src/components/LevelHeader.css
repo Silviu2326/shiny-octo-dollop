@@ -11,10 +11,12 @@
   display: flex;
   flex-direction: row;
   align-items: flex-end;
-  padding: 35px 40px 10px 0px;
+  justify-content: space-between;
+  padding: 35px 20px 10px 20px;
   border-bottom-width: 4px;
   border-bottom-style: solid;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  position: relative;
 }
 
 .level-header-section {
@@ -26,7 +28,7 @@
 .level-header-left {
   justify-content: flex-start;
   align-items: flex-end;
-  padding-left: 20px;
+  padding-left: 0;
 }
 
 .level-header-left-content {
@@ -37,12 +39,17 @@
 }
 
 .level-header-center {
-  flex: 1;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 15px;
+  /* Matches previous effective bottom spacing */
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 0 5px 15px 5px;
+  justify-content: flex-end;
+  padding: 0;
+  z-index: 10;
 }
 
 .level-header-subtitle {
@@ -112,7 +119,7 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
-  padding-right: 20px;
+  padding-right: 0;
 }
 
 .level-header-settings-button {

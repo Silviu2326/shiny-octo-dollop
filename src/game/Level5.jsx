@@ -3,7 +3,7 @@ import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeBufferGeometries } from 'three-stdlib';
 import { useDrag } from '@use-gesture/react';
-import { Pause, Play, RotateCcw, Home, Volume2, VolumeX, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Star } from 'lucide-react';
 import LevelHeader from '../components/LevelHeader';
 import './Level5.css';
 import Enemy from '../components/game/Enemy';
@@ -437,7 +437,26 @@ function EnemyTextureLoader({ children }) {
 // --- Main Level Component ---
 
 // Crear zonas de patrulla para el mapa (30x34)
+// Crear zonas de patrulla para el mapa (30x34)
 const patrolZones = createPatrolZones(30, 34, 2);
+
+// --- Star Rating Component ---
+
+function StarRating({ stars }) {
+    return (
+        <div className="star-rating">
+            {[...Array(3)].map((_, index) => (
+                <Star
+                    key={index}
+                    size={32}
+                    fill={index < stars ? "#FFD700" : "none"}
+                    color={index < stars ? "#FFD700" : "#555"}
+                    strokeWidth={index < stars ? 0 : 2}
+                />
+            ))}
+        </div>
+    );
+}
 
 export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
     const [playerPos, setPlayerPos] = useState(INITIAL_PLAYER_POS);
@@ -449,6 +468,8 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
     const [powerActive, setPowerActive] = useState(false);
     const [powerTimeLeft, setPowerTimeLeft] = useState(0);
     const [isInvulnerable, setIsInvulnerable] = useState(false);
+    const [startTime, setStartTime] = useState(Date.now());
+    const [finalScoreStats, setFinalScoreStats] = useState({ score: 0, bonus: 0, total: 0 });
 
     // UI State
     const [isPaused, setIsPaused] = useState(false);
@@ -456,6 +477,9 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
     const [showGameOverModal, setShowGameOverModal] = useState(false);
     const [showWinModal, setShowWinModal] = useState(false);
     const [showIntroVideo, setShowIntroVideo] = useState(true);
+    const [isVideoLoading, setIsVideoLoading] = useState(true);
+    const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+    const videoRef = useRef(null);
     const beersCollected = useMemo(() => collectibles.filter(c => c.collected).length, [collectibles]);
     const prevBeersCollectedRef = useRef(0);
     const [barrels, setBarrels] = useState([
@@ -521,6 +545,13 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
         }
     }, [isMuted]);
 
+    // Restart start time when tutorial closes
+    useEffect(() => {
+        if (!showIntroVideo) {
+            setStartTime(Date.now());
+        }
+    }, [showIntroVideo]);
+
     const toggleMute = () => setIsMuted(prev => !prev);
 
     const playCollectSound = () => {
@@ -573,9 +604,8 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
     useEffect(() => {
         if (barrelsCollected > prevBarrelsCollectedRef.current) {
             const diff = barrelsCollected - prevBarrelsCollectedRef.current;
-            // Assuming 1 barrel = 1 token + 25 score
-            setTokens(t => t + diff);
-            setScore(s => s + diff * 25);
+            setTokens(t => Math.min(3, t + diff));
+            setScore(s => s + diff * 20);
             playBarrelSound();
         }
         prevBarrelsCollectedRef.current = barrelsCollected;
@@ -608,6 +638,7 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
             clearTimeout(invulnerabilityTimerRef.current);
             invulnerabilityTimerRef.current = null;
         }
+        setStartTime(Date.now());
     };
 
     const activatePower = () => {
@@ -651,12 +682,22 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
     useEffect(() => {
         if (beersCollected === initialCollectibles.length && !showWinModal) {
             setIsPaused(true);
+
+            const elapsedSeconds = (Date.now() - startTime) / 1000;
+            const timeBonus = Math.max(0, Math.floor((180 - elapsedSeconds) * 10));
+
+            setFinalScoreStats({
+                score: score,
+                bonus: timeBonus,
+                total: score + timeBonus
+            });
+
             setShowWinModal(true);
             if (onLevelComplete) {
                 onLevelComplete(4); // Nivel 4 completed (Level5.jsx), unlock Nivel 5
             }
         }
-    }, [beersCollected, showWinModal, onLevelComplete]);
+    }, [beersCollected, showWinModal, onLevelComplete, score, startTime, initialCollectibles.length]);
 
     // Keyboard controls
     useEffect(() => {
@@ -790,6 +831,22 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                             const newLives = prev - 1;
                             if (newLives <= 0) {
                                 setIsPaused(true);
+
+                                // Calculate score stats for Game Over
+                                const elapsedSeconds = (Date.now() - startTime) / 1000;
+                                const timeBonus = Math.max(0, Math.floor((180 - elapsedSeconds) * 10)); // 3 mins max time
+
+                                let finalBonus = 0;
+                                if (beersCollected / initialCollectibles.length >= 0.7) {
+                                    finalBonus = timeBonus;
+                                }
+
+                                setFinalScoreStats({
+                                    score: score,
+                                    bonus: finalBonus,
+                                    total: score + finalBonus
+                                });
+
                                 setShowGameOverModal(true);
                                 playGameOverSound();
                                 return 0;
@@ -1016,6 +1073,10 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                     beersCollected={beersCollected}
                     totalBeers={initialCollectibles.length}
                     score={score}
+                    onSettingsClick={() => {
+                        setIsPaused(true);
+                        setShowSettingsModal(true);
+                    }}
                 />
 
                 <div className="d-pad-container">
@@ -1080,12 +1141,7 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                     </div>
                 </div>
 
-                <button className="settings-button" onClick={() => {
-                    setIsPaused(true);
-                    setShowSettingsModal(true);
-                }}>
-                    <Pause size={24} />
-                </button>
+
 
                 {showSettingsModal && (
                     <div className="settings-modal">
@@ -1113,36 +1169,69 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                 {showGameOverModal && (
                     <div className="game-over-modal">
                         <div className="game-over-content glass-panel">
-                            <h2 className="game-over-title">¡HAS PERDIDO!</h2>
-                            <p className="game-over-subtitle">Se acabaron las vidas</p>
+                            <h2 className="game-over-title">
+                                {beersCollected / initialCollectibles.length >= 0.7 ? "¡BUEN INTENTO!" : "¡HAS PERDIDO!"}
+                            </h2>
+                            <p className="game-over-subtitle">
+                                {beersCollected / initialCollectibles.length >= 0.7 ? "Puedes avanzar al siguiente nivel" : "Se acabaron las vidas"}
+                            </p>
+
+                            {beersCollected / initialCollectibles.length >= 0.7 && (
+                                <StarRating stars={
+                                    beersCollected / initialCollectibles.length >= 0.85 ? 2 : 1
+                                } />
+                            )}
+
                             <div className="game-over-stats">
-                                <p>Puntuación final: {score}</p>
+                                <p>Puntuación Base: {finalScoreStats.score}</p>
+                                <p>Bonus Tiempo: {finalScoreStats.bonus}</p>
+                                <p style={{ fontSize: '1.2em', color: '#FFD700' }}>Total: {finalScoreStats.total}</p>
                                 <p>Cervezas recogidas: {beersCollected}</p>
+                                {beersCollected / initialCollectibles.length >= 0.7 && (
+                                    <p style={{ color: '#48BB78', marginTop: '10px' }}>¡Objetivo mínimo completado!</p>
+                                )}
                             </div>
 
+                            {beersCollected / initialCollectibles.length >= 0.7 && onNextLevel && (
+                                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78', marginBottom: '15px' }}>
+                                    <Play size={20} /> Siguiente Nivel
+                                </button>
+                            )}
+
                             <button className="modal-button restart-button" onClick={restartLevel}>
-                                Reintentar
+                                <RotateCcw size={20} /> Reintentar
                             </button>
                             <button className="modal-button cancel-button" onClick={onBack}>
-                                Volver al menú
+                                <Home size={20} /> Volver al menú
                             </button>
                         </div>
                     </div>
                 )}
 
                 {showWinModal && (
-                    <div className="settings-modal victory-modal">
-                        <div className="settings-content glass-panel victory-content">
-                            <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
-                            <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has conseguido {score} puntos!</p>
-                            <p style={{ fontSize: '1em', marginBottom: '30px', color: '#4CAF50' }}>¡El siguiente nivel está desbloqueado!</p>
+                    <div className="victory-modal">
+                        <div className="victory-content glass-panel">
+                            <h2 className="victory-title">¡VICTORIA!</h2>
+                            <p className="victory-subtitle">¡Nivel Completado!</p>
+
+                            <StarRating stars={3} />
+
+                            <div className="victory-stats">
+                                <p>Puntuación Base: {finalScoreStats.score}</p>
+                                <p>Bonus Tiempo: {finalScoreStats.bonus}</p>
+                                <p style={{ fontSize: '1.4em', color: '#FFD700', fontWeight: 'bold' }}>Total: {finalScoreStats.total}</p>
+                            </div>
+
                             {onNextLevel && (
-                                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
+                                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78' }}>
                                     <Play size={20} /> Siguiente Nivel
                                 </button>
                             )}
+                            <button className="modal-button restart-button" onClick={restartLevel}>
+                                <RotateCcw size={20} /> Jugar de nuevo
+                            </button>
                             <button className="modal-button cancel-button" onClick={onBack}>
-                                <Home size={20} /> Volver al Menú
+                                <Home size={20} /> Volver al menú
                             </button>
                         </div>
                     </div>
@@ -1163,14 +1252,77 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                     alignItems: 'center',
                     flexDirection: 'column'
                 }}>
+                    {isVideoLoading && (
+                        <div style={{
+                            position: 'absolute',
+                            zIndex: 2001,
+                            color: 'white',
+                            fontSize: '24px',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '10px'
+                        }}>
+                            <div className="spinner" style={{
+                                width: '40px',
+                                height: '40px',
+                                border: '4px solid rgba(255,255,255,0.3)',
+                                borderTop: '4px solid white',
+                                borderRadius: '50%',
+                                animation: 'spin 1s linear infinite'
+                            }}></div>
+                            <div>Cargando...</div>
+                        </div>
+                    )}
                     <video
-                        src="/assets/videos/NIVEL 4 FINAL.mp4"
+                        ref={videoRef}
+                        src="/assets/videos/NIVEL 5 FINAL.mp4"
                         autoPlay
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        playsInline
+                        muted
+                        onLoadStart={() => setIsVideoLoading(true)}
+                        onWaiting={() => setIsVideoLoading(true)}
+                        onCanPlay={() => setIsVideoLoading(false)}
+                        onPlaying={() => setIsVideoLoading(false)}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isVideoLoading ? 0.5 : 1 }}
                         onEnded={() => setShowIntroVideo(false)}
                         onClick={() => setShowIntroVideo(false)}
                         onError={() => setShowIntroVideo(false)}
                     />
+
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (videoRef.current) {
+                                if (isVideoPlaying) {
+                                    videoRef.current.pause();
+                                } else {
+                                    videoRef.current.play();
+                                }
+                                setIsVideoPlaying(!isVideoPlaying);
+                            }
+                        }}
+                        style={{
+                            position: 'absolute',
+                            bottom: '20px',
+                            right: '120px',
+                            padding: '10px 20px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                            border: 'none',
+                            borderRadius: '5px',
+                            cursor: 'pointer',
+                            color: 'black',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            zIndex: 2002
+                        }}
+                    >
+                        {isVideoPlaying ? <Pause size={16} color="black" /> : <Play size={16} color="black" />}
+                        {isVideoPlaying ? "Parar" : "Reproducir"}
+                    </button>
                     <button
                         onClick={() => setShowIntroVideo(false)}
                         style={{
@@ -1183,7 +1335,8 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                             borderRadius: '5px',
                             cursor: 'pointer',
                             color: 'black',
-                            fontWeight: 'bold'
+                            fontWeight: 'bold',
+                            zIndex: 2002
                         }}
                     >
                         Saltar

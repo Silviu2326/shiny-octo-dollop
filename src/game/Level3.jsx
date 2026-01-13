@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
-import { Pause, Play, RotateCcw, Home, Volume2, VolumeX, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Star } from 'lucide-react';
 import * as THREE from 'three';
 import './Level3.css';
 import LevelHeader from '../components/LevelHeader';
@@ -411,6 +411,24 @@ function CameraController({ targetX, targetZ, rotation, distance, height }) {
   return null;
 }
 
+// --- Star Rating Component ---
+
+function StarRating({ stars }) {
+  return (
+    <div className="star-rating">
+      {[...Array(3)].map((_, index) => (
+        <Star
+          key={index}
+          size={32}
+          fill={index < stars ? "#FFD700" : "none"}
+          color={index < stars ? "#FFD700" : "#555"}
+          strokeWidth={index < stars ? 0 : 2}
+        />
+      ))}
+    </div>
+  );
+}
+
 // --- Main Component ---
 
 const doghousePos = { x: 2.5, z: 4 };
@@ -425,6 +443,8 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
   const [tokens, setTokens] = useState(0);
   const [specialBonuses, setSpecialBonuses] = useState([]);
   const [bonusFlags, setBonusFlags] = useState({ p30: false, p70: false });
+  const [startTime, setStartTime] = useState(Date.now());
+  const [finalScoreStats, setFinalScoreStats] = useState({ score: 0, bonus: 0, total: 0 });
   // Initial patrol zones
   const patrolZones = useMemo(() => createPatrolZones(28, 32, 2), []);
 
@@ -448,6 +468,9 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
   const [livesLost, setLivesLost] = useState(false);
   const [showWinModal, setShowWinModal] = useState(false);
   const [showIntroVideo, setShowIntroVideo] = useState(true);
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const videoRef = useRef(null);
   const [isMuted, setIsMuted] = useState(false);
   const [enemyAlert, setEnemyAlert] = useState(null);
   const [powerAlert, setPowerAlert] = useState(null);
@@ -517,6 +540,23 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
 
           if (newLives <= 0) {
             setLives(0);
+            setLives(0);
+
+            // Calculate score stats for Game Over
+            const elapsedSeconds = (Date.now() - startTime) / 1000;
+            const timeBonus = Math.max(0, Math.floor((180 - elapsedSeconds) * 10)); // 3 mins max time
+
+            let finalBonus = 0;
+            if (beersCollected / initialCollectibles.length >= 0.7) {
+              finalBonus = timeBonus;
+            }
+
+            setFinalScoreStats({
+              score: score,
+              bonus: finalBonus,
+              total: score + finalBonus
+            });
+
             setShowGameOverModal(true);
             setIsPaused(true);
             playGameOverSound();
@@ -574,10 +614,9 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
 
     if (barrelHitId) {
       setBarrels(prev => prev.map(b => b.id === barrelHitId ? { ...b, collected: true } : b));
+      setScore(p => p + 20);
       if (tokens < 3) {
         setTokens(p => p + 1);
-      } else {
-        setScore(p => p + 100);
       }
       playBarrelSound();
     }
@@ -646,6 +685,13 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
     };
   }, [showIntroVideo]);
 
+  // Restart start time when tutorial closes
+  useEffect(() => {
+    if (!showIntroVideo) {
+      setStartTime(Date.now());
+    }
+  }, [showIntroVideo]);
+
   // Handle mute toggle for bg music
   useEffect(() => {
     if (!musicRef.current) return;
@@ -689,6 +735,7 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
     setShowWinModal(false);
     setComboMultiplier(1);
     setLivesLost(false);
+    setStartTime(Date.now());
 
     if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
     if (invulnerabilityTimerRef.current) {
@@ -975,6 +1022,10 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
           score={score}
           beersCollected={beersCollected}
           onBack={onBack}
+          onSettingsClick={() => {
+            setIsPaused(true);
+            setShowSettingsModal(true);
+          }}
         />
         {/* D-Pad Controls */}
         <div className="d-pad-container">
@@ -1039,12 +1090,7 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
           </div>
         </div>
 
-        <button className="settings-button" onClick={() => {
-          setIsPaused(true);
-          setShowSettingsModal(true);
-        }}>
-          <Pause size={24} />
-        </button>
+
 
         {showSettingsModal && (
           <div className="settings-modal">
@@ -1072,17 +1118,35 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
         {showGameOverModal && (
           <div className="game-over-modal">
             <div className="game-over-content glass-panel">
-              <h2 className="game-over-title">¡HAS PERDIDO!</h2>
-              <p className="game-over-subtitle">Se acabaron las vidas</p>
+              <h2 className="game-over-title">
+                {beersCollected / initialCollectibles.length >= 0.7 ? "¡BUEN INTENTO!" : "¡HAS PERDIDO!"}
+              </h2>
+              <p className="game-over-subtitle">
+                {beersCollected / initialCollectibles.length >= 0.7 ? "Puedes avanzar al siguiente nivel" : "Se acabaron las vidas"}
+              </p>
+
+              {beersCollected / initialCollectibles.length >= 0.7 && (
+                <StarRating stars={
+                  beersCollected / initialCollectibles.length >= 0.85 ? 2 : 1
+                } />
+              )}
+
               <div className="game-over-stats">
-                <p>Puntuación final: {score}</p>
+                <p>Puntuación Base: {finalScoreStats.score}</p>
+                <p>Bonus Tiempo: {finalScoreStats.bonus}</p>
+                <p style={{ fontSize: '1.2em', color: '#FFD700' }}>Total: {finalScoreStats.total}</p>
                 <p>Cervezas recogidas: {beersCollected}</p>
+                {beersCollected / initialCollectibles.length >= 0.7 && (
+                  <p style={{ color: '#48BB78', marginTop: '10px' }}>¡Objetivo mínimo completado!</p>
+                )}
               </div>
-              {score >= 150 && onNextLevel && (
-                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
-                  <Play size={20} /> Avanzar al siguiente nivel
+
+              {beersCollected / initialCollectibles.length >= 0.7 && onNextLevel && (
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78', marginBottom: '15px' }}>
+                  <Play size={20} /> Siguiente Nivel
                 </button>
               )}
+
               <button className="modal-button restart-button" onClick={restartLevel}>
                 <RotateCcw size={20} /> Reintentar
               </button>
@@ -1094,18 +1158,29 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
         )}
 
         {showWinModal && (
-          <div className="settings-modal victory-modal">
-            <div className="settings-content glass-panel victory-content">
-              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
-              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has conseguido {score} puntos!</p>
-              <p style={{ fontSize: '1em', marginBottom: '30px', color: '#4CAF50' }}>¡El siguiente nivel está desbloqueado!</p>
+          <div className="victory-modal">
+            <div className="victory-content glass-panel">
+              <h2 className="victory-title">¡VICTORIA!</h2>
+              <p className="victory-subtitle">¡Nivel Completado!</p>
+
+              <StarRating stars={3} />
+
+              <div className="victory-stats">
+                <p>Puntuación Base: {finalScoreStats.score}</p>
+                <p>Bonus Tiempo: {finalScoreStats.bonus}</p>
+                <p style={{ fontSize: '1.4em', color: '#FFD700', fontWeight: 'bold' }}>Total: {finalScoreStats.total}</p>
+              </div>
+
               {onNextLevel && (
-                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78' }}>
                   <Play size={20} /> Siguiente Nivel
                 </button>
               )}
+              <button className="modal-button restart-button" onClick={restartLevel}>
+                <RotateCcw size={20} /> Jugar de nuevo
+              </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> Volver al Menú
+                <Home size={20} /> Volver al menú
               </button>
             </div>
           </div>
@@ -1138,14 +1213,77 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
           alignItems: 'center',
           flexDirection: 'column'
         }}>
+          {isVideoLoading && (
+            <div style={{
+              position: 'absolute',
+              zIndex: 2001,
+              color: 'white',
+              fontSize: '24px',
+              fontWeight: 'bold',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <div className="spinner" style={{
+                width: '40px',
+                height: '40px',
+                border: '4px solid rgba(255,255,255,0.3)',
+                borderTop: '4px solid white',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}></div>
+              <div>Cargando...</div>
+            </div>
+          )}
           <video
-            src="/assets/videos/NIVEL 2 FINAL.mp4"
+            ref={videoRef}
+            src="/assets/videos/NIVEL 3 FINAL.mp4"
             autoPlay
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            playsInline
+            muted
+            onLoadStart={() => setIsVideoLoading(true)}
+            onWaiting={() => setIsVideoLoading(true)}
+            onCanPlay={() => setIsVideoLoading(false)}
+            onPlaying={() => setIsVideoLoading(false)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isVideoLoading ? 0.5 : 1 }}
             onEnded={() => setShowIntroVideo(false)}
             onClick={() => setShowIntroVideo(false)}
             onError={() => setShowIntroVideo(false)}
           />
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (videoRef.current) {
+                if (isVideoPlaying) {
+                  videoRef.current.pause();
+                } else {
+                  videoRef.current.play();
+                }
+                setIsVideoPlaying(!isVideoPlaying);
+              }
+            }}
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              right: '120px',
+              padding: '10px 20px',
+              backgroundColor: 'rgba(255, 255, 255, 0.5)',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              color: 'black',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              zIndex: 2002
+            }}
+          >
+            {isVideoPlaying ? <Pause size={16} color="black" /> : <Play size={16} color="black" />}
+            {isVideoPlaying ? "Parar" : "Reproducir"}
+          </button>
           <button
             onClick={() => setShowIntroVideo(false)}
             style={{
@@ -1158,7 +1296,8 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
               borderRadius: '5px',
               cursor: 'pointer',
               color: 'black',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              zIndex: 2002
             }}
           >
             Saltar
