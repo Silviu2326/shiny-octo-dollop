@@ -105,21 +105,26 @@ export async function getLeaderboard(level, limit = 10) {
  */
 export async function getUserBestScore(userId, level) {
   try {
+    console.log('🔍 [Supabase] Buscando mejor puntuación:', { userId, level });
+
     const { data, error } = await supabase
       .from('beer_run_scores')
       .select('score, beers_collected, time_seconds')
       .eq('user_id', userId)
       .eq('level', level)
       .order('score', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+    if (error) {
       console.error('❌ [Supabase] Error obteniendo mejor puntuación:', error);
       return { success: false, error };
     }
 
-    return { success: true, data: data || null };
+    // data es un array, tomar el primer elemento si existe
+    const bestScore = data && data.length > 0 ? data[0] : null;
+    console.log('✅ [Supabase] Mejor puntuación obtenida:', bestScore);
+
+    return { success: true, data: bestScore };
   } catch (error) {
     console.error('❌ [Supabase] Error en getUserBestScore:', error);
     return { success: false, error };
