@@ -778,6 +778,7 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
   }, []);
 
   useEffect(() => {
+    if (showIntroVideo) return;
     const timer1 = setTimeout(() => {
       setEnemies(prevEnemies => [
         ...prevEnemies,
@@ -812,7 +813,7 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
       clearTimeout(timer1);
       clearTimeout(timer2);
     };
-  }, [showWinModal, showGameOverModal]);
+  }, [showWinModal, showGameOverModal, showIntroVideo]);
 
   // Logic to handle enemies returning to base
   useEffect(() => {

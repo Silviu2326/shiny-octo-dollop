@@ -1152,7 +1152,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                         )}
                         <video
                             ref={videoRef}
-                            src="/assets/videos/NIVEL 7 FINAL.mp4"
+                            src="/assets/videos/NIVEL 6 FINAL.mp4"
                             autoPlay
                             playsInline
                             muted
