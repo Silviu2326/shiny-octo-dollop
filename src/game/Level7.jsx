@@ -190,13 +190,7 @@ function Maze({ walls }) {
             t.minFilter = THREE.NearestFilter;
             t.wrapS = THREE.RepeatWrapping;
             t.wrapT = THREE.RepeatWrapping;
-        }).map(k => {
-            if (k === 'w' || k === 'ArrowUp') setDirection({ x: 0, z: -1 });
-            if (k === 's' || k === 'ArrowDown') setDirection({ x: 0, z: 1 });
-            if (k === 'a' || k === 'ArrowLeft') setDirection({ x: -1, z: 0 });
-            if (k === 'd' || k === 'ArrowRight') setDirection({ x: 1, z: 0 });
         });
-        setStartTime(Date.now());
     }, [textures]);
 
     const { mainGeom, leftGeom, topGeom } = useMemo(() => {

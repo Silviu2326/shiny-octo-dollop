@@ -15,19 +15,8 @@ console.log('App.jsx loaded successfully');
 
 // Utility functions for level progression
 const getUnlockedLevels = () => {
-  try {
-    const saved = localStorage.getItem('beerRunProgress');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && Array.isArray(parsed.unlockedLevels)) {
-        return parsed.unlockedLevels;
-      }
-    }
-  } catch (e) {
-    console.error('Error reading progress:', e);
-  }
-  // Por defecto solo el nivel 0 está desbloqueado
-  return [0];
+  // Habilitar todos los niveles para pruebas
+  return [0, 1, 2, 3, 4, 5, 6, 7];
 };
 
 const unlockLevel = (levelId) => {
@@ -215,6 +204,10 @@ function App() {
 
   // Obtener userId de los parámetros URL
   useEffect(() => {
+    // BORRAR CACHÉ DEL JUEGO (Código temporal)
+    localStorage.removeItem('beerRunProgress');
+    console.log('🗑️ Caché del juego borrada para pruebas');
+
     const urlParams = new URLSearchParams(window.location.search);
     const userIdParam = urlParams.get('userId');
 
