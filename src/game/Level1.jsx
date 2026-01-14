@@ -9,6 +9,7 @@ import MazeWalls from '../components/game/MazeWalls';
 import Collectible from '../components/game/Collectible';
 import GameFloor from '../components/game/GameFloor';
 import CameraController from '../components/game/CameraController';
+import { saveScore } from '../services/supabase';
 
 // --- Configuration & Constants ---
 const CELL_SIZE = 5;
@@ -162,7 +163,7 @@ const initialCollectibles = generateCollectibles(40);
 
 // --- Main Component ---
 
-export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
+export default function Level1({ onBack, onNextLevel, onLevelComplete, userId }) {
   const [playerPos, setPlayerPos] = useState({ x: 2, z: 2 });
   const [direction, setDirection] = useState({ x: 0, z: 0 });
   const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -175,6 +176,7 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
   const [showIntroVideo, setShowIntroVideo] = useState(true);
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [startTime] = useState(Date.now());
   const musicRef = useRef(null);
   const videoRef = useRef(null);
 
@@ -325,11 +327,33 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete }) {
     if (collectibles.length === 0 && !showVictoryModal) {
       setIsPaused(true);
       setShowVictoryModal(true);
+
+      // Calculate time played
+      const timeSeconds = Math.floor((Date.now() - startTime) / 1000);
+
+      // Save score to Supabase
+      if (userId) {
+        console.log('💾 [Level1] Guardando puntuación para usuario:', userId);
+        saveScore(userId, 0, score, beersCollected, timeSeconds)
+          .then(result => {
+            if (result.success) {
+              console.log('✅ [Level1] Puntuación guardada exitosamente');
+            } else {
+              console.error('❌ [Level1] Error guardando puntuación:', result.error);
+            }
+          })
+          .catch(err => {
+            console.error('❌ [Level1] Error en saveScore:', err);
+          });
+      } else {
+        console.warn('⚠️ [Level1] No hay userId, no se guardó la puntuación');
+      }
+
       if (onLevelComplete) {
         onLevelComplete(0); // Nivel 0 completed (Level1.jsx), unlock Nivel 1 (Medusa)
       }
     }
-  }, [collectibles, showVictoryModal, onLevelComplete]);
+  }, [collectibles, showVictoryModal, onLevelComplete, userId, score, beersCollected, startTime]);
 
   return (
     <div className="game-container">
