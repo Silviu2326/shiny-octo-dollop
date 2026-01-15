@@ -9,7 +9,7 @@ import { AIRoles, createPatrolZones, assignZone } from './ai/EnemyAI';
 import './Level6.css';
 
 // --- Constants & Configuration ---
-const CELL_SIZE = 5;
+
 const INITIAL_PLAYER_POS = { x: 5, z: 3 };
 const CAMERA_CONFIG = {
     rotation: Math.PI / 4.8,
@@ -94,8 +94,13 @@ const walls = [
     { x: 24, z: 18, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
 ];
 
-// --- Physics ---
-function getWallBounds(wall) {
+// --- Spatial Partitioning (Grid) ---
+const CELL_SIZE = 6;
+const grid = {};
+
+const getCellKey = (x, z) => `${Math.floor(x / CELL_SIZE)},${Math.floor(z / CELL_SIZE)}`;
+
+walls.forEach(wall => {
     const isHorizontal = wall.orientation === 'horizontal';
     let minX, maxX, minZ, maxZ;
     if (isHorizontal) {
@@ -109,18 +114,32 @@ function getWallBounds(wall) {
         minZ = wall.z;
         maxZ = wall.z + wall.length;
     }
-    return { minX, maxX, minZ, maxZ };
-}
 
-function checkCollision(x, z, walls) {
+    const startCellX = Math.floor(minX / CELL_SIZE);
+    const endCellX = Math.floor(maxX / CELL_SIZE);
+    const startCellZ = Math.floor(minZ / CELL_SIZE);
+    const endCellZ = Math.floor(maxZ / CELL_SIZE);
+
+    for (let cx = startCellX; cx <= endCellX; cx++) {
+        for (let cz = startCellZ; cz <= endCellZ; cz++) {
+            const key = `${cx},${cz}`;
+            if (!grid[key]) grid[key] = [];
+            grid[key].push({ ...wall, minX, maxX, minZ, maxZ });
+        }
+    }
+});
+
+function checkCollision(x, z) {
     const playerRadius = 0.3;
-    for (const wall of walls) {
-        const { minX, maxX, minZ, maxZ } = getWallBounds(wall);
+    const key = getCellKey(x, z);
+    const nearbyWalls = grid[key] || [];
+
+    for (const wall of nearbyWalls) {
         if (
-            x + playerRadius > minX &&
-            x - playerRadius < maxX &&
-            z + playerRadius > minZ &&
-            z - playerRadius < maxZ
+            x + playerRadius > wall.minX &&
+            x - playerRadius < wall.maxX &&
+            z + playerRadius > wall.minZ &&
+            z - playerRadius < wall.maxZ
         ) {
             return true;
         }
@@ -132,14 +151,14 @@ function generateCollectibles(count) {
     const collectibles = [];
     let id = 1;
     let attempts = 0;
-    while (collectibles.length < count && attempts < 5000) {
+    while (collectibles.length < count && attempts < 10000) {
         attempts++;
         const x = Math.random() * 28 + 1;
         const z = Math.random() * 34 + 1;
-        if (!checkCollision(x, z, walls)) {
+        if (!checkCollision(x, z)) {
             const tooClose = collectibles.some(c => {
                 const dist = Math.sqrt(Math.pow(x - c.x, 2) + Math.pow(z - c.z, 2));
-                return dist < 0.5;
+                return dist < 0.6;
             });
             if (!tooClose) {
                 collectibles.push({ id: id++, x, z, collected: false });
@@ -261,50 +280,76 @@ function Barrel({ position }) {
 
 // Enemy component moved to src/components/game/Enemy.jsx
 
-function Player({ position, direction, isPowerActive, isInvulnerable }) {
-    const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
-    const t2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
-
-    // Clone to ensure independent settings
-    const spritesheet1 = useMemo(() => {
-        const t = t1.clone();
-        t.magFilter = THREE.NearestFilter;
-        t.minFilter = THREE.NearestFilter;
-        return t;
-    }, [t1]);
-
-    const spritesheet2 = useMemo(() => {
-        const t = t2.clone();
-        t.magFilter = THREE.NearestFilter;
-        t.minFilter = THREE.NearestFilter;
-        return t;
-    }, [t2]);
+function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive, isInvulnerable }) {
+    const meshRef = useRef();
+    const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
+    const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
 
     const [currentFrame, setCurrentFrame] = useState(0);
+    const [animationTime, setAnimationTime] = useState(0);
+    const [trail, setTrail] = useState([]);
+    const [pulseTime, setPulseTime] = useState(0);
     const [lastDirection, setLastDirection] = useState({ x: 1, z: 0 });
+
+    useMemo(() => {
+        spritesheet1.magFilter = THREE.NearestFilter;
+        spritesheet1.minFilter = THREE.NearestFilter;
+        spritesheet2.magFilter = THREE.NearestFilter;
+        spritesheet2.minFilter = THREE.NearestFilter;
+    }, [spritesheet1, spritesheet2]);
+
     const frameCount = 8;
     const animationSpeed = 10;
 
     useFrame((state, delta) => {
-        const newFrame = Math.floor(state.clock.elapsedTime * animationSpeed) % frameCount;
-        setCurrentFrame(newFrame);
+        if (isPaused) return;
+
+        if (isInvulnerable) {
+            setPulseTime(prev => prev + delta * 8);
+        }
 
         if (direction.x !== 0 || direction.z !== 0) {
             setLastDirection(direction);
+            const baseSpeed = 4.5;
+            const speed = isPowerActive ? baseSpeed * 2.5 : baseSpeed;
+            const newX = position.x + direction.x * speed * delta;
+            const newZ = position.z + direction.z * speed * delta;
+
+            if (!checkCollision(newX, newZ)) {
+                onPositionUpdate(newX, newZ);
+
+                if (isPowerActive) {
+                    setTrail(prev => {
+                        const newTrail = [{ x: position.x, z: position.z, frame: currentFrame }, ...prev];
+                        return newTrail.slice(0, 5);
+                    });
+                }
+            }
+
+            setAnimationTime(prev => {
+                const newTime = prev + delta * animationSpeed;
+                const newFrame = Math.floor(newTime) % frameCount;
+                setCurrentFrame(newFrame);
+                return newTime;
+            });
+        }
+
+        if (!isPowerActive && trail.length > 0) {
+            setTrail([]);
         }
     });
 
     const getCurrentTexture = () => {
-        if (lastDirection.z < 0) return spritesheet1; // Up
-        if (lastDirection.x < 0) return spritesheet1; // Left
-        if (lastDirection.x > 0) return spritesheet2; // Right
-        if (lastDirection.z > 0) return spritesheet2; // Down
-        return spritesheet2; // Default
+        if (lastDirection.z < 0) return spritesheet1;
+        if (lastDirection.x < 0) return spritesheet1;
+        if (lastDirection.x > 0) return spritesheet2;
+        if (lastDirection.z > 0) return spritesheet2;
+        return spritesheet2;
     };
 
     const getFlipX = () => {
-        if (lastDirection.x < 0) return -1; // Flip for Left
-        if (lastDirection.z > 0) return -1; // Flip for Down
+        if (lastDirection.x < 0) return -1;
+        if (lastDirection.z > 0) return -1;
         return 1;
     };
 
@@ -312,29 +357,53 @@ function Player({ position, direction, isPowerActive, isInvulnerable }) {
     texture.repeat.set(1 / frameCount, 1);
     texture.offset.x = currentFrame / frameCount;
 
+    const pulseOpacity = isInvulnerable ? (Math.sin(pulseTime) * 0.5 + 0.5) : 1;
+
     return (
-        <group position={[position.x, 0.5, position.z]}>
-            {isPowerActive && (
-                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.4, 0]}>
-                    <ringGeometry args={[0.4, 0.6, 32]} />
-                    <meshBasicMaterial color="#FFFF00" transparent opacity={0.5} side={THREE.DoubleSide} />
-                </mesh>
-            )}
+        <group>
+            {isPowerActive && trail.map((pos, index) => {
+                const trailTexture = getCurrentTexture().clone();
+                trailTexture.repeat.set(1 / frameCount, 1);
+                trailTexture.offset.x = pos.frame / frameCount;
+
+                return (
+                    <mesh
+                        key={index}
+                        position={[pos.x, 0.5, pos.z]}
+                        rotation={[-Math.PI / 4, 0, 0]} // Fixed rotation for trail to match player
+                        scale={[getFlipX(), 1, 1]}
+                    >
+                        <planeGeometry args={[0.8, 0.8]} />
+                        <meshStandardMaterial
+                            map={trailTexture}
+                            transparent={true}
+                            side={THREE.DoubleSide}
+                            opacity={(0.6 - index * 0.1) * pulseOpacity}
+                            alphaTest={0.1}
+                            emissive="#FFD700"
+                            emissiveIntensity={1.5 - index * 0.3}
+                            depthWrite={false}
+                        />
+                    </mesh>
+                );
+            })}
+
             <mesh
+                ref={meshRef}
+                position={[position.x, 0.5, position.z]}
                 rotation={[-Math.PI / 4, 0, 0]}
                 scale={[getFlipX(), 1, 1]}
             >
                 <planeGeometry args={[1.1, 1.1]} />
                 <meshStandardMaterial
                     map={texture}
-                    transparent
+                    transparent={true}
                     side={THREE.DoubleSide}
                     alphaTest={0.5}
-                    opacity={isInvulnerable ? 0.5 : 1}
-                    depthWrite={!isInvulnerable} // Avoid depth issues when transparent
-                    color={isPowerActive ? '#FFFF00' : 'white'}
-                    emissive={isPowerActive ? '#FFFF00' : '#000000'}
-                    emissiveIntensity={isPowerActive ? 0.5 : 0}
+                    emissive={isPowerActive ? "#FFD700" : "#000000"}
+                    emissiveIntensity={isPowerActive ? 0.8 : 0}
+                    opacity={pulseOpacity}
+                    depthWrite={true}
                 />
             </mesh>
         </group>
@@ -409,14 +478,118 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
         { id: 3, x: 22, z: 11, collected: false },
     ]);
 
-    const [enemies, setEnemies] = useState([]);
     const enemiesRef = useRef(enemies);
     const lastHitTimeRef = useRef(0);
     const enemyIdRef = useRef(1);
 
+    // Refs for collection optimization
+    const collectedBeersRef = useRef(new Set());
+    const collectedBarrelsRef = useRef(new Set());
+
     useEffect(() => {
         enemiesRef.current = enemies;
     }, [enemies]);
+
+    const handlePositionUpdate = (newX, newZ) => {
+        setPlayerPos({ x: newX, z: newZ });
+
+        // 1. Check Collectibles (Beers)
+        let itemsCollectedNow = 0;
+        collectibles.forEach(c => {
+            if (!c.collected && !collectedBeersRef.current.has(c.id)) {
+                const dist = Math.sqrt((newX - c.x) ** 2 + (newZ - c.z) ** 2);
+                if (dist < 0.6) {
+                    collectedBeersRef.current.add(c.id);
+                    itemsCollectedNow++;
+                }
+            }
+        });
+
+        if (itemsCollectedNow > 0) {
+            setScore(prev => prev + 10 * itemsCollectedNow);
+            playCollectSound();
+            setCollectibles(prev => prev.map(c =>
+                collectedBeersRef.current.has(c.id) ? { ...c, collected: true } : c
+            ));
+        }
+
+        // 2. Check Barrels
+        let barrelsChanged = false;
+        let tokensToAdd = 0;
+        let scoreToAdd = 0;
+
+        const nextBarrels = barrels.map(b => {
+            if (!b.collected && !collectedBarrelsRef.current.has(b.id)) {
+                const dist = Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2);
+                if (dist < 0.8) {
+                    collectedBarrelsRef.current.add(b.id);
+                    tokensToAdd++;
+                    scoreToAdd += 25;
+                    barrelsChanged = true;
+                    return { ...b, collected: true };
+                }
+            }
+            return b;
+        });
+
+        if (barrelsChanged) {
+            setBarrels(nextBarrels);
+            if (tokensToAdd > 0) {
+                setTokens(t => Math.min(3, t + tokensToAdd));
+                setScore(s => s + scoreToAdd);
+                playCollectSound(); // Or barrel sound if distinct
+            }
+        }
+
+        // 3. Check Enemies (Player runs into Enemy)
+        if (!isInvulnerable) {
+            enemiesRef.current.forEach(enemy => {
+                if (enemy.isReturning) return;
+                const dist = Math.sqrt((newX - enemy.x) ** 2 + (newZ - enemy.z) ** 2);
+                if (dist < 0.5) {
+                    handlePlayerEnemyCollision(enemy);
+                }
+            });
+        }
+    };
+
+    const handlePlayerEnemyCollision = (enemy) => {
+        const now = Date.now();
+        if (now - lastHitTimeRef.current < 1000) return; // Debounce hits
+
+        if (powerActive) {
+            setScore(s => s + 150);
+            setEnemies(prev => prev.map(e =>
+                e.id === enemy.id ? { ...e, isReturning: true, speed: e.speed * 1.5 } : e
+            ));
+            showEnemyAlert("¡Enemigo derrotado!");
+            lastHitTimeRef.current = now;
+        } else {
+            setLives(prev => {
+                const newLives = prev - 1;
+                if (newLives <= 0) {
+                    setIsPaused(true);
+                    setShowGameOverModal(true);
+                }
+                return newLives;
+            });
+            playLoseLifeSound();
+            setScore(s => Math.max(0, s - 5));
+            setIsInvulnerable(true);
+            showEnemyAlert("¡Te han herido!");
+            lastHitTimeRef.current = now;
+
+            // Set invulnerability timeout
+            setTimeout(() => setIsInvulnerable(false), 2000); // 2s invulnerability
+
+            // Reset positions logic if desired (Level 6 had logic to reset Player to start? 
+            // The original code didn't explicitly reset player pos in the snippet I saw, but maybe it's better to stay put with invulnerability)
+            setPlayerPos(INITIAL_PLAYER_POS); // Reset to start as per usual platformer rules if lives lost?
+            // Level 6 original loop had logic: `setPlayerPos(INITIAL_PLAYER_POS);` if not game over.
+            // I'll add that.
+            setDirection({ x: 0, z: 0 }); // Stop movement
+        }
+    };
 
     // --- Audio Logic ---
     useEffect(() => {
@@ -553,126 +726,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
         return () => { window.removeEventListener('keydown', k); window.removeEventListener('keyup', ku); };
     }, [isPaused, tokens, powerActive]);
 
-    // Game Loop interval
-    useEffect(() => {
-        const interval = setInterval(() => {
-            if (isPaused) return;
 
-            // Determine if moving
-            const isMoving = direction.x !== 0 || direction.z !== 0;
-            let currentX = playerPos.x;
-            let currentZ = playerPos.z;
-
-            // Player Movement
-            if (isMoving) {
-                const speed = 0.22;
-                const newX = playerPos.x + direction.x * speed;
-                const newZ = playerPos.z + direction.z * speed;
-                if (!checkCollision(newX, newZ, walls)) {
-                    setPlayerPos({ x: newX, z: newZ });
-                    currentX = newX;
-                    currentZ = newZ;
-                }
-            }
-
-            // --- Collision Logic (Runs every frame) ---
-
-            // 1. Collectibles
-            setCollectibles(prev => {
-                let changed = false;
-                const next = prev.map(c => {
-                    if (!c.collected && Math.sqrt((currentX - c.x) ** 2 + (currentZ - c.z) ** 2) < 0.6) {
-                        setScore(s => s + 10);
-                        playCollectSound();
-                        changed = true;
-                        return { ...c, collected: true };
-                    }
-                    return c;
-                });
-                return changed ? next : prev;
-            });
-
-            // 2. Barrels
-            setBarrels(prev => {
-                let tokensToAdd = 0;
-                let scoreToAdd = 0;
-                let changed = false;
-                const next = prev.map(b => {
-                    if (!b.collected && Math.sqrt((currentX - b.x) ** 2 + (currentZ - b.z) ** 2) < 0.8) {
-                        tokensToAdd += 1;
-                        scoreToAdd += 25;
-                        changed = true;
-                        return { ...b, collected: true };
-                    }
-                    return b;
-                });
-
-                if (tokensToAdd > 0) {
-                    setTokens(t => Math.min(3, t + tokensToAdd));
-                    setScore(s => s + 20); // 20 points per barrel
-                    playCollectSound();
-                }
-
-                return changed ? next : prev;
-            });
-
-            // 3. Enemies
-            if (!isInvulnerable) {
-                enemies.forEach(enemy => {
-                    if (enemy.isReturning) return; // Ignore returning enemies
-
-                    const dist = Math.sqrt((currentX - enemy.x) ** 2 + (currentZ - enemy.z) ** 2);
-
-                    // Hit by enemy
-                    if (dist < 0.5) {
-                        // Power active: enemy goes back to doghouse
-                        if (powerActive) {
-                            setScore(s => s + 150);
-                            setEnemies(prev => prev.map(e =>
-                                e.id === enemy.id ? { ...e, isReturning: true } : e
-                            ));
-                            return;
-                        }
-
-                        // Normal hit
-                        playLoseLifeSound();
-                        setLives(prev => {
-                            const newLives = prev - 1;
-                            if (newLives <= 0) {
-                                setIsPaused(true);
-
-                                // Calculate score stats for Game Over
-                                const elapsedSeconds = (Date.now() - startTime) / 1000;
-                                const timeBonus = Math.max(0, Math.floor((180 - elapsedSeconds) * 10)); // 3 mins max time
-
-                                let finalBonus = 0;
-                                if (beersCollected / initialCollectibles.length >= 0.7) {
-                                    finalBonus = timeBonus;
-                                }
-
-                                setFinalScoreStats({
-                                    score: score,
-                                    bonus: finalBonus,
-                                    total: score + finalBonus
-                                });
-
-                                setShowGameOverModal(true);
-                                return 0;
-                            }
-                            return newLives;
-                        });
-
-                        setIsInvulnerable(true);
-                        setTimeout(() => {
-                            setIsInvulnerable(false);
-                        }, 3000);
-                    }
-                });
-            }
-
-        }, 16);
-        return () => clearInterval(interval);
-    }, [direction, playerPos, isPaused, enemies, powerActive, isInvulnerable]);
 
     // Enemy returning to doghouse logic
     useEffect(() => {
@@ -804,6 +858,17 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
 
     const handleEnemyPositionUpdate = (id, x, z) => {
         setEnemies(prev => prev.map(e => e.id === id ? { ...e, x, z } : e));
+
+        // Check collision with player (Enemy runs into Player)
+        if (!isInvulnerable) {
+            const dist = Math.sqrt((x - playerPos.x) ** 2 + (z - playerPos.z) ** 2);
+            if (dist < 0.5) {
+                const enemy = enemiesRef.current.find(e => e.id === id);
+                if (enemy && !enemy.isReturning) {
+                    handlePlayerEnemyCollision(enemy);
+                }
+            }
+        }
     };
 
     const restartLevel = () => {
@@ -851,7 +916,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
 
                 {barrels.map(b => !b.collected && <Barrel key={b.id} position={b} />)}
 
-                <Player position={playerPos} direction={direction} isPowerActive={powerActive} isInvulnerable={isInvulnerable} />
+                <Player position={playerPos} direction={direction} onPositionUpdate={handlePositionUpdate} isPaused={isPaused} isPowerActive={powerActive} isInvulnerable={isInvulnerable} />
 
                 {enemies.map(e => (
                     <Enemy

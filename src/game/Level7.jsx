@@ -90,7 +90,13 @@ const walls = [
     { x: 28, z: 31, length: 2, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 ];
 
-function getWallBounds(wall) {
+// --- Spatial Partitioning (Grid) ---
+const CELL_SIZE = 6;
+const grid = {};
+
+const getCellKey = (x, z) => `${Math.floor(x / CELL_SIZE)},${Math.floor(z / CELL_SIZE)}`;
+
+walls.forEach(wall => {
     const isHorizontal = wall.orientation === 'horizontal';
     let minX, maxX, minZ, maxZ;
     if (isHorizontal) {
@@ -104,18 +110,32 @@ function getWallBounds(wall) {
         minZ = wall.z;
         maxZ = wall.z + wall.length;
     }
-    return { minX, maxX, minZ, maxZ };
-}
 
-function checkCollision(x, z, walls) {
+    const startCellX = Math.floor(minX / CELL_SIZE);
+    const endCellX = Math.floor(maxX / CELL_SIZE);
+    const startCellZ = Math.floor(minZ / CELL_SIZE);
+    const endCellZ = Math.floor(maxZ / CELL_SIZE);
+
+    for (let cx = startCellX; cx <= endCellX; cx++) {
+        for (let cz = startCellZ; cz <= endCellZ; cz++) {
+            const key = `${cx},${cz}`;
+            if (!grid[key]) grid[key] = [];
+            grid[key].push({ ...wall, minX, maxX, minZ, maxZ });
+        }
+    }
+});
+
+function checkCollision(x, z) {
     const playerRadius = 0.3;
-    for (const wall of walls) {
-        const { minX, maxX, minZ, maxZ } = getWallBounds(wall);
+    const key = getCellKey(x, z);
+    const nearbyWalls = grid[key] || [];
+
+    for (const wall of nearbyWalls) {
         if (
-            x + playerRadius > minX &&
-            x - playerRadius < maxX &&
-            z + playerRadius > minZ &&
-            z - playerRadius < maxZ
+            x + playerRadius > wall.minX &&
+            x - playerRadius < wall.maxX &&
+            z + playerRadius > wall.minZ &&
+            z - playerRadius < wall.maxZ
         ) {
             return true;
         }
@@ -127,11 +147,11 @@ function generateCollectibles(count) {
     const collectibles = [];
     let id = 1;
     let attempts = 0;
-    while (collectibles.length < count && attempts < 5000) {
+    while (collectibles.length < count && attempts < 10000) {
         attempts++;
         const x = Math.random() * 28 + 1;
         const z = Math.random() * 34 + 1;
-        if (!checkCollision(x, z, walls)) {
+        if (!checkCollision(x, z)) {
             const tooClose = collectibles.some(c => {
                 const dist = Math.sqrt(Math.pow(x - c.x, 2) + Math.pow(z - c.z, 2));
                 return dist < 0.6;
@@ -285,50 +305,76 @@ function Barrel({ position }) {
 
 // Enemy component moved to src/components/game/Enemy.jsx
 
-function Player({ position, direction, isInvulnerable, shockwaveActive, shockwaveRadius }) {
-    const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
-    const t2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
-
-    // Clone to ensure independent settings
-    const spritesheet1 = useMemo(() => {
-        const t = t1.clone();
-        t.magFilter = THREE.NearestFilter;
-        t.minFilter = THREE.NearestFilter;
-        return t;
-    }, [t1]);
-
-    const spritesheet2 = useMemo(() => {
-        const t = t2.clone();
-        t.magFilter = THREE.NearestFilter;
-        t.minFilter = THREE.NearestFilter;
-        return t;
-    }, [t2]);
+function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive, isInvulnerable, shockwaveActive, shockwaveRadius }) {
+    const meshRef = useRef();
+    const spritesheet1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
+    const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
 
     const [currentFrame, setCurrentFrame] = useState(0);
+    const [animationTime, setAnimationTime] = useState(0);
+    const [trail, setTrail] = useState([]);
+    const [pulseTime, setPulseTime] = useState(0);
     const [lastDirection, setLastDirection] = useState({ x: 1, z: 0 });
+
+    useMemo(() => {
+        spritesheet1.magFilter = THREE.NearestFilter;
+        spritesheet1.minFilter = THREE.NearestFilter;
+        spritesheet2.magFilter = THREE.NearestFilter;
+        spritesheet2.minFilter = THREE.NearestFilter;
+    }, [spritesheet1, spritesheet2]);
+
     const frameCount = 8;
     const animationSpeed = 10;
 
-    useFrame((state) => {
-        const newFrame = Math.floor(state.clock.elapsedTime * animationSpeed) % frameCount;
-        setCurrentFrame(newFrame);
+    useFrame((state, delta) => {
+        if (isPaused) return;
+
+        if (isInvulnerable) {
+            setPulseTime(prev => prev + delta * 8);
+        }
 
         if (direction.x !== 0 || direction.z !== 0) {
             setLastDirection(direction);
+            const baseSpeed = 4.5;
+            const speed = isPowerActive ? baseSpeed * 2.5 : baseSpeed;
+            const newX = position.x + direction.x * speed * delta;
+            const newZ = position.z + direction.z * speed * delta;
+
+            if (!checkCollision(newX, newZ)) {
+                onPositionUpdate(newX, newZ);
+
+                if (isPowerActive) {
+                    setTrail(prev => {
+                        const newTrail = [{ x: position.x, z: position.z, frame: currentFrame }, ...prev];
+                        return newTrail.slice(0, 5);
+                    });
+                }
+            }
+
+            setAnimationTime(prev => {
+                const newTime = prev + delta * animationSpeed;
+                const newFrame = Math.floor(newTime) % frameCount;
+                setCurrentFrame(newFrame);
+                return newTime;
+            });
+        }
+
+        if (!isPowerActive && trail.length > 0) {
+            setTrail([]);
         }
     });
 
     const getCurrentTexture = () => {
-        if (lastDirection.z < 0) return spritesheet1; // Up
-        if (lastDirection.x < 0) return spritesheet1; // Left
-        if (lastDirection.x > 0) return spritesheet2; // Right
-        if (lastDirection.z > 0) return spritesheet2; // Down
-        return spritesheet2; // Default
+        if (lastDirection.z < 0) return spritesheet1;
+        if (lastDirection.x < 0) return spritesheet1;
+        if (lastDirection.x > 0) return spritesheet2;
+        if (lastDirection.z > 0) return spritesheet2;
+        return spritesheet2;
     };
 
     const getFlipX = () => {
-        if (lastDirection.x < 0) return -1; // Flip for Left
-        if (lastDirection.z > 0) return -1; // Flip for Down
+        if (lastDirection.x < 0) return -1;
+        if (lastDirection.z > 0) return -1;
         return 1;
     };
 
@@ -336,15 +382,50 @@ function Player({ position, direction, isInvulnerable, shockwaveActive, shockwav
     texture.repeat.set(1 / frameCount, 1);
     texture.offset.x = currentFrame / frameCount;
 
+    const pulseOpacity = isInvulnerable ? (Math.sin(pulseTime) * 0.5 + 0.5) : 1;
+
     return (
-        <group position={[position.x, 0.5, position.z]}>
+        <group>
+            {isPowerActive && trail.map((pos, index) => {
+                const trailTexture = getCurrentTexture().clone();
+                trailTexture.repeat.set(1 / frameCount, 1);
+                trailTexture.offset.x = pos.frame / frameCount;
+
+                return (
+                    <mesh
+                        key={index}
+                        position={[pos.x, 0.5, pos.z]}
+                        rotation={[-Math.PI / 4, 0, 0]}
+                        scale={[getFlipX(), 1, 1]}
+                    >
+                        <planeGeometry args={[0.8, 0.8]} />
+                        <meshStandardMaterial
+                            map={trailTexture}
+                            transparent={true}
+                            side={THREE.DoubleSide}
+                            opacity={(0.6 - index * 0.1) * pulseOpacity}
+                            alphaTest={0.1}
+                            emissive="#FFD700"
+                            emissiveIntensity={1.5 - index * 0.3}
+                            depthWrite={false}
+                        />
+                    </mesh>
+                );
+            })}
+
             {shockwaveActive && (
-                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.4, 0]}>
+                <mesh
+                    rotation={[-Math.PI / 2, 0, 0]}
+                    position={[position.x, 0.1, position.z]} // Shockwave center at player
+                >
                     <ringGeometry args={[shockwaveRadius - 0.5, shockwaveRadius, 32]} />
                     <meshBasicMaterial color="#FF6600" transparent opacity={0.6} side={THREE.DoubleSide} />
                 </mesh>
             )}
+
             <mesh
+                ref={meshRef}
+                position={[position.x, 0.5, position.z]}
                 rotation={[-Math.PI / 4, 0, 0]}
                 scale={[getFlipX(), 1, 1]}
                 renderOrder={2}
@@ -352,10 +433,13 @@ function Player({ position, direction, isInvulnerable, shockwaveActive, shockwav
                 <planeGeometry args={[1.1, 1.1]} />
                 <meshStandardMaterial
                     map={texture}
-                    transparent
+                    transparent={true}
                     side={THREE.DoubleSide}
-                    opacity={isInvulnerable ? 0.5 : 1}
-                    depthWrite={false}
+                    alphaTest={0.5}
+                    emissive={isPowerActive ? "#FFD700" : "#000000"}
+                    emissiveIntensity={isPowerActive ? 0.8 : 0}
+                    opacity={pulseOpacity}
+                    depthWrite={true}
                 />
             </mesh>
         </group>
@@ -594,137 +678,154 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
 
     const handleEnemyPositionUpdate = (id, x, z) => {
         setEnemies(prev => prev.map(e => e.id === id ? { ...e, x, z } : e));
+
+        if (!isInvulnerable) {
+            const dist = Math.sqrt((x - playerPos.x) ** 2 + (z - playerPos.z) ** 2);
+            if (dist < 0.5) {
+                const enemy = enemies.find(e => e.id === id);
+                if (enemy && !enemy.isReturning) {
+                    if (powerActive) { // Touch-kill if power active (Level 7 specific logic kept from original)
+                        setScore(s => s + 200);
+                        setEnemies(prev => prev.map(e => e.id === id ? { ...e, isReturning: true } : e));
+                    } else if (!processingHit.current) {
+                        handlePlayerHit();
+                    }
+                }
+            }
+        }
     };
 
     const handleReturnComplete = (id) => {
         setEnemies(prev => prev.map(e => e.id === id ? { ...e, isReturning: false } : e));
     };
 
+    // Refs for collection optimization
+    const collectedBeersRef = useRef(new Set());
+
+    const handlePositionUpdate = (newX, newZ) => {
+        setPlayerPos({ x: newX, z: newZ });
+
+        // 1. Check Collectibles (Beers)
+        let itemsCollectedNow = 0;
+        collectibles.forEach(c => {
+            if (!c.collected && !collectedBeersRef.current.has(c.id)) {
+                const dist = Math.sqrt((newX - c.x) ** 2 + (newZ - c.z) ** 2);
+                if (dist < 0.6) {
+                    collectedBeersRef.current.add(c.id);
+                    itemsCollectedNow++;
+                }
+            }
+        });
+
+        if (itemsCollectedNow > 0) {
+            setScore(prev => prev + 10 * itemsCollectedNow);
+            playCollectSound();
+            setCollectibles(prev => prev.map(c =>
+                collectedBeersRef.current.has(c.id) ? { ...c, collected: true } : c
+            ));
+        }
+
+        // 2. Check Barrels
+        let barrelsChanged = false;
+        let tokensToAdd = 0;
+        let scoreToAdd = 0;
+
+        const nextBarrels = barrels.map(b => {
+            if (!b.collected && !collectedBarrelsRef.current.has(b.id)) {
+                const dist = Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2);
+                if (dist < 0.8) {
+                    collectedBarrelsRef.current.add(b.id);
+                    tokensToAdd++;
+                    scoreToAdd += 25;
+                    barrelsChanged = true;
+                    return { ...b, collected: true };
+                }
+            }
+            return b;
+        });
+
+        if (barrelsChanged) {
+            setBarrels(nextBarrels);
+            if (tokensToAdd > 0) {
+                setTokens(t => Math.min(3, t + tokensToAdd));
+                setScore(s => s + scoreToAdd);
+                playCollectSound();
+            }
+        }
+
+        // 3. Check Enemies (Player runs into Enemy)
+        // Note: For Level 7, we also need to check "Shockwave" hits if active, 
+        // but typically shockwave is an 'active' check over all enemies when fired.
+        // Here we just check if PLAYER collides with ENEMY body.
+        if (!isInvulnerable) {
+            enemies.forEach(enemy => {
+                const dist = Math.sqrt((newX - enemy.x) ** 2 + (newZ - enemy.z) ** 2);
+
+                // Si el jugador toca al enemigo con poder activo (NOT shockwave, but contact power if any - typically powerActive implies touch-kill in this game design?)
+                // Level 7 uses "Shockwave" as power. Does touching kills? 
+                // Original code: if (dist < 0.6 && powerActive && !enemy.isReturning).
+
+                if (dist < 0.6 && powerActive && !enemy.isReturning) {
+                    setScore(s => s + 200);
+                    setEnemies(prev => prev.map(e => e.id === enemy.id ? { ...e, isReturning: true } : e));
+                    return;
+                }
+
+                if (dist < 0.4 && !powerActive && !enemy.isReturning && !processingHit.current) {
+                    handlePlayerHit();
+                }
+            });
+        }
+    };
+
+    const handlePlayerHit = () => {
+        processingHit.current = true;
+        setLives(prev => {
+            const newLives = prev - 1;
+            if (newLives <= 0) {
+                setIsPaused(true);
+                // Game Over Stats logic needs to be cleaner, but we'll trigger the modal
+                setShowGameOverModal(true);
+            }
+            return newLives;
+        });
+
+        if (lives > 1) { // If checking prev value, care needed. easier to just check state if update is batched
+            playLoseLifeSound();
+            setIsInvulnerable(true);
+            setTimeout(() => {
+                setIsInvulnerable(false);
+                processingHit.current = false;
+            }, 3000);
+        }
+    };
+
+    // Enemy returning to doghouse logic
     useEffect(() => {
         const interval = setInterval(() => {
             if (isPaused) return;
 
-            // Player Movement
-            if (direction.x !== 0 || direction.z !== 0) {
-                const speed = 0.22;
-                const newX = playerPos.x + direction.x * speed;
-                const newZ = playerPos.z + direction.z * speed;
-                if (!checkCollision(newX, newZ, walls)) {
-                    setPlayerPos({ x: newX, z: newZ });
-
-                    // Collectibles
-                    setCollectibles(prev => {
-                        let changed = false;
-                        const next = prev.map(c => {
-                            if (!c.collected && Math.sqrt((newX - c.x) ** 2 + (newZ - c.z) ** 2) < 0.6) {
-                                setScore(s => s + 10);
-                                playCollectSound();
-                                changed = true;
-                                return { ...c, collected: true };
-                            }
-                            return c;
-                        });
-                        return changed ? next : prev;
-                    });
-
-                    // Barrels
-                    setBarrels(prev => {
-                        let tokensToAdd = 0;
-                        let pointsToAdd = 0;
-                        let hasChanges = false;
-                        const next = prev.map(b => {
-                            // Si ya está en la ref, asegurarse de que esté marcado como collected
-                            if (collectedBarrelsRef.current.has(b.id) && !b.collected) {
-                                hasChanges = true;
-                                return { ...b, collected: true };
-                            }
-                            // Si está cerca y no ha sido recogido
-                            if (!b.collected && !collectedBarrelsRef.current.has(b.id) && Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2) < 0.8) {
-                                collectedBarrelsRef.current.add(b.id);
-                                tokensToAdd++;
-                                pointsToAdd += 25;
-                                hasChanges = true;
-                                return { ...b, collected: true };
-                            }
-                            return b;
-                        });
-
-                        if (tokensToAdd > 0) {
-                            setTokens(t => Math.min(3, t + tokensToAdd));
-                            setScore(s => s + 20);
-                            playCollectSound();
+            setEnemies(prev => {
+                let changed = false;
+                const next = prev.map(enemy => {
+                    if (enemy.isReturning) {
+                        const distToDoghouse = Math.sqrt(
+                            (enemy.x - DOGHOUSE_POS.x) ** 2 +
+                            (enemy.z - DOGHOUSE_POS.z) ** 2
+                        );
+                        if (distToDoghouse < 0.5) {
+                            changed = true;
+                            return { ...enemy, isReturning: false };
                         }
-
-                        return hasChanges ? next : prev;
-                    });
-                }
-            }
-
-            // Enemy collision detection
-            setEnemies(prev => prev.map(enemy => {
-                const dist = Math.sqrt(
-                    (playerPos.x - enemy.x) ** 2 +
-                    (playerPos.z - enemy.z) ** 2
-                );
-
-                // Si el jugador toca al enemigo con poder activo
-                if (dist < 0.6 && powerActive && !enemy.isReturning) {
-                    setScore(s => s + 200);
-                    return { ...enemy, isReturning: true };
-                }
-
-                // Si el enemigo toca al jugador sin poder
-                if (dist < 0.4 && !powerActive && !enemy.isReturning && !isInvulnerable && !processingHit.current) {
-                    processingHit.current = true;
-                    const newLives = lives - 1;
-                    setLives(newLives);
-
-                    if (newLives <= 0) {
-                        setIsPaused(true);
-
-                        // Calculate score stats for Game Over
-                        const elapsedSeconds = (Date.now() - startTime) / 1000;
-                        const timeBonus = Math.max(0, Math.floor((180 - elapsedSeconds) * 10)); // 3 mins max time
-
-                        let finalBonus = 0;
-                        if (beersCollected / initialCollectibles.length >= 0.7) {
-                            finalBonus = timeBonus;
-                        }
-
-                        setFinalScoreStats({
-                            score: score,
-                            bonus: finalBonus,
-                            total: score + finalBonus
-                        });
-
-                        setShowGameOverModal(true);
-                    } else {
-                        playLoseLifeSound();
-                        setIsInvulnerable(true);
-                        setTimeout(() => {
-                            setIsInvulnerable(false);
-                            processingHit.current = false;
-                        }, 3000);
                     }
-                }
+                    return enemy;
+                });
+                return changed ? next : prev;
+            });
+        }, 50);
 
-                // Si el enemigo regresó a casa
-                if (enemy.isReturning) {
-                    const distToDoghouse = Math.sqrt(
-                        (enemy.x - DOGHOUSE_POS.x) ** 2 +
-                        (enemy.z - DOGHOUSE_POS.z) ** 2
-                    );
-                    if (distToDoghouse < 0.5) {
-                        return { ...enemy, isReturning: false };
-                    }
-                }
-
-                return enemy;
-            }));
-
-        }, 16);
         return () => clearInterval(interval);
-    }, [direction, playerPos, isInvulnerable, powerActive, isPaused, enemies, lives]);
+    }, [isPaused]);
 
     // Enemy Spawning with AI roles (7 enemigos total)
     const enemyIdRef = useRef(1);
@@ -910,6 +1011,9 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                 <Player
                     position={playerPos}
                     direction={direction}
+                    onPositionUpdate={handlePositionUpdate}
+                    isPaused={isPaused}
+                    isPowerActive={powerActive}
                     isInvulnerable={isInvulnerable}
                     shockwaveActive={shockwaveActive}
                     shockwaveRadius={shockwaveRadius}
