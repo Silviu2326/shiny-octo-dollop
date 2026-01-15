@@ -10,6 +10,7 @@ import Level6 from './game/Level6';
 import Level7 from './game/Level7';
 import Level8 from './game/Level8';
 import Ranking from './components/Ranking';
+import LoadingScreen from './components/LoadingScreen';
 
 console.log('App.jsx loaded successfully');
 
@@ -199,6 +200,7 @@ function App() {
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [userId, setUserId] = useState(null);
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
 
   console.log('App rendering, selectedLevel:', selectedLevel);
 
@@ -254,16 +256,42 @@ function App() {
         height: '100%',
         backgroundColor: 'black',
         zIndex: 9999,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center'
       }}>
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: 10002,
+          opacity: isVideoLoaded ? 0 : 1,
+          transition: 'opacity 1s ease-out',
+          pointerEvents: isVideoLoaded ? 'none' : 'all',
+        }}>
+          <LoadingScreen />
+        </div>
         <video
           src="/assets/videos/intro.mp4"
           autoPlay
           playsInline
+          muted={false}
+          onLoadedData={() => {
+            console.log('Video data loaded');
+            setIsVideoLoaded(true);
+          }}
+          onCanPlay={() => {
+            console.log('Video can play');
+            setIsVideoLoaded(true);
+          }}
+          onEnding={handleIntroFinish}
           onEnded={handleIntroFinish}
-          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            opacity: isVideoLoaded ? 1 : 0,
+            transition: 'opacity 0.5s ease-in'
+          }}
         />
         <button
           onClick={handleIntroFinish}
