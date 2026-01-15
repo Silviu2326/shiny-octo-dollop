@@ -478,6 +478,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
         { id: 3, x: 22, z: 11, collected: false },
     ]);
 
+    const [enemies, setEnemies] = useState([]);
     const enemiesRef = useRef(enemies);
     const lastHitTimeRef = useRef(0);
     const enemyIdRef = useRef(1);
