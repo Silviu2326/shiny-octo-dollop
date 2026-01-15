@@ -505,7 +505,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
     useEffect(() => {
         if (showIntroVideo) return;
 
-        musicRef.current = new Audio('/assets/audio/music_funky.wav');
+        musicRef.current = new Audio('/assets/audio/Guajira – “Tropical Fever”.wav');
         musicRef.current.loop = true;
         musicRef.current.volume = 0.3;
 
@@ -848,124 +848,55 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
     }, [isPaused]);
 
     useEffect(() => {
-        const timer1 = setTimeout(() => {
-            setEnemies(prevEnemies => [
-                ...prevEnemies,
-                {
-                    id: enemyIdRef.current,
-                    x: DOGHOUSE_POS.x,
-                    z: DOGHOUSE_POS.z,
-                    role: AIRoles.STRAIGHT,
-                    zone: assignZone(enemyIdRef.current, patrolZones),
-                    isReturning: false
-                }
-            ]);
-            showEnemyAlert("¡Apareció un enemigo!");
-            enemyIdRef.current++;
-        }, 2000);
+        if (showIntroVideo) return;
 
-        const timer2 = setTimeout(() => {
-            setEnemies(prevEnemies => [
-                ...prevEnemies,
-                {
-                    id: enemyIdRef.current,
-                    x: DOGHOUSE_POS.x,
-                    z: DOGHOUSE_POS.z,
-                    role: AIRoles.TURNER,
-                    zone: assignZone(enemyIdRef.current, patrolZones),
-                    isReturning: false
-                }
-            ]);
-            showEnemyAlert("¡Cuidado, otro enemigo!");
-            enemyIdRef.current++;
-        }, 5000);
+        const spawnTimes = [5000, 10000, 15000, 20000, 25000, 30000, 35000];
+        const roles = [
+            AIRoles.STRAIGHT,
+            AIRoles.TURNER,
+            AIRoles.FREQUENT,
+            AIRoles.CHASER,
+            AIRoles.CUTTER,
+            AIRoles.ROTATOR,
+            AIRoles.LAZY
+        ];
+        const alerts = [
+            "¡Apareció un enemigo!",
+            "¡Cuidado, otro enemigo!",
+            "¡Más peligro!",
+            null, null, null, null
+        ];
 
-        const timer3 = setTimeout(() => {
-            setEnemies(prevEnemies => [
-                ...prevEnemies,
-                {
-                    id: enemyIdRef.current,
-                    x: DOGHOUSE_POS.x,
-                    z: DOGHOUSE_POS.z,
-                    role: AIRoles.FREQUENT,
-                    zone: assignZone(enemyIdRef.current, patrolZones),
-                    isReturning: false
-                }
-            ]);
-            showEnemyAlert("¡Más peligro!");
-            enemyIdRef.current++;
-        }, 9000);
+        const timers = spawnTimes.map((time, index) => {
+            return setTimeout(() => {
+                setEnemies(prevEnemies => [
+                    ...prevEnemies,
+                    {
+                        id: enemyIdRef.current + index, // Use offset to avoid race conditions with ref? Or just increment ref inside
+                        // actually using ref inside callback is safe if it's the *current* state logic, 
+                        // but standard practice with setEnemies callback is cleaner.
+                        // Let's stick to the ref pattern but careful. 
+                        // The original code incremented the ref.
+                        x: DOGHOUSE_POS.x,
+                        z: DOGHOUSE_POS.z,
+                        role: roles[index],
+                        zone: assignZone(enemyIdRef.current + index, patrolZones),
+                        isReturning: false
+                    }
+                ]);
+                if (alerts[index]) showEnemyAlert(alerts[index]);
+                // We shouldn't rely on ref incrementing in parallel timeouts because they run in order.
+                // But to be consistent with ID generation:
+            }, time);
+        });
 
-        const timer4 = setTimeout(() => {
-            setEnemies(prevEnemies => [
-                ...prevEnemies,
-                {
-                    id: enemyIdRef.current,
-                    x: DOGHOUSE_POS.x,
-                    z: DOGHOUSE_POS.z,
-                    role: AIRoles.CHASER,
-                    zone: assignZone(enemyIdRef.current, patrolZones),
-                    isReturning: false
-                }
-            ]);
-            enemyIdRef.current++;
-        }, 15000);
-
-        const timer5 = setTimeout(() => {
-            setEnemies(prevEnemies => [
-                ...prevEnemies,
-                {
-                    id: enemyIdRef.current,
-                    x: DOGHOUSE_POS.x,
-                    z: DOGHOUSE_POS.z,
-                    role: AIRoles.CUTTER,
-                    zone: assignZone(enemyIdRef.current, patrolZones),
-                    isReturning: false
-                }
-            ]);
-            enemyIdRef.current++;
-        }, 20000);
-
-        const timer6 = setTimeout(() => {
-            setEnemies(prevEnemies => [
-                ...prevEnemies,
-                {
-                    id: enemyIdRef.current,
-                    x: DOGHOUSE_POS.x,
-                    z: DOGHOUSE_POS.z,
-                    role: AIRoles.ROTATOR,
-                    zone: assignZone(enemyIdRef.current, patrolZones),
-                    isReturning: false
-                }
-            ]);
-            enemyIdRef.current++;
-        }, 25000);
-
-        const timer7 = setTimeout(() => {
-            setEnemies(prevEnemies => [
-                ...prevEnemies,
-                {
-                    id: enemyIdRef.current,
-                    x: DOGHOUSE_POS.x,
-                    z: DOGHOUSE_POS.z,
-                    role: AIRoles.LAZY,
-                    zone: assignZone(enemyIdRef.current, patrolZones),
-                    isReturning: false
-                }
-            ]);
-            enemyIdRef.current++;
-        }, 30000);
+        // Update ref after scheduling (or let the timeouts handle IDs?
+        // Better: let's use a simpler loop to just schedule them calling a helper.
 
         return () => {
-            clearTimeout(timer1);
-            clearTimeout(timer2);
-            clearTimeout(timer3);
-            clearTimeout(timer4);
-            clearTimeout(timer5);
-            clearTimeout(timer6);
-            clearTimeout(timer7);
+            timers.forEach(t => clearTimeout(t));
         };
-    }, []);
+    }, [showIntroVideo]);
 
     const restartLevel = () => {
         setPlayerPos(INITIAL_PLAYER_POS);
