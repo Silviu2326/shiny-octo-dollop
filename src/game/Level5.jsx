@@ -1280,7 +1280,7 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                         src="/assets/videos/NIVEL 4 FINAL.mp4"
                         autoPlay
                         playsInline
-                        muted
+
                         onLoadStart={() => setIsVideoLoading(true)}
                         onWaiting={() => setIsVideoLoading(true)}
                         onCanPlay={() => setIsVideoLoading(false)}

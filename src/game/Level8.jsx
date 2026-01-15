@@ -1150,7 +1150,7 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
                             src="/assets/videos/nivel 7.mp4"
                             autoPlay
                             playsInline
-                            muted
+
                             onLoadStart={() => setIsVideoLoading(true)}
                             onWaiting={() => setIsVideoLoading(true)}
                             onCanPlay={() => setIsVideoLoading(false)}

@@ -1155,7 +1155,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                             src="/assets/videos/GUAJIRA NIVEL 6 (1) .mp4"
                             autoPlay
                             playsInline
-                            muted
+
                             onLoadStart={() => setIsVideoLoading(true)}
                             onWaiting={() => setIsVideoLoading(true)}
                             onCanPlay={() => setIsVideoLoading(false)}
