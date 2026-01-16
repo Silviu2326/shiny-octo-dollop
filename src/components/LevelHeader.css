@@ -4,6 +4,11 @@
   left: 0;
   right: 0;
   z-index: 1000;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .level-header-banner {
@@ -135,6 +140,9 @@
   transition: all 0.2s ease;
   padding: 0;
   margin-bottom: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .level-header-settings-button:hover {
