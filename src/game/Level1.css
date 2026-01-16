@@ -40,6 +40,8 @@
     pointer-events: auto;
     touch-action: auto;
     box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .settings-button:hover {
@@ -164,7 +166,9 @@
     cursor: pointer;
     margin-bottom: 15px;
     transition: all 0.3s ease;
-    touch-action: auto;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -322,6 +326,11 @@
     touch-action: none;
     -webkit-tap-highlight-color: transparent;
     transition: all 0.1s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .d-pad-button:active {
