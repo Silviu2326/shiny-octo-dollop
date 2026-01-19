@@ -929,9 +929,9 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
     );
   };
 
-  const handlePositionUpdate = (x, z) => {
-    setPlayerPos({ x, z });
 
+
+  const checkEnemyCollisions = (x, z) => {
     // Manejar colisiones con enemigos
     if (!isInvulnerable) {
       enemies.forEach(enemy => {
@@ -1006,6 +1006,12 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
       }
       return enemy;
     }));
+  };
+
+  const handlePositionUpdate = (x, z) => {
+    setPlayerPos({ x, z });
+
+    checkEnemyCollisions(x, z);
 
     setSpecialBonuses(prev => {
       return prev.map(bonus => {
@@ -1125,9 +1131,15 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
     }
   }, [beersCollected, showWinModal, onLevelComplete, score, startTime, initialCollectibles.length]);
 
+  // Continuous collision check for moving enemies
+  useEffect(() => {
+    if (isPaused) return;
+    checkEnemyCollisions(playerPos.x, playerPos.z);
+  }, [playerPos, enemies, isPaused, isInvulnerable, powerActive, lives, beersCollected]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (isPaused) return;
+      if (showIntroVideo || isPaused) return;
       switch (e.key) {
         case 'ArrowUp':
         case 'w':
@@ -1180,7 +1192,7 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showTutorial, direction]);
+  }, [showIntroVideo, isPaused, direction, activatePower]);
 
   // Global pointer release handler to fix stuck D-pad
   useEffect(() => {

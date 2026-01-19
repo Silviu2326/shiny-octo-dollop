@@ -931,6 +931,7 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
   // Keyboard Controls
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (showIntroVideo) return;
       switch (e.key) {
         case 'ArrowUp':
         case 'w':
@@ -982,7 +983,7 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showTutorial, direction]);
+  }, [showIntroVideo, direction, activatePower]);
 
   // Global pointer release handler to fix stuck D-pad
   useEffect(() => {
