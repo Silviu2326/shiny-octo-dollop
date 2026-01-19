@@ -278,6 +278,34 @@ function Barrel({ position }) {
     );
 }
 
+function SpecialBonus({ position }) {
+    const texture = useLoader(THREE.TextureLoader, '/assets/bonus/bonus_star.png');
+    const meshRef = useRef();
+
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+
+    useFrame(({ clock }) => {
+        if (meshRef.current) {
+            meshRef.current.position.y = 0.5 + Math.sin(clock.getElapsedTime() * 3) * 0.1;
+            meshRef.current.rotation.y += 0.02;
+        }
+    });
+
+    return (
+        <mesh ref={meshRef} position={[position.x, 0.5, position.z]} rotation={[0, 0, 0]}>
+            <planeGeometry args={[0.8, 0.8]} />
+            <meshStandardMaterial
+                map={texture}
+                transparent={true}
+                side={THREE.DoubleSide}
+                alphaTest={0.5}
+                depthWrite={false}
+            />
+        </mesh>
+    );
+}
+
 // Enemy component moved to src/components/game/Enemy.jsx
 
 function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive, isInvulnerable }) {
@@ -456,7 +484,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     const [isInvulnerable, setIsInvulnerable] = useState(false);
     const [startTime, setStartTime] = useState(Date.now());
     const [finalScoreStats, setFinalScoreStats] = useState({ score: 0, bonus: 0, total: 0 });
-    const [isPaused, setIsPaused] = useState(false);
+    const [isPaused, setIsPaused] = useState(true);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showGameOverModal, setShowGameOverModal] = useState(false);
     const [showVictoryModal, setShowVictoryModal] = useState(false);
@@ -486,6 +514,11 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     // Refs for collection optimization
     const collectedBeersRef = useRef(new Set());
     const collectedBarrelsRef = useRef(new Set());
+    const collectedBonusesRef = useRef(new Set());
+
+    // Special Bonuses
+    const [specialBonuses, setSpecialBonuses] = useState([]);
+    const [bonusFlags, setBonusFlags] = useState({ p30: false, p70: false });
 
     useEffect(() => {
         enemiesRef.current = enemies;
@@ -525,7 +558,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                 if (dist < 0.8) {
                     collectedBarrelsRef.current.add(b.id);
                     tokensToAdd++;
-                    scoreToAdd += 25;
+                    scoreToAdd += 50;
                     barrelsChanged = true;
                     return { ...b, collected: true };
                 }
@@ -540,6 +573,29 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                 setScore(s => s + scoreToAdd);
                 playCollectSound(); // Or barrel sound if distinct
             }
+        }
+
+        // 2.5 Check Special Bonuses
+        let bonusesChanged = false;
+        let bonusScoreToAdd = 0;
+
+        const nextBonuses = specialBonuses.map(b => {
+            if (!b.collected && !collectedBonusesRef.current.has(b.id)) {
+                const dist = Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2);
+                if (dist < 0.8) {
+                    collectedBonusesRef.current.add(b.id);
+                    bonusScoreToAdd += 500;
+                    bonusesChanged = true;
+                    return { ...b, collected: true };
+                }
+            }
+            return b;
+        });
+
+        if (bonusesChanged) {
+            setSpecialBonuses(nextBonuses);
+            setScore(s => s + bonusScoreToAdd);
+            playCollectSound();
         }
 
         // 3. Check Enemies (Player runs into Enemy)
@@ -727,6 +783,24 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
         return () => { window.removeEventListener('keydown', k); window.removeEventListener('keyup', ku); };
     }, [isPaused, tokens, powerActive]);
 
+    // Global pointer release handler to fix stuck D-pad
+    useEffect(() => {
+        const handleGlobalPointerUp = () => {
+            setDirection({ x: 0, z: 0 });
+        };
+
+        window.addEventListener('pointerup', handleGlobalPointerUp);
+        window.addEventListener('pointercancel', handleGlobalPointerUp);
+        window.addEventListener('touchend', handleGlobalPointerUp);
+        window.addEventListener('touchcancel', handleGlobalPointerUp);
+
+        return () => {
+            window.removeEventListener('pointerup', handleGlobalPointerUp);
+            window.removeEventListener('pointercancel', handleGlobalPointerUp);
+            window.removeEventListener('touchend', handleGlobalPointerUp);
+            window.removeEventListener('touchcancel', handleGlobalPointerUp);
+        };
+    }, []);
 
 
     // Enemy returning to doghouse logic
@@ -754,6 +828,25 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
 
     // Enemy Spawning
     useEffect(() => {
+        if (showIntroVideo) return;
+
+        // Enemigo PURSUER que siempre persigue al jugador
+        const timerPursuer = setTimeout(() => {
+            setEnemies(prevEnemies => [
+                ...prevEnemies,
+                {
+                    id: enemyIdRef.current,
+                    x: DOGHOUSE_POS.x,
+                    z: DOGHOUSE_POS.z,
+                    role: AIRoles.PURSUER,
+                    zone: assignZone(enemyIdRef.current, patrolZones),
+                    isReturning: false
+                }
+            ]);
+            showEnemyAlert("¡Apareció un perseguidor!");
+            enemyIdRef.current++;
+        }, 2000);
+
         const timer1 = setTimeout(() => {
             setEnemies(prevEnemies => [
                 ...prevEnemies,
@@ -768,7 +861,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
             ]);
             showEnemyAlert("¡Apareció un enemigo!");
             enemyIdRef.current++;
-        }, 100);
+        }, 5000);
 
         const timer2 = setTimeout(() => {
             setEnemies(prevEnemies => [
@@ -784,7 +877,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
             ]);
             showEnemyAlert("¡Cuidado, otro enemigo!");
             enemyIdRef.current++;
-        }, 5000);
+        }, 8000);
 
         const timer3 = setTimeout(() => {
             setEnemies(prevEnemies => [
@@ -800,7 +893,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
             ]);
             showEnemyAlert("¡Más peligro!");
             enemyIdRef.current++;
-        }, 9000);
+        }, 11000);
 
         const timer4 = setTimeout(() => {
             setEnemies(prevEnemies => [
@@ -815,7 +908,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                 }
             ]);
             enemyIdRef.current++;
-        }, 12000);
+        }, 14000);
 
         const timer5 = setTimeout(() => {
             setEnemies(prevEnemies => [
@@ -830,7 +923,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                 }
             ]);
             enemyIdRef.current++;
-        }, 15000);
+        }, 17000);
 
         const timer6 = setTimeout(() => {
             setEnemies(prevEnemies => [
@@ -845,9 +938,10 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                 }
             ]);
             enemyIdRef.current++;
-        }, 18000);
+        }, 20000);
 
         return () => {
+            clearTimeout(timerPursuer);
             clearTimeout(timer1);
             clearTimeout(timer2);
             clearTimeout(timer3);
@@ -855,7 +949,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
             clearTimeout(timer5);
             clearTimeout(timer6);
         };
-    }, []);
+    }, [showIntroVideo]);
 
     const handleEnemyPositionUpdate = (id, x, z) => {
         setEnemies(prev => prev.map(e => e.id === id ? { ...e, x, z } : e));
@@ -898,8 +992,43 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
             { id: 6, x: 5, z: 18, collected: false },
             { id: 7, x: 25, z: 18, collected: false },
         ]);
+        collectedBeersRef.current.clear();
+        collectedBarrelsRef.current.clear();
+        collectedBonusesRef.current.clear();
+        setSpecialBonuses([]);
+        setBonusFlags({ p30: false, p70: false });
         setStartTime(Date.now());
     };
+
+    // Spawn special bonuses at 30% and 70% collection
+    useEffect(() => {
+        const totalBeers = collectibles.length;
+        const collected = collectibles.filter(c => c.collected).length;
+        const percentage = totalBeers > 0 ? collected / totalBeers : 0;
+
+        const findFreePosition = () => {
+            for (let i = 0; i < 50; i++) {
+                const x = Math.random() * 26 + 2;
+                const z = Math.random() * 32 + 2;
+                if (!checkCollision(x, z, walls)) {
+                    return { x, z };
+                }
+            }
+            return { x: 15, z: 18 };
+        };
+
+        if (percentage >= 0.3 && !bonusFlags.p30) {
+            const pos = findFreePosition();
+            setSpecialBonuses(prev => [...prev, { id: 'bonus30', x: pos.x, z: pos.z, collected: false }]);
+            setBonusFlags(prev => ({ ...prev, p30: true }));
+        }
+
+        if (percentage >= 0.7 && !bonusFlags.p70) {
+            const pos = findFreePosition();
+            setSpecialBonuses(prev => [...prev, { id: 'bonus70', x: pos.x, z: pos.z, collected: false }]);
+            setBonusFlags(prev => ({ ...prev, p70: true }));
+        }
+    }, [collectibles, bonusFlags]);
 
     return (
         <div className="game-container">
@@ -916,6 +1045,10 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                 <InstancedCollectibles collectibles={collectibles} />
 
                 {barrels.map(b => !b.collected && <Barrel key={b.id} position={b} />)}
+
+                {specialBonuses.filter(b => !b.collected).map(b => (
+                    <SpecialBonus key={b.id} position={{ x: b.x, z: b.z }} />
+                ))}
 
                 <Player position={playerPos} direction={direction} onPositionUpdate={handlePositionUpdate} isPaused={isPaused} isPowerActive={powerActive} isInvulnerable={isInvulnerable} />
 
@@ -964,6 +1097,8 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                             onPointerDown={() => setDirection({ x: 0, z: -1 })}
                             onPointerUp={() => setDirection({ x: 0, z: 0 })}
                             onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowUp size={24} />
                         </button>
@@ -974,6 +1109,8 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                             onPointerDown={() => setDirection({ x: -1, z: 0 })}
                             onPointerUp={() => setDirection({ x: 0, z: 0 })}
                             onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowLeft size={24} />
                         </button>
@@ -1003,6 +1140,8 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                             onPointerDown={() => setDirection({ x: 1, z: 0 })}
                             onPointerUp={() => setDirection({ x: 0, z: 0 })}
                             onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowRight size={24} />
                         </button>
@@ -1013,6 +1152,8 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                             onPointerDown={() => setDirection({ x: 0, z: 1 })}
                             onPointerUp={() => setDirection({ x: 0, z: 0 })}
                             onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowDown size={24} />
                         </button>
@@ -1163,9 +1304,9 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                             onCanPlay={() => setIsVideoLoading(false)}
                             onPlaying={() => setIsVideoLoading(false)}
                             style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isVideoLoading ? 0.5 : 1 }}
-                            onEnded={() => setShowIntroVideo(false)}
-                            onClick={() => setShowIntroVideo(false)}
-                            onError={() => setShowIntroVideo(false)}
+                            onEnded={() => { setShowIntroVideo(false); setIsPaused(false); }}
+                            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
+                            onError={() => { setShowIntroVideo(false); setIsPaused(false); }}
                         />
                         <button
                             onClick={(e) => {
@@ -1200,7 +1341,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                             {isVideoPlaying ? "Parar" : "Reproducir"}
                         </button>
                         <button
-                            onClick={() => setShowIntroVideo(false)}
+                            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
                             style={{
                                 position: 'absolute',
                                 bottom: '20px',

@@ -458,7 +458,7 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
   const enemyIdRef = useRef(1);
   const [powerActive, setPowerActive] = useState(false);
   const [powerTimeLeft, setPowerTimeLeft] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isPaused, setIsPaused] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [isInvulnerable, setIsInvulnerable] = useState(false);
@@ -468,6 +468,12 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
   const [livesLost, setLivesLost] = useState(false);
   const [showWinModal, setShowWinModal] = useState(false);
   const [showIntroVideo, setShowIntroVideo] = useState(true);
+
+  // Refs for optimization
+  const collectedBeersRef = useRef(new Set());
+  const collectedBarrelsRef = useRef(new Set());
+  const collectedBonusesRef = useRef(new Set());
+
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const videoRef = useRef(null);
@@ -582,16 +588,16 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
 
     // Special Bonuses collision
     let bonusHitId = null;
-    specialBonuses.forEach(bonus => {
-      if (!bonus.collected) {
-        const distance = Math.sqrt(
-          Math.pow(x - bonus.x, 2) + Math.pow(z - bonus.z, 2)
-        );
-        if (distance < 0.6) {
-          bonusHitId = bonus.id;
-        }
+    for (const bonus of specialBonuses) {
+      if (bonus.collected || collectedBonusesRef.current.has(bonus.id)) continue;
+      const distance = Math.sqrt(
+        Math.pow(x - bonus.x, 2) + Math.pow(z - bonus.z, 2)
+      );
+      if (distance < 0.6) {
+        bonusHitId = bonus.id;
+        collectedBonusesRef.current.add(bonus.id);
       }
-    });
+    }
 
     if (bonusHitId) {
       setSpecialBonuses(prev => prev.map(b => b.id === bonusHitId ? { ...b, collected: true } : b));
@@ -601,20 +607,20 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
 
     // Barrels collision
     let barrelHitId = null;
-    barrels.forEach(barrel => {
-      if (!barrel.collected) {
-        const distance = Math.sqrt(
-          Math.pow(x - barrel.x, 2) + Math.pow(z - barrel.z, 2)
-        );
-        if (distance < 0.8) {
-          barrelHitId = barrel.id;
-        }
+    for (const barrel of barrels) {
+      if (barrel.collected || collectedBarrelsRef.current.has(barrel.id)) continue;
+      const distance = Math.sqrt(
+        Math.pow(x - barrel.x, 2) + Math.pow(z - barrel.z, 2)
+      );
+      if (distance < 0.8) {
+        barrelHitId = barrel.id;
+        collectedBarrelsRef.current.add(barrel.id);
       }
-    });
+    }
 
     if (barrelHitId) {
       setBarrels(prev => prev.map(b => b.id === barrelHitId ? { ...b, collected: true } : b));
-      setScore(p => p + 20);
+      setScore(p => p + 50);
       if (tokens < 3) {
         setTokens(p => p + 1);
       }
@@ -623,14 +629,14 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
 
     // Collectibles collision
     let collectibleHitId = null;
-    collectibles.forEach(collectible => {
-      if (!collectible.collected) {
-        const distance = Math.sqrt(Math.pow(x - collectible.x, 2) + Math.pow(z - collectible.z, 2));
-        if (distance < 0.5) {
-          collectibleHitId = collectible.id;
-        }
+    for (const collectible of collectibles) {
+      if (collectible.collected || collectedBeersRef.current.has(collectible.id)) continue;
+      const distance = Math.sqrt(Math.pow(x - collectible.x, 2) + Math.pow(z - collectible.z, 2));
+      if (distance < 0.5) {
+        collectibleHitId = collectible.id;
+        collectedBeersRef.current.add(collectible.id);
       }
-    });
+    }
 
     if (collectibleHitId) {
       setCollectibles(prev => prev.map(c => c.id === collectibleHitId ? { ...c, collected: true } : c));
@@ -742,6 +748,11 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
       clearTimeout(invulnerabilityTimerRef.current);
       invulnerabilityTimerRef.current = null;
     }
+
+    // Clear optimization refs
+    collectedBeersRef.current.clear();
+    collectedBarrelsRef.current.clear();
+    collectedBonusesRef.current.clear();
   };
 
   const activatePower = () => {
@@ -779,6 +790,23 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
 
   useEffect(() => {
     if (showIntroVideo) return;
+
+    // Enemigo PURSUER que siempre persigue al jugador
+    const timerPursuer = setTimeout(() => {
+      setEnemies(prevEnemies => [
+        ...prevEnemies,
+        {
+          id: enemyIdRef.current++,
+          x: doghousePos.x,
+          z: doghousePos.z,
+          role: AIRoles.PURSUER,
+          zone: assignZone(0, patrolZones),
+          isReturning: false
+        }
+      ]);
+      showEnemyAlert("¡Apareció un perseguidor!");
+    }, 3000);
+
     const timer1 = setTimeout(() => {
       setEnemies(prevEnemies => [
         ...prevEnemies,
@@ -787,12 +815,12 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
           x: doghousePos.x,
           z: doghousePos.z,
           role: AIRoles.CHASER,
-          zone: assignZone(0, patrolZones),
+          zone: assignZone(1, patrolZones),
           isReturning: false
         }
       ]);
       showEnemyAlert("¡Apareció un enemigo!");
-    }, 5000);
+    }, 7000);
 
     const timer2 = setTimeout(() => {
       setEnemies(prevEnemies => [
@@ -802,14 +830,15 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
           x: doghousePos.x,
           z: doghousePos.z,
           role: AIRoles.PATROL,
-          zone: assignZone(1, patrolZones),
+          zone: assignZone(2, patrolZones),
           isReturning: false
         }
       ]);
       showEnemyAlert("¡Cuidado, otro enemigo!");
-    }, 10000);
+    }, 12000);
 
     return () => {
+      clearTimeout(timerPursuer);
       clearTimeout(timer1);
       clearTimeout(timer2);
     };
@@ -926,8 +955,26 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [direction, tokens, powerActive]);
+  }, [showTutorial, direction]);
 
+  // Global pointer release handler to fix stuck D-pad
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      setDirection({ x: 0, z: 0 });
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    window.addEventListener('touchend', handleGlobalPointerUp);
+    window.addEventListener('touchcancel', handleGlobalPointerUp);
+
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+      window.removeEventListener('touchend', handleGlobalPointerUp);
+      window.removeEventListener('touchcancel', handleGlobalPointerUp);
+    };
+  }, []);
 
 
   // Game Loop
@@ -1036,6 +1083,8 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
               onPointerDown={() => setDirection({ x: 0, z: -1 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowUp size={24} />
             </button>
@@ -1046,6 +1095,8 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
               onPointerDown={() => setDirection({ x: -1, z: 0 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowLeft size={24} />
             </button>
@@ -1075,6 +1126,8 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
               onPointerDown={() => setDirection({ x: 1, z: 0 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowRight size={24} />
             </button>
@@ -1085,6 +1138,8 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
               onPointerDown={() => setDirection({ x: 0, z: 1 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowDown size={24} />
             </button>
@@ -1248,9 +1303,9 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
             onCanPlay={() => setIsVideoLoading(false)}
             onPlaying={() => setIsVideoLoading(false)}
             style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isVideoLoading ? 0.5 : 1 }}
-            onEnded={() => setShowIntroVideo(false)}
-            onClick={() => setShowIntroVideo(false)}
-            onError={() => setShowIntroVideo(false)}
+            onEnded={() => { setShowIntroVideo(false); setIsPaused(false); }}
+            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
+            onError={() => { setShowIntroVideo(false); setIsPaused(false); }}
           />
 
           <button
@@ -1286,7 +1341,7 @@ export default function Level3({ onBack, onNextLevel, onLevelComplete }) {
             {isVideoPlaying ? "Parar" : "Reproducir"}
           </button>
           <button
-            onClick={() => setShowIntroVideo(false)}
+            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
             style={{
               position: 'absolute',
               bottom: '20px',

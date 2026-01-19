@@ -21,7 +21,8 @@ export const AIRoles = {
   AMBUSHER: 'ambusher',
   FLANKER: 'flanker',
   PATROL: 'patrol',
-  SWARM: 'swarm'
+  SWARM: 'swarm',
+  PURSUER: 'pursuer'
 };
 
 export const AIStates = {
@@ -45,7 +46,7 @@ export const getRoleConfig = (role) => {
       scatterDuration: 5 + baseVariation,
       chaseDuration: 5 + baseVariation,
       straightBias: 0.5,
-      speed: 3.60,
+      speed: 2.52,
       detectionRadius: 20,
       chaseRadius: 18,
       losePlayerDistance: 25,
@@ -56,7 +57,7 @@ export const getRoleConfig = (role) => {
       scatterDuration: 6 + baseVariation,
       chaseDuration: 5 + baseVariation,
       straightBias: 0.7,
-      speed: 4.0,
+      speed: 2.8,
       detectionRadius: 22,
       chaseRadius: 20,
       losePlayerDistance: 28,
@@ -67,7 +68,7 @@ export const getRoleConfig = (role) => {
       scatterDuration: 5 + baseVariation,
       chaseDuration: 6 + baseVariation,
       straightBias: 0.2,
-      speed: 4.0,
+      speed: 2.8,
       detectionRadius: 18,
       chaseRadius: 16,
       losePlayerDistance: 22,
@@ -78,7 +79,7 @@ export const getRoleConfig = (role) => {
       scatterDuration: 3 + baseVariation,
       chaseDuration: 3 + baseVariation,
       straightBias: 0.5,
-      speed: 4.28,
+      speed: 3.0,
       detectionRadius: 20,
       chaseRadius: 18,
       losePlayerDistance: 25,
@@ -89,7 +90,7 @@ export const getRoleConfig = (role) => {
       scatterDuration: 4 + baseVariation,
       chaseDuration: 8 + baseVariation,
       straightBias: 0.8,
-      speed: 5.0,
+      speed: 3.5,
       detectionRadius: 25,
       chaseRadius: 23,
       losePlayerDistance: 30,
@@ -101,7 +102,7 @@ export const getRoleConfig = (role) => {
       scatterDuration: 6 + baseVariation,
       chaseDuration: 4 + baseVariation,
       straightBias: 0.3,
-      speed: 4.28,
+      speed: 3.0,
       detectionRadius: 20,
       chaseRadius: 18,
       losePlayerDistance: 25,
@@ -113,7 +114,7 @@ export const getRoleConfig = (role) => {
       scatterDuration: 3 + baseVariation,
       chaseDuration: 3 + baseVariation,
       straightBias: 0.5,
-      speed: 4.28,
+      speed: 3.0,
       detectionRadius: 20,
       chaseRadius: 18,
       losePlayerDistance: 25,
@@ -124,7 +125,7 @@ export const getRoleConfig = (role) => {
       scatterDuration: 7 + baseVariation,
       chaseDuration: 3 + baseVariation,
       straightBias: 0.6,
-      speed: 3.5,
+      speed: 2.45,
       detectionRadius: 15,
       chaseRadius: 13,
       losePlayerDistance: 20,
@@ -135,7 +136,7 @@ export const getRoleConfig = (role) => {
       scatterDuration: 10 + baseVariation,
       chaseDuration: 15 + baseVariation,
       straightBias: 0.6,
-      speed: 4.0,
+      speed: 2.8,
       detectionRadius: 12,
       chaseRadius: 10,
       losePlayerDistance: 30,
@@ -147,7 +148,7 @@ export const getRoleConfig = (role) => {
       scatterDuration: 4 + baseVariation,
       chaseDuration: 8 + baseVariation,
       straightBias: 0.5,
-      speed: 4.5,
+      speed: 3.15,
       detectionRadius: 22,
       chaseRadius: 20,
       losePlayerDistance: 28,
@@ -159,7 +160,7 @@ export const getRoleConfig = (role) => {
       scatterDuration: 20 + baseVariation,
       chaseDuration: 3 + baseVariation,
       straightBias: 0.8,
-      speed: 3.8,
+      speed: 2.66,
       detectionRadius: 18,
       chaseRadius: 16,
       losePlayerDistance: 22,
@@ -171,12 +172,26 @@ export const getRoleConfig = (role) => {
       scatterDuration: 5 + baseVariation,
       chaseDuration: 10 + baseVariation,
       straightBias: 0.6,
-      speed: 4.8,
+      speed: 3.36,
       detectionRadius: 20,
       chaseRadius: 18,
       losePlayerDistance: 25,
       useCoordination: true,
       description: 'Coordinación con grupo'
+    },
+
+    [AIRoles.PURSUER]: {
+      scatterDuration: 1 + baseVariation * 0.5,
+      chaseDuration: 999,
+      straightBias: 0.7,
+      speed: 2.8,
+      detectionRadius: 100,
+      chaseRadius: 100,
+      losePlayerDistance: 999,
+      usePrediction: true,
+      alwaysChase: true,
+      maxDistanceFromPlayer: 12,
+      description: 'Perseguidor constante, siempre visible en pantalla'
     }
   };
 
@@ -481,6 +496,17 @@ export const updateAIState = ({
   searchTimer,
   hasLineOfSight
 }) => {
+  // Comportamiento especial para PURSUER - siempre persigue
+  if (config.alwaysChase) {
+    if (isPowerActive) {
+      return AIStates.FLEE;
+    }
+    if (timeSinceSpawn < 1) {
+      return AIStates.IDLE;
+    }
+    return AIStates.CHASE;
+  }
+
   switch (currentState) {
     case AIStates.IDLE:
       if (timeSinceSpawn > 2) {
@@ -665,13 +691,13 @@ export const updateEnemyAI = ({
         newMode: mode,
         newModeTimer: modeTimer,
         shouldMove: true,
-        speed: 8.0 // Velocidad rápida de retorno
+        speed: 5.6 // Velocidad rápida de retorno
       };
     }
   }
 
-  // Culling por distancia
-  if (distance > 30 && currentState !== AIStates.RETURN) {
+  // Culling por distancia (excepto PURSUER que siempre está activo)
+  if (distance > 30 && currentState !== AIStates.RETURN && !roleConfig.alwaysChase) {
     return {
       newDirection: direction,
       newState: currentState,
@@ -718,7 +744,17 @@ export const updateEnemyAI = ({
   });
 
   // Calcular próxima posición
-  const speed = (isPowerActive && slowDownOnPower) ? roleConfig.speed * 0.4 : roleConfig.speed;
+  let speed = (isPowerActive && slowDownOnPower) ? roleConfig.speed * 0.4 : roleConfig.speed;
+
+  // Comportamiento especial PURSUER: acelerar si está muy lejos para mantenerse visible
+  if (roleConfig.alwaysChase && roleConfig.maxDistanceFromPlayer) {
+    if (distance > roleConfig.maxDistanceFromPlayer) {
+      // Acelerar proporcionalmente a la distancia para alcanzar al jugador
+      const catchUpMultiplier = Math.min(2.0, 1 + (distance - roleConfig.maxDistanceFromPlayer) / 10);
+      speed = roleConfig.speed * catchUpMultiplier;
+    }
+  }
+
   const nextX = enemyPos.x + direction.x * speed * delta;
   const nextZ = enemyPos.z + direction.z * speed * delta;
 

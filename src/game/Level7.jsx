@@ -303,6 +303,34 @@ function Barrel({ position }) {
     );
 }
 
+function SpecialBonus({ position }) {
+    const texture = useLoader(THREE.TextureLoader, '/assets/bonus/09965074-679e-4abf-baef-f6eb7a752603.png');
+    const meshRef = useRef();
+
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+
+    useFrame(({ clock }) => {
+        if (meshRef.current) {
+            meshRef.current.position.y = 0.5 + Math.sin(clock.getElapsedTime() * 3) * 0.1;
+            meshRef.current.rotation.y += 0.02;
+        }
+    });
+
+    return (
+        <mesh ref={meshRef} position={[position.x, 0.5, position.z]} rotation={[0, 0, 0]}>
+            <planeGeometry args={[0.8, 0.8]} />
+            <meshStandardMaterial
+                map={texture}
+                transparent={true}
+                side={THREE.DoubleSide}
+                alphaTest={0.5}
+                depthWrite={false}
+            />
+        </mesh>
+    );
+}
+
 // Enemy component moved to src/components/game/Enemy.jsx
 
 function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive, isInvulnerable, shockwaveActive, shockwaveRadius }) {
@@ -470,7 +498,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
     const [isInvulnerable, setIsInvulnerable] = useState(false);
     const [startTime, setStartTime] = useState(Date.now());
     const [finalScoreStats, setFinalScoreStats] = useState({ score: 0, bonus: 0, total: 0 });
-    const [isPaused, setIsPaused] = useState(false);
+    const [isPaused, setIsPaused] = useState(true);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showGameOverModal, setShowGameOverModal] = useState(false);
     const [showVictoryModal, setShowVictoryModal] = useState(false);
@@ -499,7 +527,12 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
 
     const [enemies, setEnemies] = useState([]);
     const collectedBarrelsRef = useRef(new Set());
+    const collectedBonusesRef = useRef(new Set());
     const processingHit = useRef(false);
+
+    // Special Bonuses
+    const [specialBonuses, setSpecialBonuses] = useState([]);
+    const [bonusFlags, setBonusFlags] = useState({ p30: false, p70: false });
 
     // --- Audio Logic ---
     useEffect(() => {
@@ -676,6 +709,25 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
         return () => { window.removeEventListener('keydown', k); window.removeEventListener('keyup', ku); };
     }, [isPaused, tokens, powerActive]);
 
+    // Global pointer release handler to fix stuck D-pad
+    useEffect(() => {
+        const handleGlobalPointerUp = () => {
+            setDirection({ x: 0, z: 0 });
+        };
+
+        window.addEventListener('pointerup', handleGlobalPointerUp);
+        window.addEventListener('pointercancel', handleGlobalPointerUp);
+        window.addEventListener('touchend', handleGlobalPointerUp);
+        window.addEventListener('touchcancel', handleGlobalPointerUp);
+
+        return () => {
+            window.removeEventListener('pointerup', handleGlobalPointerUp);
+            window.removeEventListener('pointercancel', handleGlobalPointerUp);
+            window.removeEventListener('touchend', handleGlobalPointerUp);
+            window.removeEventListener('touchcancel', handleGlobalPointerUp);
+        };
+    }, []);
+
     const handleEnemyPositionUpdate = (id, x, z) => {
         setEnemies(prev => prev.map(e => e.id === id ? { ...e, x, z } : e));
 
@@ -736,7 +788,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                 if (dist < 0.8) {
                     collectedBarrelsRef.current.add(b.id);
                     tokensToAdd++;
-                    scoreToAdd += 25;
+                    scoreToAdd += 50;
                     barrelsChanged = true;
                     return { ...b, collected: true };
                 }
@@ -751,6 +803,29 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                 setScore(s => s + scoreToAdd);
                 playCollectSound();
             }
+        }
+
+        // 2.5 Check Special Bonuses
+        let bonusesChanged = false;
+        let bonusScoreToAdd = 0;
+
+        const nextBonuses = specialBonuses.map(b => {
+            if (!b.collected && !collectedBonusesRef.current.has(b.id)) {
+                const dist = Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2);
+                if (dist < 0.8) {
+                    collectedBonusesRef.current.add(b.id);
+                    bonusScoreToAdd += 500;
+                    bonusesChanged = true;
+                    return { ...b, collected: true };
+                }
+            }
+            return b;
+        });
+
+        if (bonusesChanged) {
+            setSpecialBonuses(nextBonuses);
+            setScore(s => s + bonusScoreToAdd);
+            playCollectSound();
         }
 
         // 3. Check Enemies (Player runs into Enemy)
@@ -850,8 +925,9 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
     useEffect(() => {
         if (showIntroVideo) return;
 
-        const spawnTimes = [5000, 10000, 15000, 20000, 25000, 30000, 35000];
+        const spawnTimes = [2000, 6000, 11000, 16000, 21000, 26000, 31000, 36000];
         const roles = [
+            AIRoles.PURSUER,  // Perseguidor constante que siempre está visible
             AIRoles.STRAIGHT,
             AIRoles.TURNER,
             AIRoles.FREQUENT,
@@ -861,6 +937,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
             AIRoles.LAZY
         ];
         const alerts = [
+            "¡Apareció un perseguidor!",
             "¡Apareció un enemigo!",
             "¡Cuidado, otro enemigo!",
             "¡Más peligro!",
@@ -872,11 +949,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                 setEnemies(prevEnemies => [
                     ...prevEnemies,
                     {
-                        id: enemyIdRef.current + index, // Use offset to avoid race conditions with ref? Or just increment ref inside
-                        // actually using ref inside callback is safe if it's the *current* state logic, 
-                        // but standard practice with setEnemies callback is cleaner.
-                        // Let's stick to the ref pattern but careful. 
-                        // The original code incremented the ref.
+                        id: enemyIdRef.current + index,
                         x: DOGHOUSE_POS.x,
                         z: DOGHOUSE_POS.z,
                         role: roles[index],
@@ -885,13 +958,8 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                     }
                 ]);
                 if (alerts[index]) showEnemyAlert(alerts[index]);
-                // We shouldn't rely on ref incrementing in parallel timeouts because they run in order.
-                // But to be consistent with ID generation:
             }, time);
         });
-
-        // Update ref after scheduling (or let the timeouts handle IDs?
-        // Better: let's use a simpler loop to just schedule them calling a helper.
 
         return () => {
             timers.forEach(t => clearTimeout(t));
@@ -916,12 +984,45 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
         setShowGameOverModal(false);
         setShowVictoryModal(false);
         collectedBarrelsRef.current.clear();
+        collectedBonusesRef.current.clear();
+        setSpecialBonuses([]);
+        setBonusFlags({ p30: false, p70: false });
         setBarrels([
             { id: 1, x: 15, z: 9, collected: false },
             { id: 2, x: 5, z: 18, collected: false },
             { id: 3, x: 25, z: 18, collected: false },
         ]);
     };
+
+    // Spawn special bonuses at 30% and 70% collection
+    useEffect(() => {
+        const totalBeers = collectibles.length;
+        const collected = collectibles.filter(c => c.collected).length;
+        const percentage = totalBeers > 0 ? collected / totalBeers : 0;
+
+        const findFreePosition = () => {
+            for (let i = 0; i < 50; i++) {
+                const x = Math.random() * 26 + 2;
+                const z = Math.random() * 32 + 2;
+                if (!checkCollision(x, z, walls)) {
+                    return { x, z };
+                }
+            }
+            return { x: 15, z: 18 };
+        };
+
+        if (percentage >= 0.3 && !bonusFlags.p30) {
+            const pos = findFreePosition();
+            setSpecialBonuses(prev => [...prev, { id: 'bonus30', x: pos.x, z: pos.z, collected: false }]);
+            setBonusFlags(prev => ({ ...prev, p30: true }));
+        }
+
+        if (percentage >= 0.7 && !bonusFlags.p70) {
+            const pos = findFreePosition();
+            setSpecialBonuses(prev => [...prev, { id: 'bonus70', x: pos.x, z: pos.z, collected: false }]);
+            setBonusFlags(prev => ({ ...prev, p70: true }));
+        }
+    }, [collectibles, bonusFlags]);
 
     return (
         <div className="game-container">
@@ -938,6 +1039,10 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                 <InstancedCollectibles collectibles={collectibles} />
 
                 {barrels.map(b => !b.collected && <Barrel key={b.id} position={b} />)}
+
+                {specialBonuses.filter(b => !b.collected).map(b => (
+                    <SpecialBonus key={b.id} position={{ x: b.x, z: b.z }} />
+                ))}
 
                 <Player
                     position={playerPos}
@@ -997,6 +1102,8 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                             onPointerDown={() => setDirection({ x: 0, z: -1 })}
                             onPointerUp={() => setDirection({ x: 0, z: 0 })}
                             onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowUp size={24} />
                         </button>
@@ -1007,6 +1114,8 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                             onPointerDown={() => setDirection({ x: -1, z: 0 })}
                             onPointerUp={() => setDirection({ x: 0, z: 0 })}
                             onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowLeft size={24} />
                         </button>
@@ -1036,6 +1145,8 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                             onPointerDown={() => setDirection({ x: 1, z: 0 })}
                             onPointerUp={() => setDirection({ x: 0, z: 0 })}
                             onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowRight size={24} />
                         </button>
@@ -1046,6 +1157,8 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                             onPointerDown={() => setDirection({ x: 0, z: 1 })}
                             onPointerUp={() => setDirection({ x: 0, z: 0 })}
                             onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowDown size={24} />
                         </button>
@@ -1196,9 +1309,9 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                             onCanPlay={() => setIsVideoLoading(false)}
                             onPlaying={() => setIsVideoLoading(false)}
                             style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isVideoLoading ? 0.5 : 1 }}
-                            onEnded={() => setShowIntroVideo(false)}
-                            onClick={() => setShowIntroVideo(false)}
-                            onError={() => setShowIntroVideo(false)}
+                            onEnded={() => { setShowIntroVideo(false); setIsPaused(false); }}
+                            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
+                            onError={() => { setShowIntroVideo(false); setIsPaused(false); }}
                         />
 
                         <button
@@ -1234,7 +1347,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                             {isVideoPlaying ? "Parar" : "Reproducir"}
                         </button>
                         <button
-                            onClick={() => setShowIntroVideo(false)}
+                            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
                             style={{
                                 position: 'absolute',
                                 bottom: '20px',

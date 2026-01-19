@@ -9,6 +9,8 @@ import MazeWalls from '../components/game/MazeWalls';
 import Collectible from '../components/game/Collectible';
 import GameFloor from '../components/game/GameFloor';
 import CameraController from '../components/game/CameraController';
+import Enemy from '../components/game/Enemy';
+import { AIRoles, createPatrolZones, assignZone } from './ai/EnemyAI';
 import { saveScore } from '../services/supabase';
 
 // --- Configuration & Constants ---
@@ -156,6 +158,10 @@ function generateCollectibles(count) {
 
 const initialCollectibles = generateCollectibles(40);
 
+// --- Enemy Configuration ---
+const DOGHOUSE_POS = { x: 12, z: 14 };
+const patrolZones = createPatrolZones(24, 28, 2);
+
 // --- 3D Components ---
 
 
@@ -170,13 +176,18 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isPaused, setIsPaused] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
   const [showIntroVideo, setShowIntroVideo] = useState(true);
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [startTime] = useState(Date.now());
+  const [enemies, setEnemies] = useState([]);
+  const [isInvulnerable, setIsInvulnerable] = useState(false);
+  const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const enemyIdRef = useRef(1);
+  const processingHit = useRef(false);
   const musicRef = useRef(null);
   const videoRef = useRef(null);
 
@@ -236,18 +247,104 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
     setIsMuted(prev => !prev);
   };
 
+  const playLoseLifeSound = () => {
+    if (isMuted) return;
+    const sfx = new Audio('/assets/audio/sfx_lose_life.mp3');
+    sfx.volume = 0.6;
+    sfx.play().catch(e => console.log("SFX play failed:", e));
+  };
+
+  // Enemy spawning
+  useEffect(() => {
+    if (showIntroVideo) return;
+
+    // Enemigo PURSUER que siempre persigue al jugador y se mantiene visible
+    const timerPursuer = setTimeout(() => {
+      setEnemies(prev => [
+        ...prev,
+        {
+          id: enemyIdRef.current++,
+          x: DOGHOUSE_POS.x,
+          z: DOGHOUSE_POS.z,
+          role: AIRoles.PURSUER,
+          zone: assignZone(0, patrolZones),
+          isReturning: false
+        }
+      ]);
+    }, 3000);
+
+    const timer1 = setTimeout(() => {
+      setEnemies(prev => [
+        ...prev,
+        {
+          id: enemyIdRef.current++,
+          x: DOGHOUSE_POS.x,
+          z: DOGHOUSE_POS.z,
+          role: AIRoles.PATROL,
+          zone: assignZone(1, patrolZones),
+          isReturning: false
+        }
+      ]);
+    }, 8000);
+
+    return () => {
+      clearTimeout(timerPursuer);
+      clearTimeout(timer1);
+    };
+  }, [showIntroVideo]);
+
+  // Handle enemy position updates and collision
+  const handleEnemyPositionUpdate = (id, x, z) => {
+    setEnemies(prev => prev.map(e => e.id === id ? { ...e, x, z } : e));
+
+    // Check collision with player
+    if (!isInvulnerable && !processingHit.current) {
+      const dist = Math.sqrt((x - playerPos.x) ** 2 + (z - playerPos.z) ** 2);
+      if (dist < 0.5) {
+        const enemy = enemies.find(e => e.id === id);
+        if (enemy && !enemy.isReturning) {
+          handlePlayerHit();
+        }
+      }
+    }
+  };
+
+  const handlePlayerHit = () => {
+    processingHit.current = true;
+    setLives(prev => {
+      const newLives = prev - 1;
+      if (newLives <= 0) {
+        setIsPaused(true);
+        setShowGameOverModal(true);
+      }
+      return newLives;
+    });
+
+    if (lives > 1) {
+      playLoseLifeSound();
+      setIsInvulnerable(true);
+      setTimeout(() => {
+        setIsInvulnerable(false);
+        processingHit.current = false;
+      }, 3000);
+    }
+  };
+
   const restartLevel = () => {
     setPlayerPos({ x: 2, z: 2 });
     setDirection({ x: 0, z: 0 });
     setCollectibles(initialCollectibles);
     setScore(0);
     setLives(3);
-    setIsPaused(false);
-    setShowSettingsModal(false);
+    setEnemies([]);
+    enemyIdRef.current = 1;
+    setIsInvulnerable(false);
+    processingHit.current = false;
     setIsPaused(false);
     setShowSettingsModal(false);
     setShowGameOverModal(false);
-    // Tutorial removed
+    setShowVictoryModal(false);
+    collectedBeersRef.current.clear();
   };
 
   // Keyboard Controls
@@ -303,23 +400,72 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
     };
   }, [direction]);
 
+  // Global pointer release handler to fix stuck D-pad
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      setDirection({ x: 0, z: 0 });
+    };
 
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    window.addEventListener('touchend', handleGlobalPointerUp);
+    window.addEventListener('touchcancel', handleGlobalPointerUp);
+
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+      window.removeEventListener('touchend', handleGlobalPointerUp);
+      window.removeEventListener('touchcancel', handleGlobalPointerUp);
+    };
+  }, []);
+
+
+
+  // Optimize collectibles check with Ref to avoid closure staleness and dependency issues
+  const collectedBeersRef = useRef(new Set());
 
   const handlePositionUpdate = (x, z) => {
     setPlayerPos({ x, z });
 
-    setCollectibles(prev => {
-      const remaining = prev.filter(c => {
-        const dist = Math.sqrt(Math.pow(x - c.x, 2) + Math.pow(z - c.z, 2));
-        if (dist < 0.5) {
-          setScore(s => s + 10);
-          playCollectSound();
-          return false;
-        }
-        return true;
-      });
-      return remaining;
-    });
+    // Efficient collision check without triggering re-renders unless necessary
+    let itemsCollectedNow = 0;
+
+    // Check against current list without needing to access state if we assume initial set + removed set
+    // However, simplest is to iterate the current list from state, but that triggers finding "new" collisions
+    // We use a Ref to track WHAT has been collected to avoid double-counting if state updates lag
+
+    // Note: In this specific implementation, we iterate 'collectibles'. 
+    // Since this function is recreated on every render (due to setPlayerPos triggering render), 
+    // 'collectibles' is fresh. The key optimization is NOT calling setCollectibles unless needed.
+
+    // Also using a Ref to debounce/ensure we don't process the same item twice in quick succession
+
+    let hitFound = false;
+
+    // Use a loop to find collisions
+    // We iterate backwards to allow safe removal if we were mutating, but we are just flagging.
+    // Actually we just need to identify IDs to remove.
+    const collectedIds = [];
+
+    for (const c of collectibles) {
+      // Skip if already marked (though we remove them from state, so this is just failsafe)
+      if (collectedBeersRef.current.has(c.id)) continue;
+
+      const dist = Math.sqrt(Math.pow(x - c.x, 2) + Math.pow(z - c.z, 2));
+      if (dist < 0.5) {
+        collectedBeersRef.current.add(c.id);
+        collectedIds.push(c.id);
+        hitFound = true;
+      }
+    }
+
+    if (hitFound) {
+      setScore(s => s + 10 * collectedIds.length);
+      playCollectSound();
+
+      // Update state only if hits occurred
+      setCollectibles(prev => prev.filter(c => !collectedBeersRef.current.has(c.id)));
+    }
   };
 
   // Check for victory (all collectibles collected)
@@ -376,6 +522,29 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
           <Collectible key={c.id} position={c} />
         ))}
 
+        {enemies.map(enemy => (
+          <Enemy
+            key={enemy.id}
+            enemyId={enemy.id}
+            position={{ x: enemy.x, z: enemy.z }}
+            playerPos={playerPos}
+            playerDirection={direction}
+            walls={walls}
+            onPositionUpdate={(x, z) => handleEnemyPositionUpdate(enemy.id, x, z)}
+            checkCollision={checkCollision}
+            isPowerActive={false}
+            isPaused={isPaused}
+            rotation={playerRotation}
+            role={enemy.role}
+            assignedZone={enemy.zone}
+            doghousePos={DOGHOUSE_POS}
+            isReturning={enemy.isReturning}
+            spritesheet1Path="/assets/personajes/enemy_type_13.png"
+            spritesheet2Path="/assets/personajes/enemy_type_14.png"
+            debugMode={false}
+          />
+        ))}
+
         <CameraController
           targetX={playerPos.x}
           targetZ={playerPos.z}
@@ -395,6 +564,8 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
               onPointerDown={() => setDirection({ x: 0, z: -1 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowUp size={24} />
             </button>
@@ -405,6 +576,8 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
               onPointerDown={() => setDirection({ x: -1, z: 0 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowLeft size={24} />
             </button>
@@ -414,6 +587,8 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
               onPointerDown={() => setDirection({ x: 1, z: 0 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowRight size={24} />
             </button>
@@ -424,6 +599,8 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
               onPointerDown={() => setDirection({ x: 0, z: 1 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowDown size={24} />
             </button>
@@ -482,6 +659,22 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
             </div>
           </div>
         )}
+
+        {showGameOverModal && (
+          <div className="settings-modal game-over-modal">
+            <div className="settings-content glass-panel game-over-content">
+              <h2>💀 ¡GAME OVER! 💀</h2>
+              <p className="score-text">Puntuación: {score}</p>
+              <p className="score-text">Cervezas: {beersCollected}/{totalBeers}</p>
+              <button className="modal-button restart-button" onClick={restartLevel}>
+                <RotateCcw size={20} /> Reintentar
+              </button>
+              <button className="modal-button cancel-button" onClick={onBack}>
+                <Home size={20} /> Volver al Menú
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {showIntroVideo && (
@@ -503,9 +696,9 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
             src="/assets/videos/nivel0 coolcat.mp4"
             autoPlay
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onEnded={() => setShowIntroVideo(false)}
-            onClick={() => setShowIntroVideo(false)}
-            onError={() => setShowIntroVideo(false)}
+            onEnded={() => { setShowIntroVideo(false); setIsPaused(false); }}
+            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
+            onError={() => { setShowIntroVideo(false); setIsPaused(false); }}
           />
           <button
             onClick={(e) => {
@@ -539,7 +732,7 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
             {isVideoPlaying ? "Parar" : "Reproducir"}
           </button>
           <button
-            onClick={() => setShowIntroVideo(false)}
+            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
             style={{
               position: 'absolute',
               bottom: '20px',

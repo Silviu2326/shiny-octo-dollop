@@ -599,7 +599,7 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
   const enemyIdRef = useRef(1);
   const [powerActive, setPowerActive] = useState(false);
   const [powerTimeLeft, setPowerTimeLeft] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isPaused, setIsPaused] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [isInvulnerable, setIsInvulnerable] = useState(false);
@@ -784,6 +784,25 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
   }, []);
 
   useEffect(() => {
+    if (showIntroVideo) return;
+
+    // Enemigo PURSUER que siempre persigue al jugador
+    const timerPursuer = setTimeout(() => {
+      setEnemies(prevEnemies => [
+        ...prevEnemies,
+        {
+          id: enemyIdRef.current,
+          x: doghousePos.x,
+          z: doghousePos.z,
+          role: AIRoles.PURSUER,
+          zone: assignZone(enemyIdRef.current, patrolZones),
+          isReturning: false
+        }
+      ]);
+      showEnemyAlert("¡Apareció un perseguidor!");
+      enemyIdRef.current++;
+    }, 3000);
+
     const timer1 = setTimeout(() => {
       setEnemies(prevEnemies => [
         ...prevEnemies,
@@ -798,7 +817,7 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
       ]);
       showEnemyAlert("¡Apareció un enemigo!");
       enemyIdRef.current++;
-    }, 5000);
+    }, 7000);
 
     const timer2 = setTimeout(() => {
       setEnemies(prevEnemies => [
@@ -814,7 +833,7 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
       ]);
       showEnemyAlert("¡Cuidado, otro enemigo!");
       enemyIdRef.current++;
-    }, 10000);
+    }, 12000);
 
     const timer3 = setTimeout(() => {
       setEnemies(prevEnemies => [
@@ -830,14 +849,15 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
       ]);
       showEnemyAlert("¡Más peligro!");
       enemyIdRef.current++;
-    }, 15000);
+    }, 17000);
 
     return () => {
+      clearTimeout(timerPursuer);
       clearTimeout(timer1);
       clearTimeout(timer2);
       clearTimeout(timer3);
     };
-  }, [showWinModal, showGameOverModal]);
+  }, [showIntroVideo, showWinModal, showGameOverModal]);
 
   useEffect(() => {
     const totalBeers = initialCollectibles.length;
@@ -996,7 +1016,7 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
           if (distance < 0.6) {
             collectedBarrelsRef.current.add(barrel.id);
             tokensToAdd++;
-            pointsToAdd += 20;
+            pointsToAdd += 50;
             hasChanges = true;
             playBarrelSound();
             console.log('Barrel collected! ID:', barrel.id);
@@ -1133,7 +1153,26 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [direction, tokens, powerActive, isPaused]);
+  }, [showTutorial, direction]);
+
+  // Global pointer release handler to fix stuck D-pad
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      setDirection({ x: 0, z: 0 });
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    window.addEventListener('touchend', handleGlobalPointerUp);
+    window.addEventListener('touchcancel', handleGlobalPointerUp);
+
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+      window.removeEventListener('touchend', handleGlobalPointerUp);
+      window.removeEventListener('touchcancel', handleGlobalPointerUp);
+    };
+  }, []);
 
 
 
@@ -1224,6 +1263,8 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
               onPointerDown={() => setDirection({ x: 0, z: -1 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowUp size={24} />
             </button>
@@ -1234,6 +1275,8 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
               onPointerDown={() => setDirection({ x: -1, z: 0 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowLeft size={24} />
             </button>
@@ -1263,6 +1306,8 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
               onPointerDown={() => setDirection({ x: 1, z: 0 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowRight size={24} />
             </button>
@@ -1273,6 +1318,8 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
               onPointerDown={() => setDirection({ x: 0, z: 1 })}
               onPointerUp={() => setDirection({ x: 0, z: 0 })}
               onPointerLeave={() => setDirection({ x: 0, z: 0 })}
+              onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowDown size={24} />
             </button>
@@ -1438,9 +1485,9 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
             onCanPlay={() => setIsVideoLoading(false)}
             onPlaying={() => setIsVideoLoading(false)}
             style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isVideoLoading ? 0.5 : 1 }}
-            onEnded={() => setShowIntroVideo(false)}
-            onClick={() => setShowIntroVideo(false)}
-            onError={() => setShowIntroVideo(false)}
+            onEnded={() => { setShowIntroVideo(false); setIsPaused(false); }}
+            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
+            onError={() => { setShowIntroVideo(false); setIsPaused(false); }}
           />
 
           <button
@@ -1476,7 +1523,7 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete }) {
             {isVideoPlaying ? "Parar" : "Reproducir"}
           </button>
           <button
-            onClick={() => setShowIntroVideo(false)}
+            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
             style={{
               position: 'absolute',
               bottom: '20px',
