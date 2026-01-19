@@ -570,6 +570,11 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
   const invulnerabilityTimerRef = useRef(null);
   const collectedBeersRef = useRef(new Set()); // Optimization for collectibles
 
+  // Track pressed keys to handle smooth direction switching
+  const keysPressed = useRef(new Set());
+  // Force re-render for UI updates (active button state)
+  const [, forceUpdate] = useState({});
+
   const [enemyAlert, setEnemyAlert] = useState(null);
 
   const showEnemyAlert = (text) => {
@@ -701,6 +706,7 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
       invulnerabilityTimerRef.current = null;
     }
     collectedBeersRef.current.clear();
+    keysPressed.current.clear();
   };
 
   // Spawn enemies
@@ -835,48 +841,74 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
     }
   }, [playerPos, enemies, isPaused, isInvulnerable, lives]);
 
+  // Helper to process direction input (both keyboard and d-pad)
+  const handleDirectionInput = (dir) => {
+    if (!dir) return;
+    keysPressed.current.add(dir);
+    forceUpdate({}); // Trigger re-render to update UI (active class)
+
+    switch (dir) {
+      case 'up': setDirection({ x: 0, z: -1 }); break;
+      case 'down': setDirection({ x: 0, z: 1 }); break;
+      case 'left': setDirection({ x: -1, z: 0 }); break;
+      case 'right': setDirection({ x: 1, z: 0 }); break;
+    }
+  };
+
+  const handleDirectionRelease = (dir) => {
+    if (!dir) return;
+    keysPressed.current.delete(dir);
+    forceUpdate({}); // Trigger re-render to update UI
+
+    if (keysPressed.current.size === 0) {
+      setDirection({ x: 0, z: 0 });
+    } else {
+      const remaining = Array.from(keysPressed.current);
+      const lastActive = remaining[remaining.length - 1];
+      switch (lastActive) {
+        case 'up': setDirection({ x: 0, z: -1 }); break;
+        case 'down': setDirection({ x: 0, z: 1 }); break;
+        case 'left': setDirection({ x: -1, z: 0 }); break;
+        case 'right': setDirection({ x: 1, z: 0 }); break;
+      }
+    }
+  };
+
+  const isPressed = (dir) => keysPressed.current.has(dir);
+
   // Keyboard Controls
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Tutorial check removed
-      switch (e.key) {
-        case 'ArrowUp':
-        case 'w':
-        case 'W':
-          setDirection({ x: 0, z: -1 });
-          break;
-        case 'ArrowDown':
-        case 's':
-        case 'S':
-          setDirection({ x: 0, z: 1 });
-          break;
-        case 'ArrowLeft':
-        case 'a':
-        case 'A':
-          setDirection({ x: -1, z: 0 });
-          break;
-        case 'ArrowRight':
-        case 'd':
-        case 'D':
-          setDirection({ x: 1, z: 0 });
-          break;
+      // Prevent default scrolling for arrow keys
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+      }
+
+      const key = e.key.toLowerCase();
+      let newDirection = null;
+
+      // Map keys to directions
+      if (['arrowup', 'w'].includes(key)) newDirection = 'up';
+      if (['arrowdown', 's'].includes(key)) newDirection = 'down';
+      if (['arrowleft', 'a'].includes(key)) newDirection = 'left';
+      if (['arrowright', 'd'].includes(key)) newDirection = 'right';
+
+      if (newDirection) {
+        handleDirectionInput(newDirection);
       }
     };
 
     const handleKeyUp = (e) => {
       const key = e.key.toLowerCase();
-      const currentDir = direction;
-      if (
-        (key === 'w' && currentDir.z === -1) ||
-        (key === 's' && currentDir.z === 1) ||
-        (key === 'a' && currentDir.x === -1) ||
-        (key === 'd' && currentDir.x === 1) ||
-        (key === 'arrowup' && currentDir.z === -1) ||
-        (key === 'arrowdown' && currentDir.z === 1) ||
-        (key === 'arrowleft' && currentDir.x === -1) ||
-        (key === 'arrowright' && currentDir.x === 1)
-      ) {
-        setDirection({ x: 0, z: 0 });
+      let releasedDirection = null;
+
+      if (['arrowup', 'w'].includes(key)) releasedDirection = 'up';
+      if (['arrowdown', 's'].includes(key)) releasedDirection = 'down';
+      if (['arrowleft', 'a'].includes(key)) releasedDirection = 'left';
+      if (['arrowright', 'd'].includes(key)) releasedDirection = 'right';
+
+      if (releasedDirection) {
+        handleDirectionRelease(releasedDirection);
       }
     };
 
@@ -886,26 +918,7 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showTutorial, direction]);
-
-  // Global pointer release handler to fix stuck D-pad
-  useEffect(() => {
-    const handleGlobalPointerUp = () => {
-      setDirection({ x: 0, z: 0 });
-    };
-
-    window.addEventListener('pointerup', handleGlobalPointerUp);
-    window.addEventListener('pointercancel', handleGlobalPointerUp);
-    window.addEventListener('touchend', handleGlobalPointerUp);
-    window.addEventListener('touchcancel', handleGlobalPointerUp);
-
-    return () => {
-      window.removeEventListener('pointerup', handleGlobalPointerUp);
-      window.removeEventListener('pointercancel', handleGlobalPointerUp);
-      window.removeEventListener('touchend', handleGlobalPointerUp);
-      window.removeEventListener('touchcancel', handleGlobalPointerUp);
-    };
-  }, []);
+  }, []); // Empty dependency array: listeners never re-bind, so no stale closures/pauses
 
   const handleEnemyPositionUpdate = (enemyId, x, z) => {
     setEnemies(prevEnemies =>
@@ -1107,9 +1120,11 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
         <div className="d-pad-container">
           <div className="d-pad-row">
             <button
-              className="d-pad-button up"
-              onPointerDown={() => setDirection({ x: 0, z: -1 })}
-              onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: 0, z: -1 })}
+              className={`d-pad-button up ${isPressed('up') ? 'active' : ''}`}
+              onPointerDown={(e) => { e.preventDefault(); handleDirectionInput('up'); }}
+              onPointerUp={(e) => { e.preventDefault(); handleDirectionRelease('up'); }}
+              onPointerLeave={(e) => { e.preventDefault(); handleDirectionRelease('up'); }}
+              onPointerEnter={(e) => { if (e.buttons > 0) handleDirectionInput('up'); }}
               onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowUp size={24} />
@@ -1117,18 +1132,22 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
           </div>
           <div className="d-pad-row middle">
             <button
-              className="d-pad-button left"
-              onPointerDown={() => setDirection({ x: -1, z: 0 })}
-              onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: -1, z: 0 })}
+              className={`d-pad-button left ${isPressed('left') ? 'active' : ''}`}
+              onPointerDown={(e) => { e.preventDefault(); handleDirectionInput('left'); }}
+              onPointerUp={(e) => { e.preventDefault(); handleDirectionRelease('left'); }}
+              onPointerLeave={(e) => { e.preventDefault(); handleDirectionRelease('left'); }}
+              onPointerEnter={(e) => { if (e.buttons > 0) handleDirectionInput('left'); }}
               onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowLeft size={24} />
             </button>
             <div className="d-pad-center"></div>
             <button
-              className="d-pad-button right"
-              onPointerDown={() => setDirection({ x: 1, z: 0 })}
-              onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: 1, z: 0 })}
+              className={`d-pad-button right ${isPressed('right') ? 'active' : ''}`}
+              onPointerDown={(e) => { e.preventDefault(); handleDirectionInput('right'); }}
+              onPointerUp={(e) => { e.preventDefault(); handleDirectionRelease('right'); }}
+              onPointerLeave={(e) => { e.preventDefault(); handleDirectionRelease('right'); }}
+              onPointerEnter={(e) => { if (e.buttons > 0) handleDirectionInput('right'); }}
               onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowRight size={24} />
@@ -1136,9 +1155,11 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
           </div>
           <div className="d-pad-row">
             <button
-              className="d-pad-button down"
-              onPointerDown={() => setDirection({ x: 0, z: 1 })}
-              onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: 0, z: 1 })}
+              className={`d-pad-button down ${isPressed('down') ? 'active' : ''}`}
+              onPointerDown={(e) => { e.preventDefault(); handleDirectionInput('down'); }}
+              onPointerUp={(e) => { e.preventDefault(); handleDirectionRelease('down'); }}
+              onPointerLeave={(e) => { e.preventDefault(); handleDirectionRelease('down'); }}
+              onPointerEnter={(e) => { if (e.buttons > 0) handleDirectionInput('down'); }}
               onContextMenu={(e) => e.preventDefault()}
             >
               <ArrowDown size={24} />
