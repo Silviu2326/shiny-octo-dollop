@@ -236,6 +236,33 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
     }
   }, [isMuted]);
 
+  // Handle page visibility - pause music when page is hidden (browser closed, tab switched, etc.)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!musicRef.current) return;
+
+      if (document.visibilityState === 'hidden') {
+        musicRef.current.pause();
+      } else if (document.visibilityState === 'visible' && !isMuted) {
+        musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+      }
+    };
+
+    const handlePageHide = () => {
+      if (musicRef.current) {
+        musicRef.current.pause();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
+  }, [isMuted]);
+
   const playCollectSound = () => {
     if (isMuted) return;
     const sfx = new Audio('/assets/audio/sfx_collect.mp3');

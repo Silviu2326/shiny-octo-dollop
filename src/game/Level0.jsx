@@ -351,6 +351,9 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete, userId })
     const totalBeers = initialCollectibles.length;
     const beersCollected = totalBeers - collectibles.length;
 
+    // Audio ref for visibility handling
+    const musicRef = useRef(null);
+
     // Check for victory
     useEffect(() => {
         if (score >= 150 && !showVictory) {
@@ -397,14 +400,44 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete, userId })
 
     // Audio
     useEffect(() => {
-        const music = new Audio('/assets/audio/music_background.mp3');
-        music.loop = true;
-        music.volume = 0.4;
-        music.play().catch(e => console.log("Audio play failed (user interaction required):", e));
+        musicRef.current = new Audio('/assets/audio/music_background.mp3');
+        musicRef.current.loop = true;
+        musicRef.current.volume = 0.4;
+        musicRef.current.play().catch(e => console.log("Audio play failed (user interaction required):", e));
 
         return () => {
-            music.pause();
-            music.currentTime = 0;
+            if (musicRef.current) {
+                musicRef.current.pause();
+                musicRef.current.currentTime = 0;
+                musicRef.current = null;
+            }
+        };
+    }, []);
+
+    // Handle page visibility - pause music when page is hidden (browser closed, tab switched, etc.)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (!musicRef.current) return;
+
+            if (document.visibilityState === 'hidden') {
+                musicRef.current.pause();
+            } else if (document.visibilityState === 'visible') {
+                musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+            }
+        };
+
+        const handlePageHide = () => {
+            if (musicRef.current) {
+                musicRef.current.pause();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('pagehide', handlePageHide);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('pagehide', handlePageHide);
         };
     }, []);
 

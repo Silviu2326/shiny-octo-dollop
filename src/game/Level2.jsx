@@ -22,36 +22,35 @@ const walls = [
   { x: 0, z: 0, length: 32, height: 0.6, thickness: 0.2, orientation: 'vertical' },
   { x: 28, z: 0, length: 32, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 
-  // FIRST RING - WITH 4 DOORS
-  { x: 3, z: 3, length: 7, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 12, z: 3, length: 13, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 3, z: 3, length: 9, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 3, z: 17, length: 11, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 25, z: 3, length: 9, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 25, z: 17, length: 11, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 3, z: 28, length: 14, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 19, z: 28, length: 6, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  // Simple obstacles - scattered small walls for easy navigation
+  // Top area - small L shapes
+  { x: 5, z: 5, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 5, z: 5, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 
-  // SECOND RING - WITH 4 DOORS
-  { x: 6, z: 6, length: 6, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 14, z: 6, length: 8, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 6, z: 6, length: 7, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 6, z: 17, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 22, z: 6, length: 7, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 22, z: 17, length: 8, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 6, z: 25, length: 9, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 17, z: 25, length: 5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 18, z: 5, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 22, z: 5, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 
-  // THIRD RING - INNER OBSTACLES
-  { x: 9, z: 9, length: 5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 16, z: 9, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 9, z: 13, length: 5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 9, z: 10, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 19, z: 10, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 9, z: 18, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 19, z: 18, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-  { x: 9, z: 22, length: 5, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
-  { x: 16, z: 22, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  // Middle area - horizontal dividers with big gaps
+  { x: 3, z: 12, length: 8, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 17, z: 12, length: 8, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+
+  // Center small obstacle
+  { x: 12, z: 15, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 14, z: 15, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+
+  // Bottom area - small L shapes
+  { x: 5, z: 22, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 5, z: 22, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+
+  { x: 18, z: 22, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
+  { x: 22, z: 22, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+
+  // Small vertical dividers
+  { x: 10, z: 8, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 18, z: 8, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+
+  { x: 10, z: 24, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
+  { x: 18, z: 24, length: 3, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 ];
 
 // Spatial Grid
@@ -626,6 +625,33 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete }) {
     } else {
       musicRef.current.play().catch(e => console.log("Audio play failed:", e));
     }
+  }, [isMuted]);
+
+  // Handle page visibility - pause music when page is hidden (browser closed, tab switched, etc.)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!musicRef.current) return;
+
+      if (document.visibilityState === 'hidden') {
+        musicRef.current.pause();
+      } else if (document.visibilityState === 'visible' && !isMuted) {
+        musicRef.current.play().catch(e => console.log("Audio play failed:", e));
+      }
+    };
+
+    const handlePageHide = () => {
+      if (musicRef.current) {
+        musicRef.current.pause();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
   }, [isMuted]);
 
   const playCollectSound = () => {
