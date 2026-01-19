@@ -188,8 +188,12 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const enemyIdRef = useRef(1);
   const processingHit = useRef(false);
+
   const musicRef = useRef(null);
   const videoRef = useRef(null);
+
+  // Track pressed keys to handle smooth direction switching
+  const keysPressed = useRef(new Set());
 
   const totalBeers = initialCollectibles.length;
   const beersCollected = totalBeers - collectibles.length;
@@ -377,45 +381,66 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
   // Keyboard Controls
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Tutorial check removed
-      switch (e.key) {
-        case 'ArrowUp':
-        case 'w':
-        case 'W':
-          setDirection({ x: 0, z: -1 });
-          break;
-        case 'ArrowDown':
-        case 's':
-        case 'S':
-          setDirection({ x: 0, z: 1 });
-          break;
-        case 'ArrowLeft':
-        case 'a':
-        case 'A':
-          setDirection({ x: -1, z: 0 });
-          break;
-        case 'ArrowRight':
-        case 'd':
-        case 'D':
-          setDirection({ x: 1, z: 0 });
-          break;
+      // Prevent default scrolling for arrow keys
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+      }
+
+      const key = e.key.toLowerCase();
+      let newDirection = null;
+
+      // Map keys to directions
+      if (['arrowup', 'w'].includes(key)) newDirection = 'up';
+      if (['arrowdown', 's'].includes(key)) newDirection = 'down';
+      if (['arrowleft', 'a'].includes(key)) newDirection = 'left';
+      if (['arrowright', 'd'].includes(key)) newDirection = 'right';
+
+      if (newDirection) {
+        keysPressed.current.add(newDirection);
+
+        // Prioritize the most recently pressed effective direction
+        // (In a simple stack, last one wins)
+        switch (newDirection) {
+          case 'up': setDirection({ x: 0, z: -1 }); break;
+          case 'down': setDirection({ x: 0, z: 1 }); break;
+          case 'left': setDirection({ x: -1, z: 0 }); break;
+          case 'right': setDirection({ x: 1, z: 0 }); break;
+        }
       }
     };
 
     const handleKeyUp = (e) => {
       const key = e.key.toLowerCase();
-      const currentDir = direction;
-      if (
-        (key === 'w' && currentDir.z === -1) ||
-        (key === 's' && currentDir.z === 1) ||
-        (key === 'a' && currentDir.x === -1) ||
-        (key === 'd' && currentDir.x === 1) ||
-        (key === 'arrowup' && currentDir.z === -1) ||
-        (key === 'arrowdown' && currentDir.z === 1) ||
-        (key === 'arrowleft' && currentDir.x === -1) ||
-        (key === 'arrowright' && currentDir.x === 1)
-      ) {
-        setDirection({ x: 0, z: 0 });
+      let releasedDirection = null;
+
+      if (['arrowup', 'w'].includes(key)) releasedDirection = 'up';
+      if (['arrowdown', 's'].includes(key)) releasedDirection = 'down';
+      if (['arrowleft', 'a'].includes(key)) releasedDirection = 'left';
+      if (['arrowright', 'd'].includes(key)) releasedDirection = 'right';
+
+      if (releasedDirection) {
+        keysPressed.current.delete(releasedDirection);
+
+        // If no keys are pressed, stop
+        if (keysPressed.current.size === 0) {
+          setDirection({ x: 0, z: 0 });
+        } else {
+          // If keys are still pressed, revert to the last one added (or just any valid one)
+          // Since Set doesn't preserve order perfectly for "last pressed" unless we manage it manually,
+          // we'll just pick one. Ideally we'd use an array for specific stack behavior, 
+          // but for 4 directions, picking any remaining active one is usually sufficient 
+          // or we can prioritize specific axes.
+          // Let's iterate to find the active command.
+          const remaining = Array.from(keysPressed.current);
+          const lastActive = remaining[remaining.length - 1]; // Simple heuristic
+
+          switch (lastActive) {
+            case 'up': setDirection({ x: 0, z: -1 }); break;
+            case 'down': setDirection({ x: 0, z: 1 }); break;
+            case 'left': setDirection({ x: -1, z: 0 }); break;
+            case 'right': setDirection({ x: 1, z: 0 }); break;
+          }
+        }
       }
     };
 
@@ -425,12 +450,13 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [direction]);
+  }, []); // Empty dependency array: listeners never re-bind, so no stale closures/pauses
 
   // Global pointer release handler to fix stuck D-pad
   useEffect(() => {
     const handleGlobalPointerUp = () => {
       setDirection({ x: 0, z: 0 });
+      keysPressed.current.clear(); // Reset keys on pointer interrupt
     };
 
     window.addEventListener('pointerup', handleGlobalPointerUp);
