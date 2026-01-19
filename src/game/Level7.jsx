@@ -1127,9 +1127,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                         <button
                             className="d-pad-button up"
                             onPointerDown={() => setDirection({ x: 0, z: -1 })}
-                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
-                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
-                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: 0, z: -1 })}
                             onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowUp size={24} />
@@ -1139,9 +1137,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                         <button
                             className="d-pad-button left"
                             onPointerDown={() => setDirection({ x: -1, z: 0 })}
-                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
-                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
-                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: -1, z: 0 })}
                             onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowLeft size={24} />
@@ -1170,9 +1166,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                         <button
                             className="d-pad-button right"
                             onPointerDown={() => setDirection({ x: 1, z: 0 })}
-                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
-                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
-                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: 1, z: 0 })}
                             onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowRight size={24} />
@@ -1182,9 +1176,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                         <button
                             className="d-pad-button down"
                             onPointerDown={() => setDirection({ x: 0, z: 1 })}
-                            onPointerUp={() => setDirection({ x: 0, z: 0 })}
-                            onPointerLeave={() => setDirection({ x: 0, z: 0 })}
-                            onPointerCancel={() => setDirection({ x: 0, z: 0 })}
+                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: 0, z: 1 })}
                             onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowDown size={24} />
