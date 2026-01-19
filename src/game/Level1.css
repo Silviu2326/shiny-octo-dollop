@@ -356,3 +356,11 @@
     min-width: 24px;
     min-height: 24px;
 }
+
+/* Active state for D-Pad buttons when pressed via touch or keyboard */
+.d-pad-button.active {
+    background: rgba(138, 43, 226, 0.9) !important;
+    border-color: #fff !important;
+    transform: scale(0.95);
+    box-shadow: 0 0 15px rgba(138, 43, 226, 0.6);
+}
