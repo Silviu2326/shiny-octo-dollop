@@ -534,6 +534,11 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
     const [specialBonuses, setSpecialBonuses] = useState([]);
     const [bonusFlags, setBonusFlags] = useState({ p30: false, p70: false });
 
+    // Track pressed keys to handle smooth direction switching
+    const keysPressed = useRef(new Set());
+    // Force re-render for UI updates (active button state)
+    const [, forceUpdate] = useState({});
+
     // --- Audio Logic ---
     useEffect(() => {
         if (showIntroVideo) return;
@@ -719,39 +724,58 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
         return () => clearInterval(interval);
     }, [powerActive, powerTimeLeft, isPaused]);
 
+    const handleDirectionInput = (dir) => {
+        if (!dir) return;
+        keysPressed.current.add(dir);
+        forceUpdate({});
+        switch (dir) {
+            case 'up': setDirection({ x: 0, z: -1 }); break;
+            case 'down': setDirection({ x: 0, z: 1 }); break;
+            case 'left': setDirection({ x: -1, z: 0 }); break;
+            case 'right': setDirection({ x: 1, z: 0 }); break;
+        }
+    };
 
+    const handleDirectionRelease = (dir) => {
+        if (!dir) return;
+        keysPressed.current.delete(dir);
+        forceUpdate({});
+        if (keysPressed.current.size === 0) {
+            setDirection({ x: 0, z: 0 });
+        } else {
+            const remaining = Array.from(keysPressed.current);
+            const lastActive = remaining[remaining.length - 1];
+            switch (lastActive) {
+                case 'up': setDirection({ x: 0, z: -1 }); break;
+                case 'down': setDirection({ x: 0, z: 1 }); break;
+                case 'left': setDirection({ x: -1, z: 0 }); break;
+                case 'right': setDirection({ x: 1, z: 0 }); break;
+            }
+        }
+    };
 
+    const isPressed = (dir) => keysPressed.current.has(dir);
+
+    // Keyboard controls
     useEffect(() => {
-        const k = (e) => {
-            if (isPaused) return;
-            if (e.key === 'ArrowUp' || e.key === 'w') setDirection({ x: 0, z: -1 });
-            if (e.key === 'ArrowDown' || e.key === 's') setDirection({ x: 0, z: 1 });
-            if (e.key === 'ArrowLeft' || e.key === 'a') setDirection({ x: -1, z: 0 });
-            if (e.key === 'ArrowRight' || e.key === 'd') setDirection({ x: 1, z: 0 });
+        const handleKeyDown = (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w') handleDirectionInput('up');
+            if (e.key === 'ArrowDown' || e.key === 's') handleDirectionInput('down');
+            if (e.key === 'ArrowLeft' || e.key === 'a') handleDirectionInput('left');
+            if (e.key === 'ArrowRight' || e.key === 'd') handleDirectionInput('right');
             if (e.key === ' ') activatePower();
         };
-        const ku = () => setDirection({ x: 0, z: 0 });
-        window.addEventListener('keydown', k);
-        window.addEventListener('keyup', ku);
-        return () => { window.removeEventListener('keydown', k); window.removeEventListener('keyup', ku); };
-    }, [isPaused, tokens, powerActive]);
-
-    // Global pointer release handler to fix stuck D-pad
-    useEffect(() => {
-        const handleGlobalPointerUp = () => {
-            setDirection({ x: 0, z: 0 });
+        const handleKeyUp = (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w') handleDirectionRelease('up');
+            if (e.key === 'ArrowDown' || e.key === 's') handleDirectionRelease('down');
+            if (e.key === 'ArrowLeft' || e.key === 'a') handleDirectionRelease('left');
+            if (e.key === 'ArrowRight' || e.key === 'd') handleDirectionRelease('right');
         };
-
-        window.addEventListener('pointerup', handleGlobalPointerUp);
-        window.addEventListener('pointercancel', handleGlobalPointerUp);
-        window.addEventListener('touchend', handleGlobalPointerUp);
-        window.addEventListener('touchcancel', handleGlobalPointerUp);
-
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
         return () => {
-            window.removeEventListener('pointerup', handleGlobalPointerUp);
-            window.removeEventListener('pointercancel', handleGlobalPointerUp);
-            window.removeEventListener('touchend', handleGlobalPointerUp);
-            window.removeEventListener('touchcancel', handleGlobalPointerUp);
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
         };
     }, []);
 
@@ -996,6 +1020,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
     const restartLevel = () => {
         setPlayerPos(INITIAL_PLAYER_POS);
         setDirection({ x: 0, z: 0 });
+        keysPressed.current.clear();
         setCollectibles(initialCollectibles.map(c => ({ ...c, collected: false })));
         setScore(0);
         setLives(3);
@@ -1125,9 +1150,11 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                 <div className="d-pad-container">
                     <div className="d-pad-row">
                         <button
-                            className="d-pad-button up"
-                            onPointerDown={() => setDirection({ x: 0, z: -1 })}
-                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: 0, z: -1 })}
+                            className={`d-pad-button up ${isPressed('up') ? 'active' : ''}`}
+                            onPointerDown={() => handleDirectionInput('up')}
+                            onPointerUp={() => handleDirectionRelease('up')}
+                            onPointerLeave={() => handleDirectionRelease('up')}
+                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && handleDirectionInput('up')}
                             onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowUp size={24} />
@@ -1135,9 +1162,11 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                     </div>
                     <div className="d-pad-row middle">
                         <button
-                            className="d-pad-button left"
-                            onPointerDown={() => setDirection({ x: -1, z: 0 })}
-                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: -1, z: 0 })}
+                            className={`d-pad-button left ${isPressed('left') ? 'active' : ''}`}
+                            onPointerDown={() => handleDirectionInput('left')}
+                            onPointerUp={() => handleDirectionRelease('left')}
+                            onPointerLeave={() => handleDirectionRelease('left')}
+                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && handleDirectionInput('left')}
                             onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowLeft size={24} />
@@ -1164,9 +1193,11 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                             </button>
                         </div>
                         <button
-                            className="d-pad-button right"
-                            onPointerDown={() => setDirection({ x: 1, z: 0 })}
-                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: 1, z: 0 })}
+                            className={`d-pad-button right ${isPressed('right') ? 'active' : ''}`}
+                            onPointerDown={() => handleDirectionInput('right')}
+                            onPointerUp={() => handleDirectionRelease('right')}
+                            onPointerLeave={() => handleDirectionRelease('right')}
+                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && handleDirectionInput('right')}
                             onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowRight size={24} />
@@ -1174,9 +1205,11 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
                     </div>
                     <div className="d-pad-row">
                         <button
-                            className="d-pad-button down"
-                            onPointerDown={() => setDirection({ x: 0, z: 1 })}
-                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && setDirection({ x: 0, z: 1 })}
+                            className={`d-pad-button down ${isPressed('down') ? 'active' : ''}`}
+                            onPointerDown={() => handleDirectionInput('down')}
+                            onPointerUp={() => handleDirectionRelease('down')}
+                            onPointerLeave={() => handleDirectionRelease('down')}
+                            onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && handleDirectionInput('down')}
                             onContextMenu={(e) => e.preventDefault()}
                         >
                             <ArrowDown size={24} />
