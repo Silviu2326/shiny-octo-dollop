@@ -617,7 +617,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     useEffect(() => {
         if (showIntroVideo) return;
 
-        musicRef.current = new Audio('/assets/audio/Candela – "Dark Flame".wav');
+        musicRef.current = new Audio(encodeURI('/assets/audio/Candela – "Dark Flame".wav'));
         musicRef.current.loop = true;
         musicRef.current.volume = 0.3;
 
