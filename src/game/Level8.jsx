@@ -99,11 +99,10 @@ const walls = [
     { x: 19, z: 32, length: 2, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
     { x: 20, z: 31, length: 1, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 
-    // Core Dense Structure
+    // Core Dense Structure (con apertura a la derecha)
     { x: 14, z: 17, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
     { x: 14, z: 21, length: 4, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
     { x: 14, z: 17, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
-    { x: 18, z: 17, length: 4, height: 0.6, thickness: 0.2, orientation: 'vertical' },
 
     { x: 12, z: 15, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },
     { x: 19, z: 23, length: 1, height: 0.6, thickness: 0.2, orientation: 'horizontal' },

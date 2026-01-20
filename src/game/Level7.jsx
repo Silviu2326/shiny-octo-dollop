@@ -519,7 +519,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
     const [powerTimeLeft, setPowerTimeLeft] = useState(0);
 
     const [barrels, setBarrels] = useState([
-        { id: 1, x: 15, z: 9, collected: false },
+        { id: 1, x: 15, z: 8, collected: false },
         { id: 2, x: 5, z: 18, collected: false },
         { id: 3, x: 25, z: 18, collected: false },
     ]);
@@ -1042,7 +1042,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
         setSpecialBonuses([]);
         setBonusFlags({ p30: false, p70: false });
         setBarrels([
-            { id: 1, x: 15, z: 9, collected: false },
+            { id: 1, x: 15, z: 8, collected: false },
             { id: 2, x: 5, z: 18, collected: false },
             { id: 3, x: 25, z: 18, collected: false },
         ]);
