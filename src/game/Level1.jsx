@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Pause, Play, RotateCcw, Home, Volume2, VolumeX, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Pause, Play, RotateCcw, Home, Volume2, VolumeX, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Star } from 'lucide-react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import './Level1.css';
@@ -159,13 +159,31 @@ function generateCollectibles(count) {
 const initialCollectibles = generateCollectibles(40);
 
 // --- Enemy Configuration ---
-const DOGHOUSE_POS = { x: 12, z: 14 };
+const DOGHOUSE_POS = { x: 13.5, z: 14 };
 const patrolZones = createPatrolZones(24, 28, 2);
 
 // --- 3D Components ---
 
 
 
+
+// --- Star Rating Component ---
+
+function StarRating({ stars }) {
+  return (
+    <div className="star-rating">
+      {[...Array(3)].map((_, index) => (
+        <Star
+          key={index}
+          size={32}
+          fill={index < stars ? "#FFD700" : "none"}
+          color={index < stars ? "#FFD700" : "#555"}
+          strokeWidth={index < stars ? 0 : 2}
+        />
+      ))}
+    </div>
+  );
+}
 
 // --- Main Component ---
 
@@ -186,6 +204,8 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
   const [enemies, setEnemies] = useState([]);
   const [isInvulnerable, setIsInvulnerable] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [finalScoreStats, setFinalScoreStats] = useState({ score: 0, bonus: 0, total: 0 });
+  const [restartCount, setRestartCount] = useState(0);
   const enemyIdRef = useRef(1);
   const processingHit = useRef(false);
 
@@ -324,7 +344,7 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
       clearTimeout(timerPursuer);
       clearTimeout(timer1);
     };
-  }, [showIntroVideo]);
+  }, [showIntroVideo, restartCount]);
 
   // Handle enemy position updates and collision
   const handleEnemyPositionUpdate = (id, x, z) => {
@@ -348,6 +368,23 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
       const newLives = prev - 1;
       if (newLives <= 0) {
         setIsPaused(true);
+
+        // Calculate score stats for Game Over
+        const elapsedSeconds = (Date.now() - startTime) / 1000;
+        const timeBonus = Math.max(0, Math.floor((180 - elapsedSeconds) * 10)); // 3 mins max time
+
+        let finalBonus = 0;
+        // Check for soft pass (70%)
+        if (beersCollected / initialCollectibles.length >= 0.7) {
+          finalBonus = timeBonus;
+        }
+
+        setFinalScoreStats({
+          score: score,
+          bonus: finalBonus,
+          total: score + finalBonus
+        });
+
         setShowGameOverModal(true);
       }
       return newLives;
@@ -378,6 +415,7 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
     setShowGameOverModal(false);
     setShowVictoryModal(false);
     collectedBeersRef.current.clear();
+    setRestartCount(prev => prev + 1);
   };
 
   // Keyboard Controls
@@ -520,15 +558,23 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
   useEffect(() => {
     if (collectibles.length === 0 && !showVictoryModal) {
       setIsPaused(true);
-      setShowVictoryModal(true);
 
-      // Calculate time played
-      const timeSeconds = Math.floor((Date.now() - startTime) / 1000);
+      // Calculate time played and bonus
+      const elapsedSeconds = (Date.now() - startTime) / 1000;
+      const timeBonus = Math.max(0, Math.floor((180 - elapsedSeconds) * 10));
+
+      setFinalScoreStats({
+        score: score,
+        bonus: timeBonus,
+        total: score + timeBonus
+      });
+
+      setShowVictoryModal(true);
 
       // Save score to Supabase
       if (userId) {
         console.log('💾 [Level1] Guardando puntuación para usuario:', userId);
-        saveScore(userId, 0, score, beersCollected, timeSeconds)
+        saveScore(userId, 0, score + timeBonus, beersCollected, elapsedSeconds)
           .then(result => {
             if (result.success) {
               console.log('✅ [Level1] Puntuación guardada exitosamente');
@@ -564,6 +610,7 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
           checkCollision={checkCollision}
           rotation={playerRotation}
           isPaused={isPaused}
+          isInvulnerable={isInvulnerable}
         />
 
         {collectibles.map(c => (
@@ -691,34 +738,70 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
         )}
 
         {showVictoryModal && (
-          <div className="settings-modal victory-modal">
-            <div className="settings-content glass-panel victory-content">
-              <h2>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
-              <p className="score-text">¡Has conseguido {score} puntos!</p>
-              <p className="unlock-text">¡El siguiente nivel está desbloqueado!</p>
-              <button className="modal-button" onClick={() => {
-                if (onNextLevel) onNextLevel();
-              }}>
-                Siguiente Nivel
+          <div className="victory-modal">
+            <div className="victory-content glass-panel">
+              <h2 className="victory-title">¡VICTORIA!</h2>
+              <p className="victory-subtitle">¡Nivel Completado!</p>
+
+              <StarRating stars={3} />
+
+              <div className="victory-stats">
+                <p>Puntuación Base: {finalScoreStats.score}</p>
+                <p>Bonus Tiempo: {finalScoreStats.bonus}</p>
+                <p style={{ fontSize: '1.4em', color: '#FFD700', fontWeight: 'bold' }}>Total: {finalScoreStats.total}</p>
+              </div>
+              {onNextLevel && (
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78' }}>
+                  <Play size={20} /> Siguiente Nivel
+                </button>
+              )}
+              <button className="modal-button restart-button" onClick={restartLevel}>
+                <RotateCcw size={20} /> Jugar de nuevo
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> Volver al Menú
+                <Home size={20} /> Volver al menú
               </button>
             </div>
           </div>
         )}
 
         {showGameOverModal && (
-          <div className="settings-modal game-over-modal">
-            <div className="settings-content glass-panel game-over-content">
-              <h2>💀 ¡GAME OVER! 💀</h2>
-              <p className="score-text">Puntuación: {score}</p>
-              <p className="score-text">Cervezas: {beersCollected}/{totalBeers}</p>
+          <div className="game-over-modal">
+            <div className="game-over-content glass-panel">
+              <h2 className="game-over-title">
+                {beersCollected / initialCollectibles.length >= 0.7 ? "¡BUEN INTENTO!" : "¡HAS PERDIDO!"}
+              </h2>
+              <p className="game-over-subtitle">
+                {beersCollected / initialCollectibles.length >= 0.7 ? "Puedes avanzar al siguiente nivel" : "Se acabaron las vidas"}
+              </p>
+
+              {beersCollected / initialCollectibles.length >= 0.7 && (
+                <StarRating stars={
+                  beersCollected / initialCollectibles.length >= 0.85 ? 2 : 1
+                } />
+              )}
+
+              <div className="game-over-stats">
+                <p>Puntuación Base: {finalScoreStats.score}</p>
+                <p>Bonus Tiempo: {finalScoreStats.bonus}</p>
+                <p style={{ fontSize: '1.2em', color: '#FFD700' }}>Total: {finalScoreStats.total}</p>
+                <p>Cervezas recogidas: {beersCollected}</p>
+                {beersCollected / initialCollectibles.length >= 0.7 && (
+                  <p style={{ color: '#48BB78', marginTop: '10px' }}>¡Objetivo mínimo completado!</p>
+                )}
+              </div>
+
+              {beersCollected / initialCollectibles.length >= 0.7 && onNextLevel && (
+                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78', marginBottom: '15px' }}>
+                  <Play size={20} /> Siguiente Nivel
+                </button>
+              )}
+
               <button className="modal-button restart-button" onClick={restartLevel}>
                 <RotateCcw size={20} /> Reintentar
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> Volver al Menú
+                <Home size={20} /> Volver al menú
               </button>
             </div>
           </div>

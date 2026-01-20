@@ -32,7 +32,8 @@ export default function GamePlayer({
     secondary: '/assets/personajes/player_secondary.png'
   },
   size = 1.1,
-  heightOffset = 0.5
+  heightOffset = 0.5,
+  isInvulnerable = false
 }) {
   const meshRef = useRef();
   const [currentFrame, setCurrentFrame] = useState(0);
@@ -54,9 +55,24 @@ export default function GamePlayer({
 
   const [lastDirection, setLastDirection] = useState({ x: 1, z: 0 });
 
+  const materialRef = useRef();
+  const pulseTimeRef = useRef(0);
+
   // Actualizar posición y animación en cada frame
   useFrame((state, delta) => {
     if (isPaused) return;
+
+    // Lógica de parpadeo (Invulnerabilidad)
+    if (isInvulnerable) {
+      pulseTimeRef.current += delta * 15;
+      const opacity = Math.sin(pulseTimeRef.current) * 0.5 + 0.5;
+      if (materialRef.current) materialRef.current.opacity = opacity;
+    } else {
+      if (materialRef.current && materialRef.current.opacity !== 1) {
+        materialRef.current.opacity = 1;
+      }
+      pulseTimeRef.current = 0;
+    }
 
     // Si hay movimiento
     if (direction.x !== 0 || direction.z !== 0) {
@@ -73,9 +89,6 @@ export default function GamePlayer({
       const time = state.clock.getElapsedTime();
       const newFrame = Math.floor(time * animationSpeed) % frameCount;
       setCurrentFrame(newFrame);
-    } else {
-      // Reset frame to 0 or idle animation if desired, but user just asked for direction to stay
-      // setCurrentFrame(0); 
     }
   });
 
@@ -110,10 +123,12 @@ export default function GamePlayer({
     >
       <planeGeometry args={[size, size]} />
       <meshStandardMaterial
+        ref={materialRef}
         map={texture}
         transparent={true}
         side={THREE.DoubleSide}
         alphaTest={0.5}
+        depthWrite={true}
       />
     </mesh>
   );

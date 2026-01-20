@@ -126,7 +126,8 @@
     transform: scale(1.05);
 }
 
-.settings-modal {
+.settings-modal,
+.game-over-modal {
     position: absolute;
     top: 0;
     left: 0;
@@ -226,6 +227,57 @@
     }
 }
 
+/* Game Over & Victory Styles */
+
+.game-over-content {
+    text-align: center;
+    max-width: 400px;
+    padding: 30px;
+    border: 3px solid #e53e3e !important;
+    box-shadow: 0 0 20px rgba(229, 62, 62, 0.6);
+    background: rgba(30, 30, 30, 0.95);
+}
+
+.game-over-title {
+    font-size: 38px;
+    font-weight: bold;
+    color: #e53e3e;
+    margin-bottom: 10px;
+    letter-spacing: 3px;
+    text-shadow: 0 2px 4px rgba(229, 62, 62, 0.5);
+}
+
+.game-over-subtitle {
+    font-size: 18px;
+    color: #cbd5e0;
+    margin-bottom: 25px;
+    font-style: italic;
+}
+
+.game-over-stats {
+    width: 100%;
+    background: rgba(74, 85, 104, 0.3);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 25px;
+    border: 1px solid #4a5568;
+}
+
+.game-over-stats p {
+    font-size: 16px;
+    color: #fff;
+    margin: 5px 0;
+    text-align: center;
+    font-weight: 600;
+}
+
+.star-rating {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
 /* Victory Modal Styles */
 .victory-modal {
     background: rgba(0, 0, 0, 0.95) !important;
@@ -238,36 +290,26 @@
     box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.4) !important;
     animation: victoryPulse 2s ease-in-out infinite;
     max-width: 90vw;
-    /* Prevent overflow on small screens */
     width: 400px;
     padding: 20px;
     box-sizing: border-box;
-    /* Ensure padding doesn't add to width */
 }
 
-.victory-content h2 {
+.victory-content h2,
+.victory-content p {
     color: #2C1810 !important;
     text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.5);
+}
+
+.victory-title {
     font-size: 2em;
-    /* Reduced size */
-    margin-bottom: 20px;
-    line-height: 1.2;
+    margin-bottom: 10px;
     word-wrap: break-word;
-    /* Ensure long words break if necessary */
 }
 
-.score-text {
+.victory-subtitle {
     font-size: 1.2em;
-    margin-bottom: 15px;
-    color: #2C1810 !important;
-}
-
-.unlock-text {
-    font-size: 1.1em;
-    margin-bottom: 25px;
-    color: #155724 !important;
-    /* Darker green for better contrast */
-    font-weight: bold;
+    margin-bottom: 20px;
 }
 
 @keyframes victoryPulse {

@@ -170,6 +170,10 @@ function generateCollectibles(count) {
 
 const initialCollectibles = generateCollectibles(85);
 
+// Preload enemy textures to avoid black screen flash when first enemy spawns
+useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_5.png');
+useLoader.preload(THREE.TextureLoader, '/assets/personajes/enemy_type_6.png');
+
 // --- Components ---
 
 function Maze({ walls }) {
@@ -644,12 +648,8 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
             // Set invulnerability timeout
             setTimeout(() => setIsInvulnerable(false), 2000); // 2s invulnerability
 
-            // Reset positions logic if desired (Level 6 had logic to reset Player to start? 
-            // The original code didn't explicitly reset player pos in the snippet I saw, but maybe it's better to stay put with invulnerability)
-            setPlayerPos(INITIAL_PLAYER_POS); // Reset to start as per usual platformer rules if lives lost?
-            // Level 6 original loop had logic: `setPlayerPos(INITIAL_PLAYER_POS);` if not game over.
-            // I'll add that.
-            setDirection({ x: 0, z: 0 }); // Stop movement
+            // Stop movement but keep position
+            setDirection({ x: 0, z: 0 });
         }
     };
 

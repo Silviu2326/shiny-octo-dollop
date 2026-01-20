@@ -526,6 +526,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
     ]);
 
     const [enemies, setEnemies] = useState([]);
+    const [restartCount, setRestartCount] = useState(0);
     const collectedBarrelsRef = useRef(new Set());
     const collectedBonusesRef = useRef(new Set());
     const processingHit = useRef(false);
@@ -1015,7 +1016,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
         return () => {
             timers.forEach(t => clearTimeout(t));
         };
-    }, [showIntroVideo]);
+    }, [showIntroVideo, restartCount]);
 
     const restartLevel = () => {
         setPlayerPos(INITIAL_PLAYER_POS);
@@ -1026,6 +1027,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
         setLives(3);
         setTokens(0);
         setIsInvulnerable(false);
+        processingHit.current = false;
         setPowerActive(false);
         setPowerTimeLeft(0);
         setShockwaveActive(false);
@@ -1035,6 +1037,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
         setShowSettingsModal(false);
         setShowGameOverModal(false);
         setShowVictoryModal(false);
+        collectedBeersRef.current.clear();
         collectedBarrelsRef.current.clear();
         collectedBonusesRef.current.clear();
         setSpecialBonuses([]);
@@ -1044,6 +1047,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
             { id: 2, x: 5, z: 18, collected: false },
             { id: 3, x: 25, z: 18, collected: false },
         ]);
+        setRestartCount(prev => prev + 1);
     };
 
     // Spawn special bonuses at 30% and 70% collection

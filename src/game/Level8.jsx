@@ -369,7 +369,8 @@ function StarRating({ stars }) {
     );
 }
 
-function Player({ position, direction, isInvulnerable, isPowerActive, isPaused }) {
+function Player({ position, direction, isInvulnerable, isPowerActive, isPaused, onPositionUpdate }) {
+    const meshRef = useRef();
     const t1 = useLoader(THREE.TextureLoader, '/assets/personajes/player.png');
     const t2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
 
@@ -387,27 +388,49 @@ function Player({ position, direction, isInvulnerable, isPowerActive, isPaused }
         return t;
     }, [t2]);
 
-    const [frame, setFrame] = useState(0);
+    const [currentFrame, setCurrentFrame] = useState(0);
+    const [animationTime, setAnimationTime] = useState(0);
     const [lastDirection, setLastDirection] = useState({ x: 1, z: 0 });
-    const trailRef = useRef([]);
+    const [trail, setTrail] = useState([]);
+    const [pulseTime, setPulseTime] = useState(0);
     const frameCount = 8;
     const animationSpeed = 10;
 
-    useFrame((state) => {
+    useFrame((state, delta) => {
         if (isPaused) return;
 
-        const newFrame = Math.floor(state.clock.getElapsedTime() * animationSpeed) % frameCount;
-        setFrame(newFrame);
+        if (isInvulnerable) {
+            setPulseTime(prev => prev + delta * 8);
+        }
 
         if (direction.x !== 0 || direction.z !== 0) {
             setLastDirection(direction);
+            const baseSpeed = 4.5;
+            const speed = isPowerActive ? baseSpeed * 2.5 : baseSpeed;
+            const newX = position.x + direction.x * speed * delta;
+            const newZ = position.z + direction.z * speed * delta;
+
+            if (!checkCollision(newX, newZ, walls)) {
+                onPositionUpdate(newX, newZ);
+
+                if (isPowerActive) {
+                    setTrail(prev => {
+                        const newTrail = [{ x: position.x, z: position.z, frame: currentFrame }, ...prev];
+                        return newTrail.slice(0, 5);
+                    });
+                }
+            }
+
+            setAnimationTime(prev => {
+                const newTime = prev + delta * animationSpeed;
+                const newFrame = Math.floor(newTime) % frameCount;
+                setCurrentFrame(newFrame);
+                return newTime;
+            });
         }
 
-        if (isPowerActive) {
-            trailRef.current.unshift({ x: position.x, z: position.z });
-            if (trailRef.current.length > 5) trailRef.current.pop();
-        } else {
-            trailRef.current = [];
+        if (!isPowerActive && trail.length > 0) {
+            setTrail([]);
         }
     });
 
@@ -427,37 +450,58 @@ function Player({ position, direction, isInvulnerable, isPowerActive, isPaused }
 
     const texture = getCurrentTexture().clone();
     texture.repeat.set(1 / frameCount, 1);
-    texture.offset.x = frame / frameCount;
+    texture.offset.x = currentFrame / frameCount;
+
+    const pulseOpacity = isInvulnerable ? (Math.sin(pulseTime) * 0.5 + 0.5) : 1;
 
     return (
         <group>
-            {isPowerActive && trailRef.current.map((pos, i) => (
-                <mesh key={i} position={[pos.x, 0.5, pos.z]} rotation={[-Math.PI / 4, 0, 0]}>
-                    <planeGeometry args={[0.8, 0.8]} />
-                    <meshBasicMaterial color={i % 2 === 0 ? "gold" : "cyan"} transparent opacity={0.5 - i * 0.1} />
-                </mesh>
-            ))}
-            <group position={[position.x, 0.5, position.z]}>
-                {isPowerActive && (
-                    <mesh rotation={[-Math.PI / 4, 0, 0]}>
-                        <sphereGeometry args={[0.7, 16, 16]} />
-                        <meshStandardMaterial color="#00FFFF" transparent opacity={0.3} emissive="#00FFFF" emissiveIntensity={1.5} />
+            {isPowerActive && trail.map((pos, index) => {
+                const trailTexture = getCurrentTexture().clone();
+                trailTexture.repeat.set(1 / frameCount, 1);
+                trailTexture.offset.x = pos.frame / frameCount;
+
+                return (
+                    <mesh
+                        key={index}
+                        position={[pos.x, 0.5, pos.z]}
+                        rotation={[-Math.PI / 4, 0, 0]}
+                        scale={[getFlipX(), 1, 1]}
+                    >
+                        <planeGeometry args={[0.8, 0.8]} />
+                        <meshStandardMaterial
+                            map={trailTexture}
+                            transparent={true}
+                            side={THREE.DoubleSide}
+                            opacity={(0.6 - index * 0.1) * pulseOpacity}
+                            alphaTest={0.1}
+                            emissive="#00FFFF"
+                            emissiveIntensity={1.5 - index * 0.3}
+                            depthWrite={false}
+                        />
                     </mesh>
-                )}
-                <mesh rotation={[-Math.PI / 4, 0, 0]} scale={[getFlipX(), 1, 1]}>
-                    <planeGeometry args={[1.1, 1.1]} />
-                    <meshStandardMaterial
-                        map={texture}
-                        transparent
-                        side={THREE.DoubleSide}
-                        opacity={isInvulnerable ? 0.5 : 1}
-                        emissive={isPowerActive ? "#FF00FF" : "black"}
-                        emissiveIntensity={isPowerActive ? 1 : 0}
-                        alphaTest={0.5}
-                        depthWrite={true}
-                    />
-                </mesh>
-            </group>
+                );
+            })}
+
+            <mesh
+                ref={meshRef}
+                position={[position.x, 0.5, position.z]}
+                rotation={[-Math.PI / 4, 0, 0]}
+                scale={[getFlipX(), 1, 1]}
+                renderOrder={2}
+            >
+                <planeGeometry args={[1.1, 1.1]} />
+                <meshStandardMaterial
+                    map={texture}
+                    transparent={true}
+                    side={THREE.DoubleSide}
+                    alphaTest={0.5}
+                    emissive={isPowerActive ? "#00FFFF" : "#000000"}
+                    emissiveIntensity={isPowerActive ? 0.8 : 0}
+                    opacity={pulseOpacity}
+                    depthWrite={true}
+                />
+            </mesh>
         </group>
     );
 }
@@ -518,9 +562,12 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
     ]);
 
     const [enemies, setEnemies] = useState([]);
+    const [restartCount, setRestartCount] = useState(0);
     const enemyIdRef = useRef(1);
     const collectedBarrelsRef = useRef(new Set());
     const collectedBonusesRef = useRef(new Set());
+    const collectedBeersRef = useRef(new Set());
+    const processingHit = useRef(false);
 
     // Special Bonuses
     const [specialBonuses, setSpecialBonuses] = useState([]);
@@ -738,92 +785,133 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
         };
     }, []);
 
-    // Player Movement and Item Collection
-    useEffect(() => {
-        const interval = setInterval(() => {
-            if (isPaused) return;
+    // Handle position update from Player component (item collection)
+    const handlePositionUpdate = (newX, newZ) => {
+        setPlayerPos({ x: newX, z: newZ });
 
-            // Player Movement
-            if (direction.x !== 0 || direction.z !== 0) {
-                const baseSpeed = 0.22;
-                const speed = powerActive ? baseSpeed * 1.5 : baseSpeed;
-                const newX = playerPos.x + direction.x * speed;
-                const newZ = playerPos.z + direction.z * speed;
-                if (!checkCollision(newX, newZ, walls)) {
-                    setPlayerPos({ x: newX, z: newZ });
-
-                    setCollectibles(prev => {
-                        let changed = false;
-                        const next = prev.map(c => {
-                            if (!c.collected && Math.sqrt((newX - c.x) ** 2 + (newZ - c.z) ** 2) < 0.6) {
-                                setScore(s => s + 10);
-                                playCollectSound();
-                                changed = true;
-                                return { ...c, collected: true };
-                            }
-                            return c;
-                        });
-                        return changed ? next : prev;
-                    });
-
-                    setBarrels(prev => {
-                        let tokensToAdd = 0;
-                        let pointsToAdd = 0;
-                        let hasChanges = false;
-
-                        const next = prev.map(b => {
-                            // Si ya está en la ref, asegurarse de que esté marcado como collected
-                            if (collectedBarrelsRef.current.has(b.id) && !b.collected) {
-                                hasChanges = true;
-                                return { ...b, collected: true };
-                            }
-                            // Si está cerca y no ha sido recogido
-                            if (!b.collected && !collectedBarrelsRef.current.has(b.id) && Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2) < 0.8) {
-                                collectedBarrelsRef.current.add(b.id);
-                                tokensToAdd++;
-                                pointsToAdd += 50;
-                                hasChanges = true;
-                                return { ...b, collected: true };
-                            }
-                            return b;
-                        });
-
-                        if (tokensToAdd > 0) {
-                            setTokens(t => Math.min(3, t + tokensToAdd));
-                            setScore(s => s + pointsToAdd);
-                            playCollectSound();
-                        }
-
-                        return hasChanges ? next : prev;
-                    });
-
-                    // Check Special Bonuses
-                    setSpecialBonuses(prev => {
-                        let bonusScoreToAdd = 0;
-                        let hasChanges = false;
-
-                        const next = prev.map(b => {
-                            if (!b.collected && !collectedBonusesRef.current.has(b.id) && Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2) < 0.8) {
-                                collectedBonusesRef.current.add(b.id);
-                                bonusScoreToAdd += 500;
-                                hasChanges = true;
-                                return { ...b, collected: true };
-                            }
-                            return b;
-                        });
-
-                        if (bonusScoreToAdd > 0) {
-                            setScore(s => s + bonusScoreToAdd);
-                            playCollectSound();
-                        }
-
-                        return hasChanges ? next : prev;
-                    });
+        // 1. Check Collectibles (Beers)
+        let itemsCollectedNow = 0;
+        collectibles.forEach(c => {
+            if (!c.collected && !collectedBeersRef.current.has(c.id)) {
+                const dist = Math.sqrt((newX - c.x) ** 2 + (newZ - c.z) ** 2);
+                if (dist < 0.6) {
+                    collectedBeersRef.current.add(c.id);
+                    itemsCollectedNow++;
                 }
             }
-        }, 16);
-        return () => clearInterval(interval);
-    }, [direction, playerPos, isPaused, powerActive]);
+        });
+
+        if (itemsCollectedNow > 0) {
+            setScore(prev => prev + 10 * itemsCollectedNow);
+            playCollectSound();
+            setCollectibles(prev => prev.map(c =>
+                collectedBeersRef.current.has(c.id) ? { ...c, collected: true } : c
+            ));
+        }
+
+        // 2. Check Barrels
+        let barrelsChanged = false;
+        let tokensToAdd = 0;
+        let scoreToAdd = 0;
+
+        const nextBarrels = barrels.map(b => {
+            if (!b.collected && !collectedBarrelsRef.current.has(b.id)) {
+                const dist = Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2);
+                if (dist < 0.8) {
+                    collectedBarrelsRef.current.add(b.id);
+                    tokensToAdd++;
+                    scoreToAdd += 50;
+                    barrelsChanged = true;
+                    return { ...b, collected: true };
+                }
+            }
+            return b;
+        });
+
+        if (barrelsChanged) {
+            setBarrels(nextBarrels);
+            if (tokensToAdd > 0) {
+                setTokens(t => Math.min(3, t + tokensToAdd));
+                setScore(s => s + scoreToAdd);
+                playCollectSound();
+            }
+        }
+
+        // 3. Check Special Bonuses
+        let bonusesChanged = false;
+        let bonusScoreToAdd = 0;
+
+        const nextBonuses = specialBonuses.map(b => {
+            if (!b.collected && !collectedBonusesRef.current.has(b.id)) {
+                const dist = Math.sqrt((newX - b.x) ** 2 + (newZ - b.z) ** 2);
+                if (dist < 0.8) {
+                    collectedBonusesRef.current.add(b.id);
+                    bonusScoreToAdd += 500;
+                    bonusesChanged = true;
+                    return { ...b, collected: true };
+                }
+            }
+            return b;
+        });
+
+        if (bonusesChanged) {
+            setSpecialBonuses(nextBonuses);
+            setScore(s => s + bonusScoreToAdd);
+            playCollectSound();
+        }
+
+        // 4. Check Enemies (Player runs into Enemy)
+        if (!isInvulnerable) {
+            enemies.forEach(enemy => {
+                const dist = Math.sqrt((newX - enemy.x) ** 2 + (newZ - enemy.z) ** 2);
+
+                if (dist < 0.6 && powerActive && !enemy.isReturning) {
+                    setScore(s => s + 150);
+                    setEnemies(prev => prev.map(e => e.id === enemy.id ? { ...e, isReturning: true } : e));
+                    return;
+                }
+
+                if (dist < 0.5 && !powerActive && !enemy.isReturning && !processingHit.current) {
+                    handlePlayerHit();
+                }
+            });
+        }
+    };
+
+    const handlePlayerHit = () => {
+        processingHit.current = true;
+        setLives(prev => {
+            const newLives = prev - 1;
+            if (newLives <= 0) {
+                setIsPaused(true);
+                const elapsedSeconds = (Date.now() - startTime) / 1000;
+                const timeBonus = Math.max(0, Math.floor((180 - elapsedSeconds) * 10));
+
+                let finalBonus = 0;
+                if (beersCollected / initialCollectibles.length >= 0.7) {
+                    finalBonus = timeBonus;
+                }
+
+                setFinalScoreStats({
+                    score: score,
+                    bonus: finalBonus,
+                    total: score + finalBonus
+                });
+
+                setShowGameOverModal(true);
+            }
+            return newLives;
+        });
+
+        if (lives > 1) {
+            playLoseLifeSound();
+            setIsInvulnerable(true);
+            setTimeout(() => {
+                setIsInvulnerable(false);
+                processingHit.current = false;
+            }, 3000);
+        }
+    };
 
     // Enemy collision detection with player
     useEffect(() => {
@@ -1045,7 +1133,7 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
             clearTimeout(timer7);
             clearTimeout(timer8);
         };
-    }, [showIntroVideo]);
+    }, [showIntroVideo, restartCount]);
 
     const restartLevel = () => {
         setPlayerPos(INITIAL_PLAYER_POS);
@@ -1057,10 +1145,12 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
         setTokens(0);
         setIsInvulnerable(false);
         isInvulnerableRef.current = false;
+        processingHit.current = false;
         setPowerActive(false);
         setPowerTimeLeft(0);
         setEnemies([]);
         enemyIdRef.current = 1;
+        collectedBeersRef.current.clear();
         collectedBarrelsRef.current.clear();
         collectedBonusesRef.current.clear();
         setSpecialBonuses([]);
@@ -1080,6 +1170,7 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
             { id: 7, x: 30, z: 36, collected: false },
             { id: 8, x: 30, z: 2, collected: false },
         ]);
+        setRestartCount(prev => prev + 1);
     };
 
     // Spawn special bonuses at 30% and 70% collection
@@ -1132,7 +1223,14 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
                     <SpecialBonus key={b.id} position={{ x: b.x, z: b.z }} />
                 ))}
 
-                <Player position={playerPos} direction={direction} isInvulnerable={isInvulnerable} isPowerActive={powerActive} isPaused={isPaused} />
+                <Player
+                        position={playerPos}
+                        direction={direction}
+                        onPositionUpdate={handlePositionUpdate}
+                        isPaused={isPaused}
+                        isPowerActive={powerActive}
+                        isInvulnerable={isInvulnerable}
+                    />
 
                 {enemies.map(enemy => (
                     <Enemy

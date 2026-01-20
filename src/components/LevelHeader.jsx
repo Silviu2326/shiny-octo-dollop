@@ -38,8 +38,6 @@ export default function LevelHeader({
     textColor: textColor || baseConfig.textColor,
     borderColor: borderColor || baseConfig.borderColor,
     totalBeers: baseConfig.totalBeers || totalBeers,
-    borderColor: borderColor || baseConfig.borderColor,
-    totalBeers: baseConfig.totalBeers || totalBeers,
     image: baseConfig.image
   };
 
