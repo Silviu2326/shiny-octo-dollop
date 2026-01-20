@@ -543,7 +543,7 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
     useEffect(() => {
         if (showIntroVideo) return;
 
-        musicRef.current = new Audio('/assets/audio/Guajira – “Tropical Fever”.wav');
+        musicRef.current = new Audio('/assets/audio/Guajira%20%E2%80%93%20%E2%80%9CTropical%20Fever%E2%80%9D.wav');
         musicRef.current.loop = true;
         musicRef.current.volume = 0.3;
 
@@ -628,6 +628,13 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
     const playLoseLifeSound = () => {
         if (isMuted) return;
         const sfx = new Audio('/assets/audio/sfx_lose_life.mp3');
+        sfx.volume = 0.6;
+        sfx.play().catch(e => console.log("SFX play failed:", e));
+    };
+
+    const playGameOverSound = () => {
+        if (isMuted) return;
+        const sfx = new Audio('/assets/audio/sfx_game_over.mp3');
         sfx.volume = 0.6;
         sfx.play().catch(e => console.log("SFX play failed:", e));
     };
@@ -910,20 +917,18 @@ export default function Level7({ onBack, onNextLevel, onLevelComplete }) {
             const newLives = prev - 1;
             if (newLives <= 0) {
                 setIsPaused(true);
-                // Game Over Stats logic needs to be cleaner, but we'll trigger the modal
                 setShowGameOverModal(true);
+                playGameOverSound();
+            } else {
+                playLoseLifeSound();
+                setIsInvulnerable(true);
+                setTimeout(() => {
+                    setIsInvulnerable(false);
+                    processingHit.current = false;
+                }, 3000);
             }
             return newLives;
         });
-
-        if (lives > 1) { // If checking prev value, care needed. easier to just check state if update is batched
-            playLoseLifeSound();
-            setIsInvulnerable(true);
-            setTimeout(() => {
-                setIsInvulnerable(false);
-                processingHit.current = false;
-            }, 3000);
-        }
     };
 
     // Enemy returning to doghouse logic
