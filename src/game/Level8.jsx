@@ -581,7 +581,7 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
     useEffect(() => {
         if (showIntroVideo) return;
 
-        musicRef.current = new Audio('/assets/audio/music_funky.wav');
+        musicRef.current = new Audio('/assets/audio/Funky Night with La Morena (2).wav');
         musicRef.current.loop = true;
         musicRef.current.volume = 0.3;
 
