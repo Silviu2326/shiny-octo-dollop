@@ -596,10 +596,12 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                 if (newLives <= 0) {
                     setIsPaused(true);
                     setShowGameOverModal(true);
+                    playGameOverSound();
+                } else {
+                    playLoseLifeSound();
                 }
                 return newLives;
             });
-            playLoseLifeSound();
             setScore(s => Math.max(0, s - 5));
             setIsInvulnerable(true);
             showEnemyAlert("¡Te han herido!");
@@ -617,7 +619,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     useEffect(() => {
         if (showIntroVideo) return;
 
-        musicRef.current = new Audio(encodeURI('/assets/audio/Candela – "Dark Flame".wav'));
+        musicRef.current = new Audio('/assets/audio/Candela%20%E2%80%93%20%E2%80%9CDark%20Flame%E2%80%9D.wav');
         musicRef.current.loop = true;
         musicRef.current.volume = 0.3;
 
@@ -702,6 +704,13 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     const playLoseLifeSound = () => {
         if (isMuted) return;
         const sfx = new Audio('/assets/audio/sfx_lose_life.mp3');
+        sfx.volume = 0.6;
+        sfx.play().catch(e => console.log("SFX play failed:", e));
+    };
+
+    const playGameOverSound = () => {
+        if (isMuted) return;
+        const sfx = new Audio('/assets/audio/sfx_game_over.mp3');
         sfx.volume = 0.6;
         sfx.play().catch(e => console.log("SFX play failed:", e));
     };
