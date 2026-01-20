@@ -53,7 +53,11 @@ export default function Enemy({
   debugMode = false,
   slowDownOnPower = true,
   isStunned = false,
-  stunEndTime = 0
+  stunEndTime = 0,
+  // Custom colors per level
+  colorNormal = 'white',
+  colorVulnerable = '#6666ff',
+  colorHit = 'grey'
 }) {
   const meshRef = useRef();
 
@@ -199,10 +203,10 @@ export default function Enemy({
 
   // Color según estado (para poder o debug)
   const getColor = () => {
-    if (isReturning) return 'grey';
-    if (isPowerActive) return '#6666ff';
+    if (isReturning) return colorHit;
+    if (isPowerActive) return colorVulnerable;
     if (debugMode) return getStateDebugColor(aiState.state);
-    return 'white';
+    return colorNormal;
   };
 
   return (
@@ -277,6 +281,8 @@ export default function Enemy({
           color={getColor()}
           alphaTest={0.5}
           depthWrite={true}
+          emissive={isReturning ? colorHit : (isPowerActive ? colorVulnerable : '#000000')}
+          emissiveIntensity={isReturning ? 1.5 : (isPowerActive ? 0.5 : 0)}
         />
       </mesh>
     </group>

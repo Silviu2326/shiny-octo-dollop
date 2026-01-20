@@ -383,6 +383,65 @@ function SpecialBonus({ position }) {
     );
 }
 
+// Burbuja protectora del jugador
+function ProtectiveBubble({ position, isActive }) {
+    const bubbleRef = useRef();
+    const [pulseScale, setPulseScale] = useState(1);
+
+    useFrame(({ clock }) => {
+        if (bubbleRef.current && isActive) {
+            // Efecto de pulso
+            const pulse = 1 + Math.sin(clock.getElapsedTime() * 4) * 0.1;
+            setPulseScale(pulse);
+            bubbleRef.current.rotation.y += 0.02;
+        }
+    });
+
+    if (!isActive) return null;
+
+    return (
+        <group position={[position.x, 0.5, position.z]} ref={bubbleRef} renderOrder={5}>
+            {/* Esfera exterior translúcida */}
+            <mesh scale={[pulseScale * 1.2, pulseScale * 1.2, pulseScale * 1.2]} renderOrder={5}>
+                <sphereGeometry args={[1, 32, 32]} />
+                <meshStandardMaterial
+                    color="#00BFFF"
+                    transparent={true}
+                    opacity={0.15}
+                    side={THREE.DoubleSide}
+                    emissive="#00BFFF"
+                    emissiveIntensity={0.3}
+                    depthWrite={false}
+                />
+            </mesh>
+            {/* Anillo horizontal */}
+            <mesh rotation={[Math.PI / 2, 0, 0]} scale={[pulseScale, pulseScale, pulseScale]} renderOrder={5}>
+                <torusGeometry args={[1, 0.05, 16, 32]} />
+                <meshStandardMaterial
+                    color="#00FFFF"
+                    emissive="#00FFFF"
+                    emissiveIntensity={1}
+                    transparent={true}
+                    opacity={0.7}
+                    depthWrite={false}
+                />
+            </mesh>
+            {/* Anillo vertical */}
+            <mesh rotation={[0, 0, 0]} scale={[pulseScale, pulseScale, pulseScale]} renderOrder={5}>
+                <torusGeometry args={[1, 0.03, 16, 32]} />
+                <meshStandardMaterial
+                    color="#00FFFF"
+                    emissive="#00FFFF"
+                    emissiveIntensity={0.8}
+                    transparent={true}
+                    opacity={0.5}
+                    depthWrite={false}
+                />
+            </mesh>
+        </group>
+    );
+}
+
 // Enemy component is imported
 
 function Player({ position, direction, onPositionUpdate, isPowerActive, isInvulnerable, isPaused }) {
@@ -391,7 +450,6 @@ function Player({ position, direction, onPositionUpdate, isPowerActive, isInvuln
     const spritesheet2 = useLoader(THREE.TextureLoader, '/assets/personajes/player_secondary.png');
     const [currentFrame, setCurrentFrame] = useState(0);
     const [animationTime, setAnimationTime] = useState(0);
-    const [trail, setTrail] = useState([]);
     const [pulseTime, setPulseTime] = useState(0);
     const [lastDirection, setLastDirection] = useState({ x: 1, z: 0 });
 
@@ -415,19 +473,12 @@ function Player({ position, direction, onPositionUpdate, isPowerActive, isInvuln
         if (direction.x !== 0 || direction.z !== 0) {
             setLastDirection(direction);
             const baseSpeed = 4.5;
-            const speed = isPowerActive ? baseSpeed * 2.5 : baseSpeed;
+            const speed = baseSpeed; // Power no aumenta velocidad, solo da invulnerabilidad
             const newX = position.x + direction.x * speed * delta;
             const newZ = position.z + direction.z * speed * delta;
 
             if (!checkCollision(newX, newZ)) {
                 onPositionUpdate(newX, newZ);
-
-                if (isPowerActive) {
-                    setTrail(prev => {
-                        const newTrail = [{ x: position.x, z: position.z, frame: currentFrame }, ...prev];
-                        return newTrail.slice(0, 5);
-                    });
-                }
             }
 
             setAnimationTime(prev => {
@@ -436,10 +487,6 @@ function Player({ position, direction, onPositionUpdate, isPowerActive, isInvuln
                 setCurrentFrame(newFrame);
                 return newTime;
             });
-        }
-
-        if (!isPowerActive && trail.length > 0) {
-            setTrail([]);
         }
     });
 
@@ -464,39 +511,10 @@ function Player({ position, direction, onPositionUpdate, isPowerActive, isInvuln
     const pulseOpacity = isInvulnerable ? (Math.sin(pulseTime) * 0.5 + 0.5) : 1;
 
     return (
-        <group>
-            {isPowerActive && trail.map((pos, index) => {
-                const trailTexture = getCurrentTexture().clone();
-                trailTexture.repeat.set(1 / frameCount, 1);
-                trailTexture.offset.x = pos.frame / frameCount;
-
-                return (
-                    <mesh
-                        key={index}
-                        position={[pos.x, 0.5, pos.z]}
-                        rotation={[-Math.PI / 4, PLAYER_ROTATION, 0]}
-                        scale={[getFlipX(), 1, 1]}
-                        renderOrder={9 - index}
-                    >
-                        <planeGeometry args={[1.1, 1.1]} />
-                        <meshStandardMaterial
-                            map={trailTexture}
-                            transparent={true}
-                            side={THREE.DoubleSide}
-                            opacity={(0.6 - index * 0.1) * pulseOpacity}
-                            alphaTest={0.1}
-                            emissive="#FFD700"
-                            emissiveIntensity={1.5 - index * 0.3}
-                            depthWrite={false}
-                        />
-                    </mesh>
-                );
-            })}
-            <mesh position={[position.x, 0.5, position.z]} rotation={[-Math.PI / 4, PLAYER_ROTATION, 0]} scale={[getFlipX(), 1, 1]} renderOrder={10}>
-                <planeGeometry args={[1.1, 1.1]} />
-                <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} opacity={pulseOpacity} alphaTest={0.5} depthWrite={false} emissive={isPowerActive ? "#FFD700" : "#000000"} emissiveIntensity={isPowerActive ? 0.8 : 0} />
-            </mesh>
-        </group>
+        <mesh position={[position.x, 0.5, position.z]} rotation={[-Math.PI / 4, PLAYER_ROTATION, 0]} scale={[getFlipX(), 1, 1]} renderOrder={10}>
+            <planeGeometry args={[1.1, 1.1]} />
+            <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} opacity={pulseOpacity} alphaTest={0.5} depthWrite={false} />
+        </mesh>
     );
 }
 
@@ -734,6 +752,47 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                 enemy.id === enemyId ? { ...enemy, x, z } : enemy
             )
         );
+
+        // Check collision with player when enemy moves (handles stationary player)
+        if (!isInvulnerable && !powerActive) {
+            const dist = Math.sqrt((playerPos.x - x) ** 2 + (playerPos.z - z) ** 2);
+            if (dist < 0.5) {
+                const enemy = enemiesRef.current.find(e => e.id === enemyId);
+                if (enemy && !enemy.isReturning && !enemy.isStunned) {
+                    handlePlayerEnemyCollision(enemy, playerPos.x, playerPos.z);
+                }
+            }
+        } else if (powerActive) {
+            // If power is active and enemy touches player bubble, stun them for 4 seconds
+            const bubbleRadius = 1.2; // Radio de la burbuja
+            const dist = Math.sqrt((playerPos.x - x) ** 2 + (playerPos.z - z) ** 2);
+            if (dist < bubbleRadius) {
+                const enemy = enemiesRef.current.find(e => e.id === enemyId);
+                if (enemy && !enemy.isReturning && !enemy.isStunned) {
+                    // Empujar al enemigo hacia afuera de la burbuja
+                    const pushDir = {
+                        x: x - playerPos.x,
+                        z: z - playerPos.z
+                    };
+                    const pushDist = Math.sqrt(pushDir.x ** 2 + pushDir.z ** 2);
+                    if (pushDist > 0) {
+                        const pushX = x + (pushDir.x / pushDist) * 0.8;
+                        const pushZ = z + (pushDir.z / pushDist) * 0.8;
+
+                        setEnemies(prev => prev.map(e =>
+                            e.id === enemyId ? {
+                                ...e,
+                                x: pushX,
+                                z: pushZ,
+                                isStunned: true,
+                                stunEndTime: Date.now() + 4000
+                            } : e
+                        ));
+                        setScore(s => s + 100);
+                    }
+                }
+            }
+        }
     };
 
 
@@ -814,9 +873,10 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
         // 3. Check Enemies (Player runs into Enemy)
         if (!isInvulnerable) {
             enemiesRef.current.forEach(enemy => {
-                if (enemy.isReturning) return;
+                if (enemy.isReturning || enemy.isStunned) return;
+                const bubbleRadius = powerActive ? 1.2 : 0.5;
                 const dist = Math.sqrt((newX - enemy.x) ** 2 + (newZ - enemy.z) ** 2);
-                if (dist < 0.5) { // Adjusted distance to 0.5 (was 0.4 and 0.6 separately)
+                if (dist < bubbleRadius) {
                     handlePlayerEnemyCollision(enemy, newX, newZ);
                 }
             });
@@ -827,11 +887,30 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
         const now = Date.now();
         if (now - lastHitTimeRef.current < 500) return; // Debounce
 
-        // Shield active logic
+        // Bubble active - stun enemy and push them away
         if (powerActive) {
-            setScore(s => s + 200);
+            // Calcular dirección de empuje
+            const pushDir = {
+                x: enemy.x - playerX,
+                z: enemy.z - playerZ
+            };
+            const pushDist = Math.sqrt(pushDir.x ** 2 + pushDir.z ** 2);
+            let pushX = enemy.x;
+            let pushZ = enemy.z;
+            if (pushDist > 0) {
+                pushX = enemy.x + (pushDir.x / pushDist) * 0.8;
+                pushZ = enemy.z + (pushDir.z / pushDist) * 0.8;
+            }
+
+            setScore(s => s + 100);
             setEnemies(prev => prev.map(e =>
-                e.id === enemy.id ? { ...e, isReturning: true } : e
+                e.id === enemy.id ? {
+                    ...e,
+                    x: pushX,
+                    z: pushZ,
+                    isStunned: true,
+                    stunEndTime: Date.now() + 4000
+                } : e
             ));
             lastHitTimeRef.current = now;
             return;
@@ -947,7 +1026,7 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
             setTokens(prev => prev - 1);
             setPowerActive(true);
             setPowerTimeLeft(10);
-            showPowerAlert("¡INVENCIBILIDAD! ¡APROVECHA!");
+            showPowerAlert("¡BURBUJA PROTECTORA! ¡Empuja enemigos!");
         }
     };
 
@@ -1088,12 +1167,18 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
         };
     }, [isPaused, activatePower]);
 
-    // Enemy Returning Logic (Moved from old game loop)
+    // Enemy Returning Logic and Stun Timer
     useEffect(() => {
         const interval = setInterval(() => {
             if (isPaused) return;
 
+            const now = Date.now();
             setEnemies(prev => prev.map(enemy => {
+                // Check stun timer
+                if (enemy.isStunned && enemy.stunEndTime && now >= enemy.stunEndTime) {
+                    return { ...enemy, isStunned: false, stunEndTime: 0 };
+                }
+                // Check returning logic
                 if (enemy.isReturning) {
                     const distToDoghouse = Math.sqrt(
                         (enemy.x - doghousePos.x) ** 2 +
@@ -1243,6 +1328,8 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
 
                     <Player position={playerPos} direction={direction} onPositionUpdate={handlePositionUpdate} isPowerActive={powerActive} isInvulnerable={isInvulnerable} isPaused={isPaused} />
 
+                    <ProtectiveBubble position={playerPos} isActive={powerActive} />
+
                     <EnemyTextureLoader>
                         {enemies.map(enemy => (
                             <Enemy
@@ -1254,7 +1341,7 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                                 walls={walls}
                                 onPositionUpdate={(x, z) => handleEnemyPositionUpdate(enemy.id, x, z)}
                                 checkCollision={checkCollision}
-                                isPowerActive={powerActive}
+                                isPowerActive={false}
                                 isPaused={isPaused}
                                 rotation={PLAYER_ROTATION}
                                 role={enemy.role}
@@ -1265,6 +1352,8 @@ export default function Level5({ onBack, onNextLevel, onLevelComplete }) {
                                 spritesheet2Path="/assets/personajes/enemy_type_8.png"
                                 debugMode={false}
                                 slowDownOnPower={false}
+                                isStunned={enemy.isStunned || false}
+                                stunEndTime={enemy.stunEndTime || 0}
                             />
                         ))}
                     </EnemyTextureLoader>

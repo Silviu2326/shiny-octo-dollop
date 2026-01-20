@@ -363,8 +363,7 @@ function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive
 
         if (direction.x !== 0 || direction.z !== 0) {
             setLastDirection(direction);
-            const baseSpeed = 4.5;
-            const speed = isPowerActive ? baseSpeed * 2.5 : baseSpeed;
+            const speed = 4.5;
             const newX = position.x + direction.x * speed * delta;
             const newZ = position.z + direction.z * speed * delta;
 
@@ -433,8 +432,8 @@ function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive
                             side={THREE.DoubleSide}
                             opacity={(0.6 - index * 0.1) * pulseOpacity}
                             alphaTest={0.1}
-                            emissive="#FFD700"
-                            emissiveIntensity={1.5 - index * 0.3}
+                            emissive="#000000"
+                            emissiveIntensity={0}
                             depthWrite={false}
                         />
                     </mesh>
@@ -464,8 +463,8 @@ function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive
                     transparent={true}
                     side={THREE.DoubleSide}
                     alphaTest={0.5}
-                    emissive={isPowerActive ? "#FFD700" : "#000000"}
-                    emissiveIntensity={isPowerActive ? 0.8 : 0}
+                    emissive="#000000"
+                    emissiveIntensity={0}
                     opacity={pulseOpacity}
                     depthWrite={true}
                 />

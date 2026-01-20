@@ -1224,13 +1224,13 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
                 ))}
 
                 <Player
-                        position={playerPos}
-                        direction={direction}
-                        onPositionUpdate={handlePositionUpdate}
-                        isPaused={isPaused}
-                        isPowerActive={powerActive}
-                        isInvulnerable={isInvulnerable}
-                    />
+                    position={playerPos}
+                    direction={direction}
+                    onPositionUpdate={handlePositionUpdate}
+                    isPaused={isPaused}
+                    isPowerActive={powerActive}
+                    isInvulnerable={isInvulnerable}
+                />
 
                 {enemies.map(enemy => (
                     <Enemy
@@ -1301,7 +1301,7 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete }) {
                                 className="power-button"
                             >
                                 <img
-                                    src="/assets/poderes/image-removebg-preview (15).png"
+                                    src="/assets/poderes/power_icon.png"
                                     alt="Power"
                                     className={`power-button-image ${tokens === 0 ? 'disabled' : ''}`}
                                 />

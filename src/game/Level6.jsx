@@ -319,7 +319,6 @@ function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive
 
     const [currentFrame, setCurrentFrame] = useState(0);
     const [animationTime, setAnimationTime] = useState(0);
-    const [trail, setTrail] = useState([]);
     const [pulseTime, setPulseTime] = useState(0);
     const [lastDirection, setLastDirection] = useState({ x: 1, z: 0 });
 
@@ -343,19 +342,12 @@ function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive
         if (direction.x !== 0 || direction.z !== 0) {
             setLastDirection(direction);
             const baseSpeed = 4.5;
-            const speed = isPowerActive ? baseSpeed * 2.5 : baseSpeed;
+            const speed = baseSpeed; // Power no aumenta velocidad
             const newX = position.x + direction.x * speed * delta;
             const newZ = position.z + direction.z * speed * delta;
 
             if (!checkCollision(newX, newZ)) {
                 onPositionUpdate(newX, newZ);
-
-                if (isPowerActive) {
-                    setTrail(prev => {
-                        const newTrail = [{ x: position.x, z: position.z, frame: currentFrame }, ...prev];
-                        return newTrail.slice(0, 5);
-                    });
-                }
             }
 
             setAnimationTime(prev => {
@@ -364,10 +356,6 @@ function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive
                 setCurrentFrame(newFrame);
                 return newTime;
             });
-        }
-
-        if (!isPowerActive && trail.length > 0) {
-            setTrail([]);
         }
     });
 
@@ -392,53 +380,23 @@ function Player({ position, direction, onPositionUpdate, isPaused, isPowerActive
     const pulseOpacity = isInvulnerable ? (Math.sin(pulseTime) * 0.5 + 0.5) : 1;
 
     return (
-        <group>
-            {isPowerActive && trail.map((pos, index) => {
-                const trailTexture = getCurrentTexture().clone();
-                trailTexture.repeat.set(1 / frameCount, 1);
-                trailTexture.offset.x = pos.frame / frameCount;
-
-                return (
-                    <mesh
-                        key={index}
-                        position={[pos.x, 0.5, pos.z]}
-                        rotation={[-Math.PI / 4, 0, 0]} // Fixed rotation for trail to match player
-                        scale={[getFlipX(), 1, 1]}
-                    >
-                        <planeGeometry args={[0.8, 0.8]} />
-                        <meshStandardMaterial
-                            map={trailTexture}
-                            transparent={true}
-                            side={THREE.DoubleSide}
-                            opacity={(0.6 - index * 0.1) * pulseOpacity}
-                            alphaTest={0.1}
-                            emissive="#FFD700"
-                            emissiveIntensity={1.5 - index * 0.3}
-                            depthWrite={false}
-                        />
-                    </mesh>
-                );
-            })}
-
-            <mesh
-                ref={meshRef}
-                position={[position.x, 0.5, position.z]}
-                rotation={[-Math.PI / 4, 0, 0]}
-                scale={[getFlipX(), 1, 1]}
-            >
-                <planeGeometry args={[1.1, 1.1]} />
-                <meshStandardMaterial
-                    map={texture}
-                    transparent={true}
-                    side={THREE.DoubleSide}
-                    alphaTest={0.5}
-                    emissive={isPowerActive ? "#FFD700" : "#000000"}
-                    emissiveIntensity={isPowerActive ? 0.8 : 0}
-                    opacity={pulseOpacity}
-                    depthWrite={true}
-                />
-            </mesh>
-        </group>
+        <mesh
+            ref={meshRef}
+            position={[position.x, 0.5, position.z]}
+            rotation={[-Math.PI / 4, 0, 0]}
+            scale={[getFlipX(), 1, 1]}
+            renderOrder={10}
+        >
+            <planeGeometry args={[1.1, 1.1]} />
+            <meshStandardMaterial
+                map={texture}
+                transparent={true}
+                side={THREE.DoubleSide}
+                alphaTest={0.5}
+                opacity={pulseOpacity}
+                depthWrite={false}
+            />
+        </mesh>
     );
 }
 
@@ -528,6 +486,8 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
     const keysPressed = useRef(new Set());
     // Force re-render for UI updates (active button state)
     const [, forceUpdate] = useState({});
+    // Counter to trigger enemy respawn on restart
+    const [restartCount, setRestartCount] = useState(0);
 
     useEffect(() => {
         enemiesRef.current = enemies;
@@ -626,7 +586,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
         if (powerActive) {
             setScore(s => s + 150);
             setEnemies(prev => prev.map(e =>
-                e.id === enemy.id ? { ...e, isReturning: true, speed: e.speed * 1.5 } : e
+                e.id === enemy.id ? { ...e, isReturning: true, returningStartTime: Date.now() } : e
             ));
             showEnemyAlert("¡Enemigo derrotado!");
             lastHitTimeRef.current = now;
@@ -857,6 +817,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
         const interval = setInterval(() => {
             if (isPaused) return;
 
+            const now = Date.now();
             setEnemies(prev => prev.map(enemy => {
                 // Si el enemigo está regresando a casa
                 if (enemy.isReturning) {
@@ -864,8 +825,10 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                         (enemy.x - DOGHOUSE_POS.x) ** 2 +
                         (enemy.z - DOGHOUSE_POS.z) ** 2
                     );
-                    if (distToDoghouse < 0.5) {
-                        return { ...enemy, isReturning: false };
+                    // Resetear si llega a la caseta O si han pasado 3 segundos (timeout de seguridad)
+                    const timeElapsed = enemy.returningStartTime ? now - enemy.returningStartTime : 0;
+                    if (distToDoghouse < 0.5 || timeElapsed > 3000) {
+                        return { ...enemy, isReturning: false, returningStartTime: null };
                     }
                 }
                 return enemy;
@@ -998,7 +961,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
             clearTimeout(timer5);
             clearTimeout(timer6);
         };
-    }, [showIntroVideo]);
+    }, [showIntroVideo, restartCount]);
 
     const handleEnemyPositionUpdate = (id, x, z) => {
         setEnemies(prev => prev.map(e => e.id === id ? { ...e, x, z } : e));
@@ -1048,6 +1011,7 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
         setSpecialBonuses([]);
         setBonusFlags({ p30: false, p70: false });
         setStartTime(Date.now());
+        setRestartCount(c => c + 1);
     };
 
     // Spawn special bonuses at 30% and 70% collection
@@ -1122,6 +1086,9 @@ export default function Level6({ onBack, onNextLevel, onLevelComplete }) {
                         spritesheet1Path="/assets/personajes/enemy_type_5.png"
                         spritesheet2Path="/assets/personajes/enemy_type_6.png"
                         debugMode={false}
+                        colorNormal="white"
+                        colorVulnerable="#ff0000"
+                        colorHit="#ffffff"
                     />
                 ))}
 
