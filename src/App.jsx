@@ -3,7 +3,9 @@ import { Home, Ghost, Cookie, Sun, WheatOff, Flame, Palmtree, PartyPopper, Play,
 import './App.css';
 import Level1 from './game/Level1';
 import Level2 from './game/Level2';
+
 import Level3 from './game/Level3';
+import Level3_5 from './game/Level3_5';
 import Level4 from './game/Level4';
 import Level5 from './game/Level5';
 import Level6 from './game/Level6';
@@ -14,10 +16,23 @@ import LoadingScreen from './components/LoadingScreen';
 
 console.log('App.jsx loaded successfully');
 
+// Datos de los niveles definidos externamente para uso global
+const LEVEL_DATA = [
+  { id: 0, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
+  { id: 1, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Nivel 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
+  { id: 2, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Nivel 2', desc: 'La Tostada (Morena)', color: '#8A5A2B' },
+  { id: 2.5, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Nivel 2.5', desc: 'Desafío Extra Morena', color: '#8A5A2B' },
+  { id: 3, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png', name: 'Nivel 3', desc: 'La Rubia (Catira)', color: '#F2C94C' },
+  { id: 4, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Nivel 4', desc: 'Sin Gluten (Sifrina)', color: '#D4AF37' },
+  { id: 5, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png', name: 'Nivel 5', desc: 'La Oscura (Candela)', color: '#8B1E1E' },
+  { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
+  { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
+];
+
 // Utility functions for level progression
 const getUnlockedLevels = () => {
   // Habilitar todos los niveles para pruebas
-  return [0, 1, 2, 3, 4, 5, 6, 7];
+  return LEVEL_DATA.map(l => l.id);
 };
 
 const unlockLevel = (levelId) => {
@@ -46,17 +61,6 @@ function LevelSelector({ onSelectLevel, userId }) {
   useEffect(() => {
     setUnlockedLevels(getUnlockedLevels());
   }, []);
-
-  const levels = [
-    { id: 0, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
-    { id: 1, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Nivel 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
-    { id: 2, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Nivel 2', desc: 'La Tostada (Morena)', color: '#8A5A2B' },
-    { id: 3, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png', name: 'Nivel 3', desc: 'La Rubia (Catira)', color: '#F2C94C' },
-    { id: 4, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Nivel 4', desc: 'Sin Gluten (Sifrina)', color: '#D4AF37' },
-    { id: 5, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png', name: 'Nivel 5', desc: 'La Oscura (Candela)', color: '#8B1E1E' },
-    { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
-    { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
-  ];
 
   const handleLevelClick = (levelId) => {
     if (unlockedLevels.includes(levelId)) {
@@ -107,7 +111,7 @@ function LevelSelector({ onSelectLevel, userId }) {
 
       <div className="scroll-view">
         <div className="levels-container">
-          {levels.map((level) => {
+          {LEVEL_DATA.map((level) => {
             const isUnlocked = unlockedLevels.includes(level.id);
             return (
               <div
@@ -177,7 +181,9 @@ function Game({ level, onBack, onNextLevel, onLevelComplete, userId }) {
   // Mapping with off-by-one: Nivel 0 (selector) = Level1.jsx, Nivel 1 = Level2.jsx, etc.
   if (level === 0) return <Level1 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
   if (level === 1) return <Level2 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+
   if (level === 2) return <Level3 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 2.5) return <Level3_5 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
   if (level === 3) return <Level4 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
   if (level === 4) return <Level5 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
   if (level === 5) return <Level6 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
@@ -226,14 +232,20 @@ function App() {
 
   const handleNextLevel = () => {
     console.log('handleNextLevel called');
-    setSelectedLevel(prev => prev + 1);
+    const currentIndex = LEVEL_DATA.findIndex(l => l.id === selectedLevel);
+    if (currentIndex >= 0 && currentIndex < LEVEL_DATA.length - 1) {
+      setSelectedLevel(LEVEL_DATA[currentIndex + 1].id);
+    }
   };
 
   const handleLevelComplete = (currentLevel) => {
     console.log('handleLevelComplete called for level:', currentLevel);
-    const nextLevel = currentLevel + 1;
-    unlockLevel(nextLevel);
-    setRefreshKey(k => k + 1); // Force update to refresh unlocked levels
+    const currentIndex = LEVEL_DATA.findIndex(l => l.id === currentLevel);
+    if (currentIndex >= 0 && currentIndex < LEVEL_DATA.length - 1) {
+      const nextLevelId = LEVEL_DATA[currentIndex + 1].id;
+      unlockLevel(nextLevelId);
+      setRefreshKey(k => k + 1); // Force update to refresh unlocked levels
+    }
   };
 
   const handleBack = () => {
