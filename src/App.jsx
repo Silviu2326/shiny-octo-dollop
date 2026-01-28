@@ -17,24 +17,9 @@ import FroggerLevel from './game/FroggerLevel';
 import WoodLevel from './game/WoodLevel';
 import Ranking from './components/Ranking';
 import LoadingScreen from './components/LoadingScreen';
+import { supabase } from './services/supabase';
 
 console.log('App.jsx loaded successfully');
-
-// Obtener idioma de los parámetros URL
-const getLanguage = () => {
-  const fullUrl = window.location.href;
-  const searchString = window.location.search;
-  const urlParams = new URLSearchParams(searchString);
-  const lang = urlParams.get('lang');
-
-  console.log('🌐 [Lang Debug] URL completa:', fullUrl);
-  console.log('🌐 [Lang Debug] Search string:', searchString);
-  console.log('🌐 [Lang Debug] Todos los params:', Object.fromEntries(urlParams.entries()));
-  console.log('🌐 [Lang Debug] lang param:', lang);
-  console.log('🌐 [Lang Debug] Idioma final:', lang || 'en (default)');
-
-  return lang || 'en';
-};
 
 // Datos de los niveles con soporte para múltiples idiomas
 const LEVEL_DATA_TRANSLATIONS = {
@@ -70,13 +55,13 @@ const LEVEL_DATA_TRANSLATIONS = {
   ]
 };
 
-// Obtener datos según el idioma actual
-const LEVEL_DATA = LEVEL_DATA_TRANSLATIONS[getLanguage()] || LEVEL_DATA_TRANSLATIONS.en;
+// Obtener datos según el idioma
+const getLevelData = (lang) => LEVEL_DATA_TRANSLATIONS[lang] || LEVEL_DATA_TRANSLATIONS.en;
 
 // Utility functions for level progression
-const getUnlockedLevels = () => {
+const getUnlockedLevels = (lang) => {
   // Habilitar todos los niveles para pruebas
-  return LEVEL_DATA.map(l => l.id);
+  return getLevelData(lang).map(l => l.id);
 };
 
 const unlockLevel = (levelId) => {
@@ -117,17 +102,18 @@ const UI_TRANSLATIONS = {
   }
 };
 
-const getUIText = () => UI_TRANSLATIONS[getLanguage()] || UI_TRANSLATIONS.en;
+const getUIText = (lang) => UI_TRANSLATIONS[lang] || UI_TRANSLATIONS.en;
 
-function LevelSelector({ onSelectLevel, userId }) {
-  const [unlockedLevels, setUnlockedLevels] = useState(getUnlockedLevels());
+function LevelSelector({ onSelectLevel, userId, language }) {
+  const levelData = getLevelData(language);
+  const [unlockedLevels, setUnlockedLevels] = useState(getUnlockedLevels(language));
   const [showRanking, setShowRanking] = useState(false);
-  const uiText = getUIText();
+  const uiText = getUIText(language);
 
   // Update unlocked levels when component mounts or when returning from a level
   useEffect(() => {
-    setUnlockedLevels(getUnlockedLevels());
-  }, [LEVEL_DATA.length]);
+    setUnlockedLevels(getUnlockedLevels(language));
+  }, [language]);
 
   const handleLevelClick = (levelId) => {
     if (unlockedLevels.includes(levelId)) {
@@ -178,7 +164,7 @@ function LevelSelector({ onSelectLevel, userId }) {
 
       <div className="scroll-view">
         <div className="levels-container">
-          {LEVEL_DATA.map((level) => {
+          {levelData.map((level) => {
             const isUnlocked = unlockedLevels.includes(level.id);
             return (
               <div
@@ -244,8 +230,8 @@ function LevelSelector({ onSelectLevel, userId }) {
   );
 }
 
-function Game({ level, onBack, onNextLevel, onLevelComplete, userId }) {
-  const uiText = getUIText();
+function Game({ level, onBack, onNextLevel, onLevelComplete, userId, language }) {
+  const uiText = getUIText(language);
   // Mapping with off-by-one: Nivel 0 (selector) = Level1.jsx, Nivel 1 = Level2.jsx, etc.
   if (level === 0) return <Level1 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
   if (level === 1) return <Level2 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
@@ -262,10 +248,9 @@ function Game({ level, onBack, onNextLevel, onLevelComplete, userId }) {
   if (level === 10) return <FroggerLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
   if (level === 11) return <WoodLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
 
-  const lang = getLanguage();
   return (
     <div className="app-container">
-      <h1 className="title">{lang === 'en' ? 'Level' : 'Nivel'} {level}</h1>
+      <h1 className="title">{language === 'en' ? 'Level' : 'Nivel'} {level}</h1>
       <p className="subtitle">{uiText.comingSoon}</p>
       <button onClick={onBack} style={{ padding: '10px 20px', fontSize: '16px', background: '#ff6b35', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
         {uiText.back}
@@ -280,10 +265,11 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [userId, setUserId] = useState(null);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState('en');
 
   console.log('App rendering, selectedLevel:', selectedLevel);
 
-  // Obtener userId de los parámetros URL
+  // Obtener userId de los parámetros URL y cargar idioma desde Supabase
   useEffect(() => {
     // BORRAR CACHÉ DEL JUEGO (Código temporal)
     localStorage.removeItem('beerRunProgress');
@@ -295,6 +281,29 @@ function App() {
     if (userIdParam) {
       setUserId(userIdParam);
       console.log('👤 [App] Usuario identificado:', userIdParam);
+
+      // Cargar idioma desde Supabase con el userId
+      const loadLanguage = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('user_profiles')
+            .select('language')
+            .eq('user_id', userIdParam)
+            .maybeSingle();
+
+          console.log('🌐 [App] Respuesta DB language:', { data, error });
+
+          if (!error && data?.language) {
+            console.log('🌐 [App] Idioma cargado desde DB:', data.language);
+            setCurrentLanguage(data.language);
+          } else {
+            console.log('🌐 [App] No se encontró idioma en DB, usando default: en');
+          }
+        } catch (e) {
+          console.warn('⚠️ [App] Error cargando idioma:', e);
+        }
+      };
+      loadLanguage();
     } else {
       // Si no hay userId, usar uno genérico
       const guestId = 'guest_' + Date.now();
@@ -303,19 +312,21 @@ function App() {
     }
   }, []);
 
+  const levelData = getLevelData(currentLanguage);
+
   const handleNextLevel = () => {
     console.log('handleNextLevel called');
-    const currentIndex = LEVEL_DATA.findIndex(l => l.id === selectedLevel);
-    if (currentIndex >= 0 && currentIndex < LEVEL_DATA.length - 1) {
-      setSelectedLevel(LEVEL_DATA[currentIndex + 1].id);
+    const currentIndex = levelData.findIndex(l => l.id === selectedLevel);
+    if (currentIndex >= 0 && currentIndex < levelData.length - 1) {
+      setSelectedLevel(levelData[currentIndex + 1].id);
     }
   };
 
   const handleLevelComplete = (currentLevel) => {
     console.log('handleLevelComplete called for level:', currentLevel);
-    const currentIndex = LEVEL_DATA.findIndex(l => l.id === currentLevel);
-    if (currentIndex >= 0 && currentIndex < LEVEL_DATA.length - 1) {
-      const nextLevelId = LEVEL_DATA[currentIndex + 1].id;
+    const currentIndex = levelData.findIndex(l => l.id === currentLevel);
+    if (currentIndex >= 0 && currentIndex < levelData.length - 1) {
+      const nextLevelId = levelData[currentIndex + 1].id;
       unlockLevel(nextLevelId);
       setRefreshKey(k => k + 1); // Force update to refresh unlocked levels
     }
@@ -404,7 +415,7 @@ function App() {
             e.currentTarget.style.transform = 'scale(1)';
           }}
         >
-          {getUIText().skipIntro}
+          {getUIText(currentLanguage).skipIntro}
         </button>
       </div>
     );
@@ -412,7 +423,7 @@ function App() {
 
   if (selectedLevel === null) {
     console.log('Rendering LevelSelector');
-    return <LevelSelector key={refreshKey} onSelectLevel={setSelectedLevel} userId={userId} />;
+    return <LevelSelector key={refreshKey} onSelectLevel={setSelectedLevel} userId={userId} language={currentLanguage} />;
   }
 
   console.log('Rendering Game with level:', selectedLevel);
@@ -422,6 +433,7 @@ function App() {
     onNextLevel={handleNextLevel}
     onLevelComplete={handleLevelComplete}
     userId={userId}
+    language={currentLanguage}
   />;
 }
 
