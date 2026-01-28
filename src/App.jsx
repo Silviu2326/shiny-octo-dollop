@@ -11,6 +11,7 @@ import Level5 from './game/Level5';
 import Level6 from './game/Level6';
 import Level7 from './game/Level7';
 import Level8 from './game/Level8';
+import PacmanLevel from './game/PacmanLevel';
 import Ranking from './components/Ranking';
 import LoadingScreen from './components/LoadingScreen';
 
@@ -27,6 +28,7 @@ const LEVEL_DATA = [
   { id: 5, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png', name: 'Nivel 5', desc: 'La Oscura (Candela)', color: '#8B1E1E' },
   { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
   { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
+  { id: 8, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 8', desc: 'Pac-Man 2D (Bonus)', color: '#FFFF00' },
 ];
 
 // Utility functions for level progression
@@ -189,6 +191,7 @@ function Game({ level, onBack, onNextLevel, onLevelComplete, userId }) {
   if (level === 5) return <Level6 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
   if (level === 6) return <Level7 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
   if (level === 7) return <Level8 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 8) return <PacmanLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
 
   return (
     <div className="app-container">
