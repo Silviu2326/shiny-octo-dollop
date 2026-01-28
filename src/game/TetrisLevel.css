@@ -1,0 +1,317 @@
+.tetris-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    height: 100vh;
+    height: 100dvh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: #fff;
+    font-family: 'Press Start 2P', cursive, sans-serif;
+    overflow: hidden;
+    padding-bottom: 20px;
+    box-sizing: border-box;
+}
+
+.tetris-header {
+    margin: 10px 0;
+    text-align: center;
+    flex-shrink: 0;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.tetris-game-area {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    flex: 1;
+    min-height: 0;
+    justify-content: center;
+    width: 100%;
+}
+
+.tetris-board {
+    border: 4px solid #444;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: grid;
+    grid-template-rows: repeat(20, 1fr);
+    grid-template-columns: repeat(12, 1fr);
+    height: 100%;
+    max-height: 75vh;
+    aspect-ratio: 12/20;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+}
+
+/* Beautiful Cell Styling */
+.tetris-cell {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.cell-filled {
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Glass effect overlay */
+.cell-filled::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.4), transparent);
+    pointer-events: none;
+}
+
+.cell-empty {
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(255, 255, 255, 0.05);
+}
+
+.tetris-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    min-width: 120px;
+    justify-content: center;
+}
+
+.stat-box {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 12px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(5px);
+}
+
+.stat-label {
+    font-size: 10px;
+    color: #ccc;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.stat-value {
+    font-size: 20px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.next-piece-preview {
+    margin-top: 5px;
+    display: grid;
+    grid-template-rows: repeat(4, 1fr);
+    grid-template-columns: repeat(4, 1fr);
+    width: 80px;
+    height: 80px;
+    margin: 0 auto;
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    border-radius: 8px;
+}
+
+.preview-cell {
+    width: 100%;
+    height: 100%;
+    border-radius: 2px;
+}
+
+.tetris-controls-mobile {
+    margin-top: auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    width: 100%;
+    max-width: 340px;
+    padding: 15px;
+    flex-shrink: 0;
+}
+
+.control-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 70px;
+    height: 70px;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 32px;
+    margin: 0 auto;
+    cursor: pointer;
+    user-select: none;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: transform 0.1s, background 0.1s;
+}
+
+.control-btn:active {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(0.92);
+}
+
+.control-rotate {
+    grid-column: 2;
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.4), rgba(39, 174, 96, 0.4));
+    border-color: rgba(46, 204, 113, 0.6);
+}
+
+.control-down {
+    grid-column: 2;
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.4), rgba(192, 57, 43, 0.4));
+    border-color: rgba(231, 76, 60, 0.6);
+}
+
+.control-left,
+.control-right {
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.4), rgba(41, 128, 185, 0.4));
+    border-color: rgba(52, 152, 219, 0.6);
+}
+
+
+/* Modals */
+.game-over-modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    padding: 20px;
+    text-align: center;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.game-over-title {
+    font-size: 36px;
+    color: #e74c3c;
+    margin-bottom: 10px;
+    text-shadow: 0 4px 10px rgba(231, 76, 60, 0.5);
+    letter-spacing: 2px;
+}
+
+.game-over-score {
+    font-size: 24px;
+    margin-bottom: 40px;
+    color: #fff;
+}
+
+.restart-btn,
+.back-btn {
+    padding: 16px 32px;
+    font-size: 16px;
+    font-weight: bold;
+    margin: 10px;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    font-family: inherit;
+    text-transform: uppercase;
+    width: 220px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.restart-btn:hover,
+.back-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.restart-btn:active,
+.back-btn:active {
+    transform: translateY(0);
+}
+
+.restart-btn {
+    background: linear-gradient(to right, #2ecc71, #27ae60);
+    color: white;
+}
+
+.back-btn {
+    background: linear-gradient(to right, #e74c3c, #c0392b);
+    color: white;
+}
+
+/* Mobile Layout Adjustments */
+@media (max-width: 768px) {
+    .tetris-header h2 {
+        font-size: 18px;
+    }
+
+    .tetris-header p {
+        font-size: 10px;
+    }
+
+    .tetris-board {
+        max-height: 65vh;
+    }
+}
+
+@media (max-width: 600px) {
+    .tetris-game-area {
+        gap: 15px;
+        align-items: center;
+    }
+
+    .tetris-stats {
+        min-width: 85px;
+        /* Compact stats */
+    }
+
+    .stat-box {
+        padding: 8px;
+        border-radius: 8px;
+    }
+
+    .stat-label {
+        font-size: 8px;
+    }
+
+    .stat-value {
+        font-size: 14px;
+    }
+
+    .next-piece-preview {
+        width: 50px;
+        height: 50px;
+    }
+
+    .control-btn {
+        width: 65px;
+        height: 65px;
+        font-size: 28px;
+    }
+}

@@ -1,45 +1,44 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Play, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
-import './PacmanLevel.css';
+import './WoodLevel.css';
 
-// Constants - moved outside component to prevent recreation
+// Constants
 const TILE_SIZE = 24;
 const MAP_ROWS = 20;
 const MAP_COLS = 19;
 const PACMAN_SPEED = 0.1;
-const GHOST_SPEED = 0.05;
+const GHOST_SPEED = 0.055;
 const CANVAS_WIDTH = MAP_COLS * TILE_SIZE;
 const CANVAS_HEIGHT = MAP_ROWS * TILE_SIZE;
 
-// Pre-computed directions for ghost AI
 const DIRECTIONS = [
     { x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }
 ];
 
+// Different map layout for variety
 const INITIAL_MAP = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 3, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 3, 1],
-    [1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1],
     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
+    [1, 3, 1, 2, 2, 0, 2, 2, 2, 1, 2, 2, 2, 0, 2, 2, 1, 3, 1],
+    [1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+    [1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1],
+    [1, 0, 1, 0, 1, 2, 1, 0, 1, 1, 1, 0, 1, 2, 1, 0, 1, 0, 1],
+    [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1, 2, 1, 1, 1, 2, 1, 0, 1, 1, 1, 0, 1],
+    [2, 0, 0, 0, 0, 0, 1, 2, 1, 4, 1, 2, 1, 0, 0, 0, 0, 0, 2],
+    [1, 0, 1, 1, 1, 0, 1, 2, 1, 4, 1, 2, 1, 0, 1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+    [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
     [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1],
     [1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-    [1, 1, 1, 1, 0, 1, 1, 1, 2, 1, 2, 1, 1, 1, 0, 1, 1, 1, 1],
-    [2, 2, 2, 1, 0, 1, 2, 2, 2, 2, 2, 2, 2, 1, 0, 1, 2, 2, 2],
-    [1, 1, 1, 1, 0, 1, 2, 1, 1, 4, 1, 1, 2, 1, 0, 1, 1, 1, 1],
-    [2, 2, 2, 2, 0, 2, 2, 1, 4, 4, 4, 1, 2, 2, 0, 2, 2, 2, 2],
-    [1, 1, 1, 1, 0, 1, 2, 1, 1, 1, 1, 1, 2, 1, 0, 1, 1, 1, 1],
-    [2, 2, 2, 1, 0, 1, 2, 2, 2, 2, 2, 2, 2, 1, 0, 1, 2, 2, 2],
-    [1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1],
-    [1, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 3, 1],
-    [1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1],
-    [1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    [1, 3, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 3, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ];
 
-// Pre-compute total dots and wall neighbor data
 const TOTAL_DOTS = INITIAL_MAP.flat().filter(c => c === 0 || c === 3).length;
 
 const isWallAt = (x, y) => {
@@ -47,7 +46,6 @@ const isWallAt = (x, y) => {
     return INITIAL_MAP[y][x] === 1;
 };
 
-// Pre-compute wall neighbor data for rendering optimization
 const WALL_DATA = [];
 for (let y = 0; y < MAP_ROWS; y++) {
     WALL_DATA[y] = [];
@@ -58,66 +56,62 @@ for (let y = 0; y < MAP_ROWS; y++) {
                 hasBottom: isWallAt(x, y + 1),
                 hasLeft: isWallAt(x - 1, y),
                 hasRight: isWallAt(x + 1, y),
-                hasTopLeft: isWallAt(x - 1, y - 1),
-                hasTopRight: isWallAt(x + 1, y - 1),
-                hasBottomLeft: isWallAt(x - 1, y + 1),
-                hasBottomRight: isWallAt(x + 1, y + 1)
             };
         }
     }
 }
 
-// Ghost colors - avoid recreating arrays
+// Dog colors for enemies (same as PacmanLevel)
 const GHOST_COLORS = ['#8B4513', '#D2691E', '#F5F5DC', '#2F2F2F'];
 const COLLAR_COLORS = ['#ef4444', '#8b5cf6', '#22d3ee', '#f472b6'];
 
-function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
+function WoodLevel({ onBack, onNextLevel, onLevelComplete }) {
     const canvasRef = useRef(null);
-    const wallCanvasRef = useRef(null); // Offscreen canvas for static walls
     const animFrameRef = useRef(null);
     const [score, setScore] = useState(0);
     const [lives, setLives] = useState(3);
     const [gameActive, setGameActive] = useState(false);
     const [gameOver, setGameOver] = useState(false);
     const [win, setWin] = useState(false);
-    const [bottleImage, setBottleImage] = useState(null);
-    const [lifeImage, setLifeImage] = useState(null);
-    const [activeDir, setActiveDir] = useState(null); // For button visual feedback
+    const [activeDir, setActiveDir] = useState(null);
+    const [catSprite, setCatSprite] = useState(null);
+    const spriteSize = useRef({ width: 0, height: 0 }); // Size of each sprite in the sheet
 
-    // Game State - single ref to avoid multiple refs
     const gameState = useRef({
         map: null,
-        pacman: { x: 9, y: 16, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0 },
+        pacman: { x: 9, y: 17, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0 },
         ghosts: [
-            { x: 9, y: 8, dirX: 0, dirY: 0 },
-            { x: 8, y: 10, dirX: 0, dirY: 0 },
-            { x: 10, y: 10, dirX: 0, dirY: 0 },
-            { x: 9, y: 10, dirX: 0, dirY: 0 }
+            { x: 9, y: 9, dirX: 0, dirY: 0 },
+            { x: 8, y: 11, dirX: 0, dirY: 0 },
+            { x: 10, y: 11, dirX: 0, dirY: 0 },
+            { x: 9, y: 11, dirX: 0, dirY: 0 }
         ],
         score: 0,
         dotsLeft: TOTAL_DOTS,
         frameCount: 0,
-        wallsDrawn: false
+        invulnerable: false,
+        invulnerableUntil: 0,
     });
 
-    // Initialize map on mount
     useEffect(() => {
         gameState.current.map = INITIAL_MAP.map(row => [...row]);
         gameState.current.dotsLeft = TOTAL_DOTS;
     }, []);
 
-    // Load images
+    // Load cat spritesheet
     useEffect(() => {
-        const bottle = new Image();
-        bottle.src = '/assets/collectible_bottle.png';
-        bottle.onload = () => setBottleImage(bottle);
-
-        const life = new Image();
-        life.src = '/assets/image-removebg-preview (4) (1).png';
-        life.onload = () => setLifeImage(life);
+        const img = new Image();
+        img.src = '/assets/image-removebg-preview (32).png';
+        img.onload = () => {
+            // Spritesheet is 2x2, so each sprite is half the width and height
+            spriteSize.current = {
+                width: img.width / 2,
+                height: img.height / 2
+            };
+            setCatSprite(img);
+        };
     }, []);
 
-    // Direction input handler - memoized
     const handleDirectionInput = useCallback((dir) => {
         if (!gameActive) return;
         setActiveDir(dir);
@@ -134,7 +128,6 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
         setActiveDir(prev => prev === dir ? null : prev);
     }, []);
 
-    // Keyboard controls
     useEffect(() => {
         const keyMap = {
             ArrowUp: 'up', w: 'up', W: 'up',
@@ -161,7 +154,6 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
         };
     }, [handleDirectionInput, handleDirectionRelease]);
 
-    // Optimized Game Loop
     useEffect(() => {
         if (!gameActive || gameOver || win) return;
 
@@ -169,19 +161,12 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
         if (!canvas) return;
         const ctx = canvas.getContext('2d', { alpha: false });
 
-        // Create offscreen canvas for walls (drawn once)
-        if (!wallCanvasRef.current) {
-            wallCanvasRef.current = document.createElement('canvas');
-            wallCanvasRef.current.width = CANVAS_WIDTH;
-            wallCanvasRef.current.height = CANVAS_HEIGHT;
-        }
-
         const update = () => {
             const state = gameState.current;
             state.frameCount++;
             const { pacman: p, ghosts, map } = state;
 
-            // --- PACMAN MOVEMENT (optimized - no object creation) ---
+            // Pacman movement
             const tileX = Math.round(p.x);
             const tileY = Math.round(p.y);
             let dx = p.dirX * PACMAN_SPEED;
@@ -202,7 +187,6 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
                 p.x = tileX;
                 p.y = tileY;
 
-                // Try next direction
                 if (p.nextDirX !== 0 || p.nextDirY !== 0) {
                     const nextTx = tileX + p.nextDirX;
                     const nextTy = tileY + p.nextDirY;
@@ -212,7 +196,6 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
                     }
                 }
 
-                // Check wall collision
                 const nextTx = tileX + p.dirX;
                 const nextTy = tileY + p.dirY;
                 if (!map[nextTy] || map[nextTy][nextTx] === 1) {
@@ -232,7 +215,6 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
             p.x += dx;
             p.y += dy;
 
-            // Wrap around
             if (p.x < 0) p.x = MAP_COLS - 1;
             else if (p.x >= MAP_COLS) p.x = 0;
 
@@ -242,31 +224,29 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
             const cell = map[currentTileY]?.[currentTileX];
             if (cell === 0 || cell === 3) {
                 if (cell === 0) state.score += 10;
+                else state.score += 50;
                 map[currentTileY][currentTileX] = 2;
                 state.dotsLeft--;
                 setScore(state.score);
 
                 if (state.dotsLeft <= 0) {
                     setWin(true);
-                    onLevelComplete?.(8);
+                    onLevelComplete?.(9);
                     return;
                 }
             }
 
-            // --- GHOST MOVEMENT (optimized) ---
+            // Ghost movement
             for (let i = 0; i < ghosts.length; i++) {
                 const g = ghosts[i];
                 const gx = Math.round(g.x);
                 const gy = Math.round(g.y);
 
                 if (Math.abs(g.x - gx) < 0.1 && Math.abs(g.y - gy) < 0.1) {
-                    // At center - choose direction
                     let validDirs = [];
                     for (let d = 0; d < 4; d++) {
                         const dir = DIRECTIONS[d];
-                        // Don't reverse
                         if (dir.x === -g.dirX && dir.y === -g.dirY && (g.dirX !== 0 || g.dirY !== 0)) continue;
-                        // Check wall
                         const nx = gx + dir.x;
                         const ny = gy + dir.y;
                         if (map[ny] && map[ny][nx] !== 1) {
@@ -287,36 +267,29 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
                 g.x += g.dirX * GHOST_SPEED;
                 g.y += g.dirY * GHOST_SPEED;
 
-                // Collision check
+                // Check if invulnerability has expired
+                if (state.invulnerable && state.frameCount >= state.invulnerableUntil) {
+                    state.invulnerable = false;
+                }
+
+                // Collision (only if not invulnerable)
                 const distSq = (g.x - p.x) ** 2 + (g.y - p.y) ** 2;
-                if (distSq < 0.25) {
+                if (distSq < 0.25 && !state.invulnerable) {
                     setLives(prevLives => {
                         const newLives = prevLives - 1;
                         if (newLives <= 0) {
                             setGameOver(true);
-                        } else {
-                            // Reset positions but keep score and dots
-                            p.x = 9;
-                            p.y = 16;
-                            p.dirX = 0;
-                            p.dirY = 0;
-                            p.nextDirX = 0;
-                            p.nextDirY = 0;
-                            const ghostPositions = [[9, 8], [8, 10], [10, 10], [9, 10]];
-                            for (let j = 0; j < ghosts.length; j++) {
-                                ghosts[j].x = ghostPositions[j][0];
-                                ghosts[j].y = ghostPositions[j][1];
-                                ghosts[j].dirX = 0;
-                                ghosts[j].dirY = 0;
-                            }
                         }
                         return newLives;
                     });
-                    return;
+
+                    // Activate invulnerability for 3 seconds (180 frames at ~60fps)
+                    state.invulnerable = true;
+                    state.invulnerableUntil = state.frameCount + 180;
+                    break; // Exit ghost loop after collision
                 }
             }
 
-            // --- RENDER ---
             draw(ctx, state);
             animFrameRef.current = requestAnimationFrame(update);
         };
@@ -325,46 +298,27 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
         return () => {
             if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
         };
-    }, [gameActive, gameOver, win, onLevelComplete]);
+    }, [gameActive, gameOver, win, onLevelComplete, catSprite]);
 
-    // Simplified wall segment drawing
-    const drawWallSegments = useCallback((ctx, px, py, wd) => {
-        const inset = 3;
-        ctx.beginPath();
-
-        if (!wd.hasTop) {
-            ctx.moveTo(wd.hasLeft ? px : px + inset, py + inset);
-            ctx.lineTo(wd.hasRight ? px + TILE_SIZE : px + TILE_SIZE - inset, py + inset);
-        }
-        if (!wd.hasBottom) {
-            ctx.moveTo(wd.hasLeft ? px : px + inset, py + TILE_SIZE - inset);
-            ctx.lineTo(wd.hasRight ? px + TILE_SIZE : px + TILE_SIZE - inset, py + TILE_SIZE - inset);
-        }
-        if (!wd.hasLeft) {
-            ctx.moveTo(px + inset, wd.hasTop ? py : py + inset);
-            ctx.lineTo(px + inset, wd.hasBottom ? py + TILE_SIZE : py + TILE_SIZE - inset);
-        }
-        if (!wd.hasRight) {
-            ctx.moveTo(px + TILE_SIZE - inset, wd.hasTop ? py : py + inset);
-            ctx.lineTo(px + TILE_SIZE - inset, wd.hasBottom ? py + TILE_SIZE : py + TILE_SIZE - inset);
-        }
-        ctx.stroke();
-    }, []);
-
-    // Optimized draw function with caching
     const draw = useCallback((ctx, state) => {
         const { map, pacman, ghosts } = state;
         const fc = state.frameCount;
 
-        // Clear and draw background (solid color is faster than gradient every frame)
-        ctx.fillStyle = '#0a2540';
+        // Wood background
+        ctx.fillStyle = '#2d1f14';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-        // Draw walls (use pre-computed data, minimal shadows)
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = '#22d3ee';
-        ctx.lineWidth = 2;
+        // Draw wood grain lines
+        ctx.strokeStyle = 'rgba(60, 40, 20, 0.3)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < CANVAS_HEIGHT; i += 8) {
+            ctx.beginPath();
+            ctx.moveTo(0, i + Math.sin(i * 0.1) * 2);
+            ctx.lineTo(CANVAS_WIDTH, i + Math.sin(i * 0.1 + 1) * 2);
+            ctx.stroke();
+        }
 
+        // Draw walls (wooden planks style)
         for (let y = 0; y < MAP_ROWS; y++) {
             for (let x = 0; x < MAP_COLS; x++) {
                 if (INITIAL_MAP[y][x] === 1) {
@@ -372,18 +326,68 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
                     const py = y * TILE_SIZE;
                     const wd = WALL_DATA[y][x];
 
-                    // Simple wall fill
-                    ctx.fillStyle = 'rgba(8, 145, 178, 0.3)';
-                    ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                    // Wood plank fill
+                    const grad = ctx.createLinearGradient(px, py, px + TILE_SIZE, py + TILE_SIZE);
+                    grad.addColorStop(0, '#8B4513');
+                    grad.addColorStop(0.5, '#A0522D');
+                    grad.addColorStop(1, '#6B3E26');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2);
 
-                    // Draw border segments
-                    drawWallSegments(ctx, px, py, wd);
+                    // Wood grain detail
+                    ctx.strokeStyle = 'rgba(139, 69, 19, 0.5)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(px + 4, py + TILE_SIZE / 2);
+                    ctx.lineTo(px + TILE_SIZE - 4, py + TILE_SIZE / 2);
+                    ctx.stroke();
+
+                    // Border
+                    ctx.strokeStyle = '#5D3A1A';
+                    ctx.lineWidth = 2;
+                    if (!wd.hasTop) {
+                        ctx.beginPath();
+                        ctx.moveTo(px, py + 2);
+                        ctx.lineTo(px + TILE_SIZE, py + 2);
+                        ctx.stroke();
+                    }
+                    if (!wd.hasBottom) {
+                        ctx.beginPath();
+                        ctx.moveTo(px, py + TILE_SIZE - 2);
+                        ctx.lineTo(px + TILE_SIZE, py + TILE_SIZE - 2);
+                        ctx.stroke();
+                    }
+                    if (!wd.hasLeft) {
+                        ctx.beginPath();
+                        ctx.moveTo(px + 2, py);
+                        ctx.lineTo(px + 2, py + TILE_SIZE);
+                        ctx.stroke();
+                    }
+                    if (!wd.hasRight) {
+                        ctx.beginPath();
+                        ctx.moveTo(px + TILE_SIZE - 2, py);
+                        ctx.lineTo(px + TILE_SIZE - 2, py + TILE_SIZE);
+                        ctx.stroke();
+                    }
                 }
             }
         }
 
-        // Draw dots and power pellets
+        // Draw collectibles (bottles) and power pellets (mushrooms)
         const halfTile = TILE_SIZE / 2;
+
+        // Ensure images are loaded once
+        if (!state.bottleImage) {
+            const img = new Image();
+            img.src = '/assets/collectible_bottle.png';
+            state.bottleImage = img;
+        }
+        if (!state.morenaImage) {
+            const img = new Image();
+            img.src = '/assets/cervezas/collectible_morena.png';
+            state.morenaImage = img;
+        }
+
         for (let y = 0; y < MAP_ROWS; y++) {
             for (let x = 0; x < MAP_COLS; x++) {
                 const cell = map[y][x];
@@ -392,147 +396,109 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
                     const cy = y * TILE_SIZE + halfTile;
 
                     if (cell === 0) {
-                        if (bottleImage) {
-                            ctx.drawImage(bottleImage, cx - 8, cy - 8, 16, 16);
+                        // Bottle (small dot)
+                        if (state.bottleImage && state.bottleImage.complete) {
+                            const size = 18;
+                            ctx.drawImage(state.bottleImage, cx - size / 2, cy - size / 2, size, size);
                         } else {
-                            ctx.fillStyle = '#7dd3fc';
+                            ctx.fillStyle = '#8B4513';
                             ctx.beginPath();
-                            ctx.arc(cx, cy, 3, 0, 6.283);
+                            ctx.ellipse(cx, cy, 4, 4, 0, 0, Math.PI * 2);
                             ctx.fill();
                         }
                     } else {
-                        // Power pellet with simple pulse
-                        const pulse = 7 + 2 * Math.sin(fc * 0.08);
-                        ctx.fillStyle = '#e879f9';
-                        ctx.beginPath();
-                        ctx.arc(cx, cy, pulse, 0, 6.283);
-                        ctx.fill();
-                        ctx.fillStyle = '#fff';
-                        ctx.beginPath();
-                        ctx.arc(cx, cy, pulse * 0.3, 0, 6.283);
-                        ctx.fill();
+                        // Power Pellet (Morena Beer)
+                        const pulse = 1 + 0.15 * Math.sin(fc * 0.1);
+
+                        if (state.morenaImage && state.morenaImage.complete) {
+                            const size = 26 * pulse;
+                            ctx.save();
+                            ctx.shadowColor = 'gold';
+                            ctx.shadowBlur = 10;
+                            ctx.drawImage(state.morenaImage, cx - size / 2, cy - size / 2, size, size);
+                            ctx.restore();
+                        } else {
+                            // Fallback rendering
+                            ctx.fillStyle = '#DC143C';
+                            ctx.beginPath();
+                            ctx.ellipse(cx, cy, 8 * pulse, 6 * pulse, 0, Math.PI, Math.PI * 2);
+                            ctx.fill();
+                        }
                     }
                 }
             }
         }
 
-        // Draw Pacman - Pixel Art Orange Cat with Sunglasses and Animated Mouth
+        // Draw Cat using spritesheet
         const px = pacman.x * TILE_SIZE + halfTile;
         const py = pacman.y * TILE_SIZE + halfTile;
 
-        ctx.save();
-        ctx.translate(px, py);
+        // Blinking effect when invulnerable (show every other 5 frames)
+        const isVisible = !state.invulnerable || Math.floor(fc / 5) % 2 === 0;
 
-        // Flip based on direction
-        let scaleX = 1;
-        let scaleY = 1;
-        if (pacman.dirX === -1) scaleX = -1;
-        else if (pacman.dirY === -1) { ctx.rotate(-Math.PI / 2); }
-        else if (pacman.dirY === 1) { ctx.rotate(Math.PI / 2); }
-        ctx.scale(scaleX, scaleY);
+        if (isVisible) {
+            if (catSprite && spriteSize.current.width > 0) {
+                const sw = spriteSize.current.width;
+                const sh = spriteSize.current.height;
+                const drawSize = 32; // Size to draw on canvas
 
-        const p = 1.5; // Pixel size for pixel art
+                // Animate between open/closed mouth sprites (use row 0 and row 1)
+                const mouthFrame = Math.floor(fc * 0.1) % 2;
 
-        // Animated mouth opening (affects how many pixels the mouth opens)
-        const mouthOpen = Math.floor(Math.abs(Math.sin(fc * 0.2)) * 4);
+                // Always use right-facing sprites (column 1) and rotate/flip as needed
+                const spriteCol = 1;
+                const spriteRow = mouthFrame;
 
-        // Glow effect
-        ctx.shadowColor = '#ff6600';
-        ctx.shadowBlur = 10;
+                // Source coordinates in spritesheet
+                const sx = spriteCol * sw;
+                const sy = spriteRow * sh;
 
-        // Main body - pixel art orange cat shape
-        const orange = '#ff8c00';
-        const darkOrange = '#cc5500';
-        const lightOrange = '#ffaa44';
+                // Add glow effect and transformations
+                ctx.save();
 
-        ctx.fillStyle = orange;
+                // Change glow color when invulnerable
+                if (state.invulnerable) {
+                    ctx.shadowColor = '#ffffff';
+                    ctx.globalAlpha = 0.8;
+                } else {
+                    ctx.shadowColor = '#ff6600';
+                }
+                ctx.shadowBlur = 12;
 
-        // Main head/body block (roughly square Pac-Man shape)
-        // Row by row pixel art construction
+                // Move to pacman position (center point for rotation)
+                ctx.translate(px, py);
 
-        // Top rows (head)
-        ctx.fillRect(-5*p, -8*p, 10*p, p);   // Top edge
-        ctx.fillRect(-6*p, -7*p, 12*p, p);   // Slightly wider
-        ctx.fillRect(-7*p, -6*p, 14*p, p);
-        ctx.fillRect(-7*p, -5*p, 14*p, p);
-        ctx.fillRect(-7*p, -4*p, 14*p, p);
-        ctx.fillRect(-7*p, -3*p, 14*p, p);
-        ctx.fillRect(-7*p, -2*p, 14*p, p);
-        ctx.fillRect(-7*p, -1*p, 14*p, p);
-        ctx.fillRect(-7*p, 0, 14*p, p);
-        ctx.fillRect(-7*p, 1*p, 14*p, p);
-        ctx.fillRect(-7*p, 2*p, 14*p, p);
-        ctx.fillRect(-6*p, 3*p, 12*p, p);
-        ctx.fillRect(-5*p, 4*p, 10*p, p);
-        ctx.fillRect(-4*p, 5*p, 8*p, p);     // Bottom
+                // Rotate/flip based on direction
+                if (pacman.dirX === -1) {
+                    // Moving left - flip horizontally
+                    ctx.scale(-1, 1);
+                } else if (pacman.dirY === -1) {
+                    // Moving up - rotate -90 degrees
+                    ctx.rotate(-Math.PI / 2);
+                } else if (pacman.dirY === 1) {
+                    // Moving down - rotate 90 degrees
+                    ctx.rotate(Math.PI / 2);
+                }
+                // Moving right (dirX === 1) or not moving - no transformation needed
 
-        // Left ear (pixel triangles)
-        ctx.fillRect(-7*p, -9*p, 2*p, p);
-        ctx.fillRect(-8*p, -10*p, 2*p, p);
-        ctx.fillRect(-9*p, -11*p, 2*p, p);
-        ctx.fillRect(-9*p, -12*p, p, p);
+                // Draw the sprite centered at origin (we already translated to px, py)
+                ctx.drawImage(
+                    catSprite,
+                    sx, sy, sw, sh,  // source rectangle
+                    -drawSize / 2, -drawSize / 2, drawSize, drawSize  // destination rectangle (centered)
+                );
 
-        // Right ear
-        ctx.fillRect(5*p, -9*p, 2*p, p);
-        ctx.fillRect(6*p, -10*p, 2*p, p);
-        ctx.fillRect(7*p, -11*p, 2*p, p);
-        ctx.fillRect(8*p, -12*p, p, p);
-
-        // Inner ears (lighter)
-        ctx.fillStyle = lightOrange;
-        ctx.fillRect(-7*p, -10*p, p, p);
-        ctx.fillRect(-8*p, -11*p, p, p);
-        ctx.fillRect(6*p, -10*p, p, p);
-        ctx.fillRect(7*p, -11*p, p, p);
-
-        // Dark outline/border pixels
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = darkOrange;
-        // Bottom edge
-        ctx.fillRect(-4*p, 6*p, 8*p, p);
-        // Right edge
-        ctx.fillRect(7*p, -5*p, p, 8*p);
-        // Left edge partially
-        ctx.fillRect(-8*p, -5*p, p, 4*p);
-
-        // Mouth (triangular cut-out style, animated)
-        ctx.fillStyle = '#0a2540'; // Background color for mouth
-        // Animated mouth pixels
-        const mouthStartY = -1 * p;
-        for (let i = 0; i <= mouthOpen + 2; i++) {
-            const mouthWidth = (mouthOpen + 3 - i) * p;
-            if (mouthWidth > 0) {
-                ctx.fillRect(5*p, mouthStartY + i*p - mouthOpen*p/2, 4*p, p);
-                ctx.fillRect(5*p, mouthStartY - i*p + mouthOpen*p/2, 4*p, p);
+                ctx.restore();
+            } else {
+                // Fallback: draw simple circle if sprite not loaded
+                ctx.fillStyle = '#ff8c00';
+                ctx.beginPath();
+                ctx.arc(px, py, 12, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
-        // Main mouth triangle
-        ctx.beginPath();
-        ctx.moveTo(4*p, (-2 - mouthOpen)*p);
-        ctx.lineTo(10*p, 0);
-        ctx.lineTo(4*p, (2 + mouthOpen)*p);
-        ctx.closePath();
-        ctx.fill();
 
-        // Sunglasses - black frame (pixel style)
-        ctx.fillStyle = '#1a1a1a';
-        // Left lens
-        ctx.fillRect(-6*p, -5*p, 5*p, 3*p);
-        // Right lens
-        ctx.fillRect(1*p, -5*p, 5*p, 3*p);
-        // Bridge
-        ctx.fillRect(-1*p, -4*p, 2*p, p);
-        // Frame top line
-        ctx.fillRect(-6*p, -6*p, 12*p, p);
-
-        // Lens shine (small white/gray pixels)
-        ctx.fillStyle = '#444444';
-        ctx.fillRect(-5*p, -4*p, p, p);
-        ctx.fillRect(2*p, -4*p, p, p);
-
-        ctx.restore();
-
-        // Draw Dogs (simplified for performance)
+        // Draw Dogs (enemies)
         for (let i = 0; i < ghosts.length; i++) {
             const g = ghosts[i];
             const gx = g.x * TILE_SIZE + halfTile;
@@ -595,34 +561,32 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
 
             ctx.restore();
         }
-    }, [bottleImage, drawWallSegments]);
+    }, [catSprite]);
 
-    // Draw initial state
     useEffect(() => {
         if (canvasRef.current && gameState.current.map) {
             const ctx = canvasRef.current.getContext('2d', { alpha: false });
             draw(ctx, gameState.current);
         }
-    }, [draw]);
+    }, [draw, catSprite]);
 
-    // Reset game state
     const resetGame = useCallback(() => {
         const state = gameState.current;
         state.score = 0;
         state.map = INITIAL_MAP.map(row => [...row]);
         state.dotsLeft = TOTAL_DOTS;
         state.frameCount = 0;
+        state.invulnerable = false;
+        state.invulnerableUntil = 0;
 
-        // Reset pacman
         state.pacman.x = 9;
-        state.pacman.y = 16;
+        state.pacman.y = 17;
         state.pacman.dirX = 0;
         state.pacman.dirY = 0;
         state.pacman.nextDirX = 0;
         state.pacman.nextDirY = 0;
 
-        // Reset ghosts
-        const ghostPositions = [[9, 8], [8, 10], [10, 10], [9, 10]];
+        const ghostPositions = [[9, 9], [8, 11], [10, 11], [9, 11]];
         for (let i = 0; i < state.ghosts.length; i++) {
             state.ghosts[i].x = ghostPositions[i][0];
             state.ghosts[i].y = ghostPositions[i][1];
@@ -640,11 +604,10 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
         setGameActive(true);
     }, [resetGame]);
 
-    // Memoized D-pad button to reduce re-renders
     const DPadButton = useMemo(() => {
         const Button = ({ dir, icon: Icon }) => (
             <button
-                className={`d-pad-button ${dir} ${activeDir === dir ? 'active' : ''}`}
+                className={`wood-d-pad-button ${dir} ${activeDir === dir ? 'active' : ''}`}
                 onPointerDown={() => handleDirectionInput(dir)}
                 onPointerUp={() => handleDirectionRelease(dir)}
                 onPointerLeave={() => handleDirectionRelease(dir)}
@@ -657,82 +620,82 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
     }, [activeDir, handleDirectionInput, handleDirectionRelease]);
 
     return (
-        <div className="pacman-container">
-            {/* Animated bubbles */}
-            <div className="bubbles-container">
-                {[...Array(12)].map((_, i) => <div key={i} className="bubble" />)}
+        <div className="wood-container">
+            {/* Falling leaves */}
+            <div className="leaves-container">
+                {[...Array(15)].map((_, i) => <div key={i} className="leaf" />)}
             </div>
 
-            <div className="game-header">
-                <h2 className="level-title">NIVEL SUBMARINO</h2>
-                <div className="lives-container">
+            <div className="wood-game-header">
+                <h2 className="wood-level-title">MORENA PACMAN</h2>
+                <div className="wood-lives-container">
                     {[...Array(lives)].map((_, i) => (
                         <img
                             key={i}
                             src="/assets/image-removebg-preview (4) (1).png"
                             alt="vida"
-                            className="life-icon"
+                            className="wood-life-icon"
                         />
                     ))}
                 </div>
-                <div className="score-board">SCORE: {score}</div>
+                <div className="wood-score-board">SCORE: {score}</div>
             </div>
 
-            <div className="canvas-wrapper">
+            <div className="wood-canvas-wrapper">
                 <canvas
                     ref={canvasRef}
                     width={CANVAS_WIDTH}
                     height={CANVAS_HEIGHT}
-                    className="game-canvas"
+                    className="wood-game-canvas"
                 />
 
                 {!gameActive && !gameOver && !win && (
-                    <div className="overlay">
-                        <button onClick={startGame} className="start-btn">
+                    <div className="wood-overlay">
+                        <button onClick={startGame} className="wood-start-btn">
                             <Play size={24} /> START GAME
                         </button>
                     </div>
                 )}
 
                 {gameOver && (
-                    <div className="overlay">
-                        <h2 className="game-over-text">GAME OVER</h2>
-                        <button onClick={startGame} className="restart-btn">
+                    <div className="wood-overlay">
+                        <h2 className="wood-game-over-text">GAME OVER</h2>
+                        <button onClick={startGame} className="wood-restart-btn">
                             <RotateCcw size={24} /> REINTENTAR
                         </button>
-                        <button onClick={onBack} className="back-btn">
+                        <button onClick={onBack} className="wood-back-btn">
                             VOLVER AL MENU
                         </button>
                     </div>
                 )}
 
                 {win && (
-                    <div className="overlay">
-                        <h2 className="win-text">¡NIVEL COMPLETADO!</h2>
-                        <button onClick={onNextLevel} className="next-btn">
+                    <div className="wood-overlay">
+                        <h2 className="wood-win-text">¡NIVEL COMPLETADO!</h2>
+                        <button onClick={onNextLevel} className="wood-next-btn">
                             SIGUIENTE NIVEL <Play size={24} />
                         </button>
                     </div>
                 )}
             </div>
 
-            <div className="d-pad-container">
-                <div className="d-pad-row">
+            <div className="wood-d-pad-container">
+                <div className="wood-d-pad-row">
                     <DPadButton dir="up" icon={ArrowUp} />
                 </div>
-                <div className="d-pad-row middle">
+                <div className="wood-d-pad-row middle">
                     <DPadButton dir="left" icon={ArrowLeft} />
-                    <div className="d-pad-center" />
+                    <div className="wood-d-pad-center" />
                     <DPadButton dir="right" icon={ArrowRight} />
                 </div>
-                <div className="d-pad-row">
+                <div className="wood-d-pad-row">
                     <DPadButton dir="down" icon={ArrowDown} />
                 </div>
             </div>
 
-            <button onClick={onBack} className="back-button-footer">VOLVER</button>
+            <button onClick={onBack} className="wood-back-button-footer">VOLVER</button>
         </div>
     );
 }
 
-export default PacmanLevel;
+export default WoodLevel;

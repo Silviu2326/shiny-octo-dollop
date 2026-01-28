@@ -12,24 +12,56 @@ import Level6 from './game/Level6';
 import Level7 from './game/Level7';
 import Level8 from './game/Level8';
 import PacmanLevel from './game/PacmanLevel';
+import TetrisLevel from './game/TetrisLevel';
+import FroggerLevel from './game/FroggerLevel';
+import WoodLevel from './game/WoodLevel';
 import Ranking from './components/Ranking';
 import LoadingScreen from './components/LoadingScreen';
 
 console.log('App.jsx loaded successfully');
 
-// Datos de los niveles definidos externamente para uso global
-const LEVEL_DATA = [
-  { id: 0, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
-  { id: 1, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Nivel 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
-  { id: 2, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Nivel 2', desc: 'La Tostada (Morena)', color: '#8A5A2B' },
-  { id: 2.5, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Nivel 2.5', desc: 'Desafío Extra Morena', color: '#8A5A2B' },
-  { id: 3, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png', name: 'Nivel 3', desc: 'La Rubia (Catira)', color: '#F2C94C' },
-  { id: 4, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Nivel 4', desc: 'Sin Gluten (Sifrina)', color: '#D4AF37' },
-  { id: 5, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png', name: 'Nivel 5', desc: 'La Oscura (Candela)', color: '#8B1E1E' },
-  { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
-  { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
-  { id: 8, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 8', desc: 'Pac-Man 2D (Bonus)', color: '#FFFF00' },
-];
+// Obtener idioma de los parámetros URL
+const getLanguage = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('lang') || 'en';
+};
+
+// Datos de los niveles con soporte para múltiples idiomas
+const LEVEL_DATA_TRANSLATIONS = {
+  en: [
+    { id: 0, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Level 0', desc: 'The Cat House (Tutorial)', color: '#F3E9C6' },
+    { id: 1, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Level 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
+    { id: 2, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Level 2', desc: 'The Toasted One (Morena)', color: '#8A5A2B' },
+    { id: 2.5, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Level 2.5', desc: 'Morena Extra Challenge', color: '#8A5A2B' },
+    { id: 3, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png', name: 'Level 3', desc: 'The Blonde (Catira)', color: '#F2C94C' },
+    { id: 4, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Level 4', desc: 'Gluten Free (Sifrina)', color: '#D4AF37' },
+    { id: 5, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png', name: 'Level 5', desc: 'The Dark One (Candela)', color: '#8B1E1E' },
+    { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Level 6', desc: 'The Tropical (Guajira)', color: '#2ECC71' },
+    { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Level 7', desc: 'The Finale (Cat Party)', color: '#56CCF2' },
+    { id: 8, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Level 8', desc: 'Pac-Man 2D (Bonus)', color: '#FFFF00' },
+    { id: 9, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Level 9', desc: 'Tetris Challenge', color: '#9B59B6' },
+    { id: 10, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Level 10', desc: 'Frogger Beer', color: '#27AE60' },
+    { id: 11, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Level 11', desc: 'Morena Pacman', color: '#8B4513' },
+  ],
+  es: [
+    { id: 0, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
+    { id: 1, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Nivel 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
+    { id: 2, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Nivel 2', desc: 'La Tostada (Morena)', color: '#8A5A2B' },
+    { id: 2.5, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Nivel 2.5', desc: 'Desafío Extra Morena', color: '#8A5A2B' },
+    { id: 3, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png', name: 'Nivel 3', desc: 'La Rubia (Catira)', color: '#F2C94C' },
+    { id: 4, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Nivel 4', desc: 'Sin Gluten (Sifrina)', color: '#D4AF37' },
+    { id: 5, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png', name: 'Nivel 5', desc: 'La Oscura (Candela)', color: '#8B1E1E' },
+    { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
+    { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
+    { id: 8, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 8', desc: 'Pac-Man 2D (Bonus)', color: '#FFFF00' },
+    { id: 9, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Nivel 9', desc: 'Tetris Challenge', color: '#9B59B6' },
+    { id: 10, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Nivel 10', desc: 'Frogger Beer', color: '#27AE60' },
+    { id: 11, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Nivel 11', desc: 'Morena Pacman', color: '#8B4513' },
+  ]
+};
+
+// Obtener datos según el idioma actual
+const LEVEL_DATA = LEVEL_DATA_TRANSLATIONS[getLanguage()] || LEVEL_DATA_TRANSLATIONS.en;
 
 // Utility functions for level progression
 const getUnlockedLevels = () => {
@@ -55,14 +87,37 @@ const isLevelUnlocked = (levelId) => {
   return unlocked.includes(levelId);
 };
 
+// Traducciones de la UI
+const UI_TRANSLATIONS = {
+  en: {
+    selectLevel: 'Select your level',
+    viewRanking: 'View Ranking',
+    completePrevious: 'Complete the previous level',
+    comingSoon: 'Coming soon...',
+    back: 'Back',
+    skipIntro: 'Skip Intro'
+  },
+  es: {
+    selectLevel: 'Selecciona tu nivel',
+    viewRanking: 'Ver Ranking',
+    completePrevious: 'Completa el nivel anterior',
+    comingSoon: 'Próximamente...',
+    back: 'Volver',
+    skipIntro: 'Saltar Intro'
+  }
+};
+
+const getUIText = () => UI_TRANSLATIONS[getLanguage()] || UI_TRANSLATIONS.en;
+
 function LevelSelector({ onSelectLevel, userId }) {
   const [unlockedLevels, setUnlockedLevels] = useState(getUnlockedLevels());
   const [showRanking, setShowRanking] = useState(false);
+  const uiText = getUIText();
 
   // Update unlocked levels when component mounts or when returning from a level
   useEffect(() => {
     setUnlockedLevels(getUnlockedLevels());
-  }, []);
+  }, [LEVEL_DATA.length]);
 
   const handleLevelClick = (levelId) => {
     if (unlockedLevels.includes(levelId)) {
@@ -75,7 +130,7 @@ function LevelSelector({ onSelectLevel, userId }) {
       <div className="title-container">
         <img src="/assets/drive-download-20260109T123100Z-1-001/logo pixel art.png" alt="Beer Run Logo" className="game-logo" />
         <h1 className="title">BEER RUN</h1>
-        <p className="subtitle">Selecciona tu nivel</p>
+        <p className="subtitle">{uiText.selectLevel}</p>
         <div className="title-underline" />
 
         <button
@@ -107,7 +162,7 @@ function LevelSelector({ onSelectLevel, userId }) {
           }}
         >
           <Trophy size={20} />
-          Ver Ranking
+          {uiText.viewRanking}
         </button>
       </div>
 
@@ -153,7 +208,7 @@ function LevelSelector({ onSelectLevel, userId }) {
                 <div className="level-info">
                   <h3 className="level-text">{level.name}</h3>
                   <p className="level-description">
-                    {isUnlocked ? level.desc : 'Completa el nivel anterior'}
+                    {isUnlocked ? level.desc : uiText.completePrevious}
                   </p>
                 </div>
                 <div className="level-arrow">
@@ -180,6 +235,7 @@ function LevelSelector({ onSelectLevel, userId }) {
 }
 
 function Game({ level, onBack, onNextLevel, onLevelComplete, userId }) {
+  const uiText = getUIText();
   // Mapping with off-by-one: Nivel 0 (selector) = Level1.jsx, Nivel 1 = Level2.jsx, etc.
   if (level === 0) return <Level1 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
   if (level === 1) return <Level2 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
@@ -192,13 +248,17 @@ function Game({ level, onBack, onNextLevel, onLevelComplete, userId }) {
   if (level === 6) return <Level7 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
   if (level === 7) return <Level8 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
   if (level === 8) return <PacmanLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 9) return <TetrisLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 10) return <FroggerLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 11) return <WoodLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
 
+  const lang = getLanguage();
   return (
     <div className="app-container">
-      <h1 className="title">Nivel {level}</h1>
-      <p className="subtitle">Próximamente...</p>
+      <h1 className="title">{lang === 'en' ? 'Level' : 'Nivel'} {level}</h1>
+      <p className="subtitle">{uiText.comingSoon}</p>
       <button onClick={onBack} style={{ padding: '10px 20px', fontSize: '16px', background: '#ff6b35', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-        Volver
+        {uiText.back}
       </button>
     </div>
   );
@@ -334,7 +394,7 @@ function App() {
             e.currentTarget.style.transform = 'scale(1)';
           }}
         >
-          Saltar Intro
+          {getUIText().skipIntro}
         </button>
       </div>
     );

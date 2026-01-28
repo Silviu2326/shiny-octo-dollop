@@ -1,0 +1,368 @@
+.wood-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    height: 100dvh;
+    background: linear-gradient(180deg, #1a0f08 0%, #2d1f14 50%, #3d2817 100%);
+    color: white;
+    font-family: 'Courier New', Courier, monospace;
+    overflow: hidden;
+    padding-bottom: 20px;
+    position: relative;
+}
+
+.wood-game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 90%;
+    max-width: 500px;
+    margin-top: 60px;
+    margin-bottom: 15px;
+    flex-shrink: 0;
+    z-index: 1;
+    gap: 10px;
+}
+
+.wood-level-title {
+    font-size: 22px;
+    font-weight: bold;
+    color: #DEB887;
+    text-shadow: 0 0 10px rgba(222, 184, 135, 0.8), 2px 2px 4px rgba(0, 0, 0, 0.5);
+    letter-spacing: 2px;
+}
+
+.wood-score-board {
+    font-size: 20px;
+    font-weight: bold;
+    color: #F4A460;
+    text-shadow: 0 0 10px rgba(244, 164, 96, 0.5);
+    background: rgba(139, 69, 19, 0.3);
+    padding: 5px 15px;
+    border-radius: 20px;
+    border: 1px solid rgba(222, 184, 135, 0.3);
+}
+
+.wood-lives-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.wood-life-icon {
+    width: 28px;
+    height: 28px;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 0 5px rgba(255, 140, 0, 0.7));
+    transition: transform 0.2s, opacity 0.3s;
+}
+
+.wood-life-icon:hover {
+    transform: scale(1.1);
+}
+
+.wood-canvas-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: min(95vw, 500px);
+    aspect-ratio: 19/20;
+    max-height: 35vh;
+    border: 4px solid #8B4513;
+    border-radius: 12px;
+    background: #1a0f08;
+    box-shadow:
+        0 0 20px rgba(139, 69, 19, 0.5),
+        inset 0 0 30px rgba(0, 0, 0, 0.5);
+    flex-shrink: 1;
+    margin-bottom: 20px;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.wood-game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+}
+
+.wood-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(26, 15, 8, 0.94);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 20;
+    border-radius: 8px;
+}
+
+.wood-start-btn,
+.wood-restart-btn,
+.wood-next-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 28px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #1a0f08;
+    background: linear-gradient(135deg, #DEB887, #D2691E, #8B4513);
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 0 20px rgba(222, 184, 135, 0.5), 0 4px 15px rgba(0, 0, 0, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.wood-start-btn:hover,
+.wood-restart-btn:hover,
+.wood-next-btn:hover {
+    transform: scale(1.05) translateY(-2px);
+    box-shadow: 0 0 30px rgba(222, 184, 135, 0.8), 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+.wood-start-btn:active,
+.wood-restart-btn:active,
+.wood-next-btn:active {
+    transform: scale(1.02);
+}
+
+.wood-game-over-text {
+    font-size: 36px;
+    font-weight: bold;
+    color: #DC143C;
+    text-shadow: 0 0 20px rgba(220, 20, 60, 0.8);
+    margin-bottom: 15px;
+    text-align: center;
+    letter-spacing: 3px;
+}
+
+.wood-win-text {
+    font-size: 32px;
+    font-weight: bold;
+    color: #32CD32;
+    text-shadow: 0 0 20px rgba(50, 205, 50, 0.8);
+    margin-bottom: 15px;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+.wood-back-btn {
+    margin-top: 10px;
+    padding: 10px 24px;
+    background: transparent;
+    border: 2px solid rgba(222, 184, 135, 0.5);
+    color: #DEB887;
+    font-weight: bold;
+    font-size: 14px;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    letter-spacing: 1px;
+}
+
+.wood-back-btn:hover {
+    background: rgba(222, 184, 135, 0.15);
+    border-color: #DEB887;
+}
+
+.wood-back-button-footer {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    padding: 10px 20px;
+    background: rgba(139, 69, 19, 0.4);
+    color: #DEB887;
+    border: 1px solid rgba(222, 184, 135, 0.3);
+    border-radius: 10px;
+    cursor: pointer;
+    z-index: 200;
+    font-weight: bold;
+    font-size: 14px;
+    transition: background 0.2s, border-color 0.2s;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.wood-back-button-footer:hover {
+    background: rgba(139, 69, 19, 0.6);
+    border-color: rgba(222, 184, 135, 0.6);
+}
+
+/* D-Pad Controls */
+.wood-d-pad-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    z-index: 100;
+    margin-top: auto;
+    margin-bottom: 20px;
+    width: 100%;
+    padding: 15px;
+}
+
+.wood-d-pad-row {
+    display: flex;
+    gap: 6px;
+}
+
+.wood-d-pad-row.middle {
+    align-items: center;
+    justify-content: center;
+}
+
+.wood-d-pad-center {
+    width: 65px;
+    height: 65px;
+}
+
+.wood-d-pad-button {
+    width: 65px;
+    height: 65px;
+    background: rgba(139, 69, 19, 0.4);
+    border: 2px solid rgba(222, 184, 135, 0.4);
+    border-radius: 14px;
+    color: #DEB887;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.1s, background 0.1s, border-color 0.1s;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.wood-d-pad-button:hover {
+    border-color: rgba(222, 184, 135, 0.7);
+}
+
+.wood-d-pad-button:active,
+.wood-d-pad-button.active {
+    background: rgba(222, 184, 135, 0.4);
+    transform: scale(0.92);
+    border-color: #DEB887;
+}
+
+.wood-d-pad-button svg {
+    pointer-events: none;
+    width: 36px;
+    height: 36px;
+}
+
+/* Falling leaves animation */
+.leaves-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.leaf {
+    position: absolute;
+    top: -30px;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #CD853F 100%);
+    border-radius: 0 50% 50% 50%;
+    transform: rotate(45deg);
+    animation: leafFall linear infinite;
+    opacity: 0;
+}
+
+.leaf::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.2);
+    transform: rotate(-45deg);
+}
+
+@keyframes leafFall {
+    0% {
+        transform: translateY(0) rotate(45deg) rotateZ(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.8;
+    }
+    50% {
+        transform: translateY(50vh) rotate(45deg) rotateZ(180deg) translateX(30px);
+        opacity: 0.6;
+    }
+    100% {
+        transform: translateY(100vh) rotate(45deg) rotateZ(360deg) translateX(-20px);
+        opacity: 0;
+    }
+}
+
+.leaf:nth-child(1) { left: 5%; width: 15px; height: 15px; animation-duration: 8s; animation-delay: 0s; background: linear-gradient(135deg, #8B4513, #CD853F); }
+.leaf:nth-child(2) { left: 15%; width: 18px; height: 18px; animation-duration: 10s; animation-delay: 1s; background: linear-gradient(135deg, #D2691E, #DEB887); }
+.leaf:nth-child(3) { left: 25%; width: 12px; height: 12px; animation-duration: 7s; animation-delay: 2s; background: linear-gradient(135deg, #A0522D, #F4A460); }
+.leaf:nth-child(4) { left: 35%; width: 20px; height: 20px; animation-duration: 9s; animation-delay: 0.5s; background: linear-gradient(135deg, #8B4513, #CD853F); }
+.leaf:nth-child(5) { left: 45%; width: 14px; height: 14px; animation-duration: 11s; animation-delay: 3s; background: linear-gradient(135deg, #D2691E, #DEB887); }
+.leaf:nth-child(6) { left: 55%; width: 16px; height: 16px; animation-duration: 8s; animation-delay: 1.5s; background: linear-gradient(135deg, #A0522D, #F4A460); }
+.leaf:nth-child(7) { left: 65%; width: 13px; height: 13px; animation-duration: 10s; animation-delay: 2.5s; background: linear-gradient(135deg, #8B4513, #CD853F); }
+.leaf:nth-child(8) { left: 75%; width: 19px; height: 19px; animation-duration: 12s; animation-delay: 4s; background: linear-gradient(135deg, #D2691E, #DEB887); }
+.leaf:nth-child(9) { left: 85%; width: 11px; height: 11px; animation-duration: 9s; animation-delay: 0.8s; background: linear-gradient(135deg, #A0522D, #F4A460); }
+.leaf:nth-child(10) { left: 95%; width: 17px; height: 17px; animation-duration: 11s; animation-delay: 3.5s; background: linear-gradient(135deg, #8B4513, #CD853F); }
+.leaf:nth-child(11) { left: 10%; width: 14px; height: 14px; animation-duration: 13s; animation-delay: 5s; background: linear-gradient(135deg, #D2691E, #DEB887); }
+.leaf:nth-child(12) { left: 30%; width: 16px; height: 16px; animation-duration: 7.5s; animation-delay: 1.2s; background: linear-gradient(135deg, #A0522D, #F4A460); }
+.leaf:nth-child(13) { left: 50%; width: 15px; height: 15px; animation-duration: 9.5s; animation-delay: 2.8s; background: linear-gradient(135deg, #8B4513, #CD853F); }
+.leaf:nth-child(14) { left: 70%; width: 18px; height: 18px; animation-duration: 8.5s; animation-delay: 4.2s; background: linear-gradient(135deg, #D2691E, #DEB887); }
+.leaf:nth-child(15) { left: 90%; width: 12px; height: 12px; animation-duration: 10.5s; animation-delay: 0.3s; background: linear-gradient(135deg, #A0522D, #F4A460); }
+
+/* Landscape adjustments */
+@media (max-height: 600px) and (orientation: landscape) {
+    .wood-container {
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        padding: 10px;
+    }
+
+    .wood-game-header {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: auto;
+        margin: 0;
+        gap: 20px;
+    }
+
+    .wood-back-button-footer {
+        top: 10px;
+        left: 10px;
+    }
+
+    .wood-canvas-wrapper {
+        margin: 0;
+        height: 85vh;
+        width: auto;
+        max-width: none;
+        max-height: none;
+    }
+
+    .wood-d-pad-container {
+        margin: 0 0 0 40px;
+    }
+}
