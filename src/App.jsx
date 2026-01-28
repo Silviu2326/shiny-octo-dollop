@@ -22,8 +22,18 @@ console.log('App.jsx loaded successfully');
 
 // Obtener idioma de los parámetros URL
 const getLanguage = () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get('lang') || 'en';
+  const fullUrl = window.location.href;
+  const searchString = window.location.search;
+  const urlParams = new URLSearchParams(searchString);
+  const lang = urlParams.get('lang');
+
+  console.log('🌐 [Lang Debug] URL completa:', fullUrl);
+  console.log('🌐 [Lang Debug] Search string:', searchString);
+  console.log('🌐 [Lang Debug] Todos los params:', Object.fromEntries(urlParams.entries()));
+  console.log('🌐 [Lang Debug] lang param:', lang);
+  console.log('🌐 [Lang Debug] Idioma final:', lang || 'en (default)');
+
+  return lang || 'en';
 };
 
 // Datos de los niveles con soporte para múltiples idiomas
