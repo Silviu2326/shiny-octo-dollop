@@ -1,15 +1,21 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Play, RotateCcw, ArrowUp, ArrowDown, ArrowRight } from 'lucide-react';
-import LevelHeader from '../components/LevelHeader';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { Play, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import './PacmanLevel.css';
 
+// Constants - moved outside component to prevent recreation
 const TILE_SIZE = 24;
 const MAP_ROWS = 20;
 const MAP_COLS = 19;
-const PACMAN_SPEED = 0.1; // Tiles per frame
+const PACMAN_SPEED = 0.1;
 const GHOST_SPEED = 0.05;
+const CANVAS_WIDTH = MAP_COLS * TILE_SIZE;
+const CANVAS_HEIGHT = MAP_ROWS * TILE_SIZE;
 
-// 1: Wall, 0: Dot, 2: Empty, 3: Power Pellet, 4: Ghost House
+// Pre-computed directions for ghost AI
+const DIRECTIONS = [
+    { x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }
+];
+
 const INITIAL_MAP = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -33,99 +39,112 @@ const INITIAL_MAP = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ];
 
-// Easing for smooth interpolation
-const LERP_FACTOR = 0.5;
+// Pre-compute total dots and wall neighbor data
+const TOTAL_DOTS = INITIAL_MAP.flat().filter(c => c === 0 || c === 3).length;
 
-function PacmanLevel({ onBack, onNextLevel, onLevelComplete, userId }) {
+const isWallAt = (x, y) => {
+    if (y < 0 || y >= MAP_ROWS || x < 0 || x >= MAP_COLS) return false;
+    return INITIAL_MAP[y][x] === 1;
+};
+
+// Pre-compute wall neighbor data for rendering optimization
+const WALL_DATA = [];
+for (let y = 0; y < MAP_ROWS; y++) {
+    WALL_DATA[y] = [];
+    for (let x = 0; x < MAP_COLS; x++) {
+        if (INITIAL_MAP[y][x] === 1) {
+            WALL_DATA[y][x] = {
+                hasTop: isWallAt(x, y - 1),
+                hasBottom: isWallAt(x, y + 1),
+                hasLeft: isWallAt(x - 1, y),
+                hasRight: isWallAt(x + 1, y),
+                hasTopLeft: isWallAt(x - 1, y - 1),
+                hasTopRight: isWallAt(x + 1, y - 1),
+                hasBottomLeft: isWallAt(x - 1, y + 1),
+                hasBottomRight: isWallAt(x + 1, y + 1)
+            };
+        }
+    }
+}
+
+// Ghost colors - avoid recreating arrays
+const GHOST_COLORS = ['#8B4513', '#D2691E', '#F5F5DC', '#2F2F2F'];
+const COLLAR_COLORS = ['#ef4444', '#8b5cf6', '#22d3ee', '#f472b6'];
+
+function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
     const canvasRef = useRef(null);
+    const wallCanvasRef = useRef(null); // Offscreen canvas for static walls
+    const animFrameRef = useRef(null);
     const [score, setScore] = useState(0);
-    const [lives, setLives] = useState(3);
     const [gameActive, setGameActive] = useState(false);
     const [gameOver, setGameOver] = useState(false);
     const [win, setWin] = useState(false);
-    const [paused, setPaused] = useState(false);
     const [bottleImage, setBottleImage] = useState(null);
+    const [activeDir, setActiveDir] = useState(null); // For button visual feedback
 
-    // Load assets
+    // Game State - single ref to avoid multiple refs
+    const gameState = useRef({
+        map: null,
+        pacman: { x: 9, y: 16, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0 },
+        ghosts: [
+            { x: 9, y: 8, dirX: 0, dirY: 0 },
+            { x: 8, y: 10, dirX: 0, dirY: 0 },
+            { x: 10, y: 10, dirX: 0, dirY: 0 },
+            { x: 9, y: 10, dirX: 0, dirY: 0 }
+        ],
+        score: 0,
+        dotsLeft: TOTAL_DOTS,
+        frameCount: 0,
+        wallsDrawn: false
+    });
+
+    // Initialize map on mount
+    useEffect(() => {
+        gameState.current.map = INITIAL_MAP.map(row => [...row]);
+        gameState.current.dotsLeft = TOTAL_DOTS;
+    }, []);
+
+    // Load bottle image
     useEffect(() => {
         const img = new Image();
         img.src = '/assets/collectible_bottle.png';
-        img.onload = () => {
-            setBottleImage(img);
-        };
+        img.onload = () => setBottleImage(img);
     }, []);
 
-    // UI State for D-pad
-    const keysPressed = useRef(new Set());
-    const [, forceUpdate] = useState({});
-
-    // Game State
-    const gameState = useRef({
-        map: JSON.parse(JSON.stringify(INITIAL_MAP)),
-        pacman: { x: 9, y: 16, dir: { x: 0, y: 0 }, nextDir: { x: 0, y: 0 }, angle: 0, mouthOpen: 0 },
-        ghosts: [
-            { x: 9, y: 8, color: '#ef4444', dir: { x: 0, y: 0 }, mode: 'scatter' }, // Red jellyfish
-            { x: 8, y: 10, color: '#a855f7', dir: { x: 0, y: 0 }, mode: 'chase' },  // Purple jellyfish
-            { x: 10, y: 10, color: '#14b8a6', dir: { x: 0, y: 0 }, mode: 'chase' }, // Teal jellyfish
-            { x: 9, y: 10, color: '#f472b6', dir: { x: 0, y: 0 }, mode: 'scatter' } // Pink jellyfish
-        ],
-        score: 0,
-        dotsLeft: 0,
-        frameCount: 0
-    });
-
-    // Calculate total dots
-    useEffect(() => {
-        let dots = 0;
-        INITIAL_MAP.forEach(row => row.forEach(cell => {
-            if (cell === 0 || cell === 3) dots++;
-        }));
-        gameState.current.dotsLeft = dots;
-    }, []);
-
-    // --- INPUT HANDLING ---
-    const handleDirectionInput = (dir) => {
-        if (!gameActive || paused) return;
-
-        keysPressed.current.add(dir);
-        forceUpdate({}); // Re-render for active class on buttons
-
-        let nextX = 0;
-        let nextY = 0;
-
-        if (dir === 'up') nextY = -1;
-        if (dir === 'down') nextY = 1;
-        if (dir === 'left') nextX = -1;
-        if (dir === 'right') nextX = 1;
-
-        if (nextX !== 0 || nextY !== 0) {
-            gameState.current.pacman.nextDir = { x: nextX, y: nextY };
+    // Direction input handler - memoized
+    const handleDirectionInput = useCallback((dir) => {
+        if (!gameActive) return;
+        setActiveDir(dir);
+        const p = gameState.current.pacman;
+        switch (dir) {
+            case 'up': p.nextDirX = 0; p.nextDirY = -1; break;
+            case 'down': p.nextDirX = 0; p.nextDirY = 1; break;
+            case 'left': p.nextDirX = -1; p.nextDirY = 0; break;
+            case 'right': p.nextDirX = 1; p.nextDirY = 0; break;
         }
-    };
+    }, [gameActive]);
 
-    const handleDirectionRelease = (dir) => {
-        keysPressed.current.delete(dir);
-        forceUpdate({});
-    };
+    const handleDirectionRelease = useCallback((dir) => {
+        setActiveDir(prev => prev === dir ? null : prev);
+    }, []);
 
-    const isPressed = (dir) => keysPressed.current.has(dir);
-
-    // Keyboard Controls
+    // Keyboard controls
     useEffect(() => {
+        const keyMap = {
+            ArrowUp: 'up', w: 'up', W: 'up',
+            ArrowDown: 'down', s: 'down', S: 'down',
+            ArrowLeft: 'left', a: 'left', A: 'left',
+            ArrowRight: 'right', d: 'right', D: 'right'
+        };
+
         const handleKeyDown = (e) => {
-            const key = e.key;
-            if (key === 'ArrowUp' || key === 'w') handleDirectionInput('up');
-            if (key === 'ArrowDown' || key === 's') handleDirectionInput('down');
-            if (key === 'ArrowLeft' || key === 'a') handleDirectionInput('left');
-            if (key === 'ArrowRight' || key === 'd') handleDirectionInput('right');
+            const dir = keyMap[e.key];
+            if (dir) handleDirectionInput(dir);
         };
 
         const handleKeyUp = (e) => {
-            const key = e.key;
-            if (key === 'ArrowUp' || key === 'w') handleDirectionRelease('up');
-            if (key === 'ArrowDown' || key === 's') handleDirectionRelease('down');
-            if (key === 'ArrowLeft' || key === 'a') handleDirectionRelease('left');
-            if (key === 'ArrowRight' || key === 'd') handleDirectionRelease('right');
+            const dir = keyMap[e.key];
+            if (dir) handleDirectionRelease(dir);
         };
 
         window.addEventListener('keydown', handleKeyDown);
@@ -134,620 +153,400 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete, userId }) {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [gameActive, paused]);
+    }, [handleDirectionInput, handleDirectionRelease]);
 
-    // Game Loop
+    // Optimized Game Loop
     useEffect(() => {
-        if (!gameActive || paused || gameOver || win) return;
+        if (!gameActive || gameOver || win) return;
 
-        let animationFrameId;
-        const ctx = canvasRef.current.getContext('2d');
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d', { alpha: false });
+
+        // Create offscreen canvas for walls (drawn once)
+        if (!wallCanvasRef.current) {
+            wallCanvasRef.current = document.createElement('canvas');
+            wallCanvasRef.current.width = CANVAS_WIDTH;
+            wallCanvasRef.current.height = CANVAS_HEIGHT;
+        }
 
         const update = () => {
-            gameState.current.frameCount++;
             const state = gameState.current;
-            const { pacman, ghosts, map } = state;
+            state.frameCount++;
+            const { pacman: p, ghosts, map } = state;
 
-            // --- PACMAN MOVEMENT ---
-            const moveStep = PACMAN_SPEED;
-            let moved = false;
-
-            // Determine axis and direction of movement
-            // dir.x: 1 (Right), -1 (Left)
-            // dir.y: 1 (Down), -1 (Up)
-
-            const p = pacman;
-
-            // Calculate distance to center of current tile
+            // --- PACMAN MOVEMENT (optimized - no object creation) ---
             const tileX = Math.round(p.x);
             const tileY = Math.round(p.y);
+            let dx = p.dirX * PACMAN_SPEED;
+            let dy = p.dirY * PACMAN_SPEED;
 
-            // We are "at center" if we are very close
-            const distToCenterX = tileX - p.x;
-            const distToCenterY = tileY - p.y;
-
-            // Perpendicular alignment check
-            const alignedX = Math.abs(distToCenterX) < 0.01;
-            const alignedY = Math.abs(distToCenterY) < 0.01;
-
-            // Logic: Move 'moveStep'. If we cross center, stop at center, evaluate turns, continue.
-
-            // Current movement vector
-            let dx = p.dir.x * moveStep;
-            let dy = p.dir.y * moveStep;
-
-            // Check if we will cross the center in this step
-            // Crossing center logic:
-            // If moving Right (dir.x > 0), and current x < tileX and new x >= tileX
             let crossedCenter = false;
-
-            if (p.dir.x > 0 && p.x < tileX && (p.x + dx) >= tileX) crossedCenter = true;
-            if (p.dir.x < 0 && p.x > tileX && (p.x + dx) <= tileX) crossedCenter = true;
-            if (p.dir.y > 0 && p.y < tileY && (p.y + dy) >= tileY) crossedCenter = true;
-            if (p.dir.y < 0 && p.y > tileY && (p.y + dy) <= tileY) crossedCenter = true;
-
-            // Also treat "Stopped" or "Just Starting" as at center if close enough
-            if (p.dir.x === 0 && p.dir.y === 0) {
-                if (Math.abs(p.x - tileX) < 0.1 && Math.abs(p.y - tileY) < 0.1) {
-                    p.x = tileX;
-                    p.y = tileY;
-                    crossedCenter = true; // Force evaluation
-                }
+            if (p.dirX > 0 && p.x < tileX && (p.x + dx) >= tileX) crossedCenter = true;
+            else if (p.dirX < 0 && p.x > tileX && (p.x + dx) <= tileX) crossedCenter = true;
+            else if (p.dirY > 0 && p.y < tileY && (p.y + dy) >= tileY) crossedCenter = true;
+            else if (p.dirY < 0 && p.y > tileY && (p.y + dy) <= tileY) crossedCenter = true;
+            else if (p.dirX === 0 && p.dirY === 0 && Math.abs(p.x - tileX) < 0.1 && Math.abs(p.y - tileY) < 0.1) {
+                p.x = tileX;
+                p.y = tileY;
+                crossedCenter = true;
             }
 
             if (crossedCenter) {
-                // Snap to center
                 p.x = tileX;
                 p.y = tileY;
 
-                // 1. Try Next Direction
-                if (p.nextDir.x !== 0 || p.nextDir.y !== 0) {
-                    const nextTx = tileX + p.nextDir.x;
-                    const nextTy = tileY + p.nextDir.y;
+                // Try next direction
+                if (p.nextDirX !== 0 || p.nextDirY !== 0) {
+                    const nextTx = tileX + p.nextDirX;
+                    const nextTy = tileY + p.nextDirY;
                     if (map[nextTy] && map[nextTy][nextTx] !== 1) {
-                        p.dir = { ...p.nextDir };
-                        // p.nextDir = { x: 0, y: 0 }; // Optional: Consume input
+                        p.dirX = p.nextDirX;
+                        p.dirY = p.nextDirY;
                     }
                 }
 
-                // 2. Check walls for (possibly new) Current Direction
-                const nextTx = tileX + p.dir.x;
-                const nextTy = tileY + p.dir.y;
-                if (map[nextTy] && map[nextTy][nextTx] === 1) {
-                    p.dir = { x: 0, y: 0 };
+                // Check wall collision
+                const nextTx = tileX + p.dirX;
+                const nextTy = tileY + p.dirY;
+                if (!map[nextTy] || map[nextTy][nextTx] === 1) {
+                    p.dirX = 0;
+                    p.dirY = 0;
                 }
 
-                // Continue movement with remainder? 
-                // For simplicity/retro feel, just start fresh move from center in new dir
-                // This loses a tiny bit of speed on turns but ensures grid alignment
-                dx = p.dir.x * moveStep;
-                dy = p.dir.y * moveStep;
-            } else {
-                // Not crossing center, but we might want to turn REVERSE at any time
-                if (p.nextDir.x === -p.dir.x && p.nextDir.y === -p.dir.y) {
-                    p.dir = { ...p.nextDir };
-                    dx = p.dir.x * moveStep;
-                    dy = p.dir.y * moveStep;
-                }
-                // Corner cutting logic can go here, but omitted for stability
+                dx = p.dirX * PACMAN_SPEED;
+                dy = p.dirY * PACMAN_SPEED;
+            } else if (p.nextDirX === -p.dirX && p.nextDirY === -p.dirY) {
+                p.dirX = p.nextDirX;
+                p.dirY = p.nextDirY;
+                dx = p.dirX * PACMAN_SPEED;
+                dy = p.dirY * PACMAN_SPEED;
             }
 
             p.x += dx;
             p.y += dy;
 
-
             // Wrap around
-            if (pacman.x < 0) pacman.x = MAP_COLS - 1;
-            if (pacman.x >= MAP_COLS) pacman.x = 0;
+            if (p.x < 0) p.x = MAP_COLS - 1;
+            else if (p.x >= MAP_COLS) p.x = 0;
 
-            // Eat Dots
-            let currentTileX = Math.round(pacman.x);
-            let currentTileY = Math.round(pacman.y);
-            if (map[currentTileY] && (map[currentTileY][currentTileX] === 0 || map[currentTileY][currentTileX] === 3)) {
-                if (map[currentTileY][currentTileX] === 3) {
-                    // Power Pellet!
-                    // TODO: Make ghosts vulnerable
-                } else {
-                    state.score += 10;
-                }
-                map[currentTileY][currentTileX] = 2; // Empty
+            // Eat dots
+            const currentTileX = Math.round(p.x);
+            const currentTileY = Math.round(p.y);
+            const cell = map[currentTileY]?.[currentTileX];
+            if (cell === 0 || cell === 3) {
+                if (cell === 0) state.score += 10;
+                map[currentTileY][currentTileX] = 2;
                 state.dotsLeft--;
                 setScore(state.score);
 
                 if (state.dotsLeft <= 0) {
                     setWin(true);
-                    onLevelComplete && onLevelComplete(8); // Assuming this is level 8 ID based on request
+                    onLevelComplete?.(8);
+                    return;
                 }
             }
 
-            // --- GHOST MOVEMENT ---
-            ghosts.forEach((ghost, i) => {
-                // Simple random movement for now, refined later
-                let gx = Math.round(ghost.x);
-                let gy = Math.round(ghost.y);
-                let gIsCenter = Math.abs(ghost.x - gx) < 0.1 && Math.abs(ghost.y - gy) < 0.1;
+            // --- GHOST MOVEMENT (optimized) ---
+            for (let i = 0; i < ghosts.length; i++) {
+                const g = ghosts[i];
+                const gx = Math.round(g.x);
+                const gy = Math.round(g.y);
 
-                if (gIsCenter) {
-                    const possibleDirs = [
-                        { x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }
-                    ].filter(d => {
+                if (Math.abs(g.x - gx) < 0.1 && Math.abs(g.y - gy) < 0.1) {
+                    // At center - choose direction
+                    let validDirs = [];
+                    for (let d = 0; d < 4; d++) {
+                        const dir = DIRECTIONS[d];
                         // Don't reverse
-                        if (d.x === -ghost.dir.x && d.y === -ghost.dir.y && (ghost.dir.x !== 0 || ghost.dir.y !== 0)) return false;
-                        // Don't hit wall
-                        let nx = gx + d.x;
-                        let ny = gy + d.y;
-                        if (map[ny] && map[ny][nx] !== 1) return true;
-                        return false;
-                    });
+                        if (dir.x === -g.dirX && dir.y === -g.dirY && (g.dirX !== 0 || g.dirY !== 0)) continue;
+                        // Check wall
+                        const nx = gx + dir.x;
+                        const ny = gy + dir.y;
+                        if (map[ny] && map[ny][nx] !== 1) {
+                            validDirs.push(dir);
+                        }
+                    }
 
-                    if (possibleDirs.length > 0) {
-                        const rand = possibleDirs[Math.floor(Math.random() * possibleDirs.length)];
-                        ghost.dir = rand;
+                    if (validDirs.length > 0) {
+                        const chosen = validDirs[(Math.random() * validDirs.length) | 0];
+                        g.dirX = chosen.x;
+                        g.dirY = chosen.y;
                     } else {
-                        // Dead end, reverse
-                        ghost.dir = { x: -ghost.dir.x, y: -ghost.dir.y };
+                        g.dirX = -g.dirX;
+                        g.dirY = -g.dirY;
                     }
                 }
 
-                ghost.x += ghost.dir.x * GHOST_SPEED;
-                ghost.y += ghost.dir.y * GHOST_SPEED;
+                g.x += g.dirX * GHOST_SPEED;
+                g.y += g.dirY * GHOST_SPEED;
 
-                // Collision with Pacman
-                let dist = Math.sqrt((ghost.x - pacman.x) ** 2 + (ghost.y - pacman.y) ** 2);
-                if (dist < 0.5) {
-                    console.log("Dead!");
-                    // setLives(l => l - 1);
-                    // Reset positions
-                    // For now just basic game over or restart pos
+                // Collision check
+                const distSq = (g.x - p.x) ** 2 + (g.y - p.y) ** 2;
+                if (distSq < 0.25) {
                     setGameOver(true);
+                    return;
                 }
-            });
+            }
 
             // --- RENDER ---
             draw(ctx, state);
-
-            animationFrameId = requestAnimationFrame(update);
+            animFrameRef.current = requestAnimationFrame(update);
         };
 
-        update();
-        return () => cancelAnimationFrame(animationFrameId);
+        animFrameRef.current = requestAnimationFrame(update);
+        return () => {
+            if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+        };
+    }, [gameActive, gameOver, win, onLevelComplete]);
 
-    }, [gameActive, paused, gameOver, win]);
-
-    // Helper function to draw wall border segments
-    const drawWallSegments = (ctx, px, py, hasTop, hasBottom, hasLeft, hasRight, hasTopLeft, hasTopRight, hasBottomLeft, hasBottomRight) => {
+    // Simplified wall segment drawing
+    const drawWallSegments = useCallback((ctx, px, py, wd) => {
         const inset = 3;
-        const cornerRadius = 5;
-
         ctx.beginPath();
 
-        // Top edge
-        if (!hasTop) {
-            const startX = hasLeft ? px : px + inset;
-            const endX = hasRight ? px + TILE_SIZE : px + TILE_SIZE - inset;
-            ctx.moveTo(startX, py + inset);
-            ctx.lineTo(endX, py + inset);
+        if (!wd.hasTop) {
+            ctx.moveTo(wd.hasLeft ? px : px + inset, py + inset);
+            ctx.lineTo(wd.hasRight ? px + TILE_SIZE : px + TILE_SIZE - inset, py + inset);
         }
-
-        // Bottom edge
-        if (!hasBottom) {
-            const startX = hasLeft ? px : px + inset;
-            const endX = hasRight ? px + TILE_SIZE : px + TILE_SIZE - inset;
-            ctx.moveTo(startX, py + TILE_SIZE - inset);
-            ctx.lineTo(endX, py + TILE_SIZE - inset);
+        if (!wd.hasBottom) {
+            ctx.moveTo(wd.hasLeft ? px : px + inset, py + TILE_SIZE - inset);
+            ctx.lineTo(wd.hasRight ? px + TILE_SIZE : px + TILE_SIZE - inset, py + TILE_SIZE - inset);
         }
-
-        // Left edge
-        if (!hasLeft) {
-            const startY = hasTop ? py : py + inset;
-            const endY = hasBottom ? py + TILE_SIZE : py + TILE_SIZE - inset;
-            ctx.moveTo(px + inset, startY);
-            ctx.lineTo(px + inset, endY);
+        if (!wd.hasLeft) {
+            ctx.moveTo(px + inset, wd.hasTop ? py : py + inset);
+            ctx.lineTo(px + inset, wd.hasBottom ? py + TILE_SIZE : py + TILE_SIZE - inset);
         }
-
-        // Right edge
-        if (!hasRight) {
-            const startY = hasTop ? py : py + inset;
-            const endY = hasBottom ? py + TILE_SIZE : py + TILE_SIZE - inset;
-            ctx.moveTo(px + TILE_SIZE - inset, startY);
-            ctx.lineTo(px + TILE_SIZE - inset, endY);
+        if (!wd.hasRight) {
+            ctx.moveTo(px + TILE_SIZE - inset, wd.hasTop ? py : py + inset);
+            ctx.lineTo(px + TILE_SIZE - inset, wd.hasBottom ? py + TILE_SIZE : py + TILE_SIZE - inset);
         }
-
-        // Draw corner arcs for outer corners
-        if (!hasTop && !hasLeft) {
-            ctx.moveTo(px + inset + cornerRadius, py + inset);
-            ctx.arc(px + inset + cornerRadius, py + inset + cornerRadius, cornerRadius, -Math.PI / 2, Math.PI, true);
-        }
-        if (!hasTop && !hasRight) {
-            ctx.moveTo(px + TILE_SIZE - inset, py + inset + cornerRadius);
-            ctx.arc(px + TILE_SIZE - inset - cornerRadius, py + inset + cornerRadius, cornerRadius, 0, -Math.PI / 2, true);
-        }
-        if (!hasBottom && !hasLeft) {
-            ctx.moveTo(px + inset, py + TILE_SIZE - inset - cornerRadius);
-            ctx.arc(px + inset + cornerRadius, py + TILE_SIZE - inset - cornerRadius, cornerRadius, Math.PI, Math.PI / 2, true);
-        }
-        if (!hasBottom && !hasRight) {
-            ctx.moveTo(px + TILE_SIZE - inset - cornerRadius, py + TILE_SIZE - inset);
-            ctx.arc(px + TILE_SIZE - inset - cornerRadius, py + TILE_SIZE - inset - cornerRadius, cornerRadius, Math.PI / 2, 0, true);
-        }
-
-        // Inner corners (classic Pacman maze look)
-        if (hasTop && hasLeft && !hasTopLeft) {
-            ctx.moveTo(px, py + inset);
-            ctx.arc(px + inset, py + inset, inset, Math.PI, Math.PI * 1.5);
-        }
-        if (hasTop && hasRight && !hasTopRight) {
-            ctx.moveTo(px + TILE_SIZE - inset, py);
-            ctx.arc(px + TILE_SIZE - inset, py + inset, inset, -Math.PI / 2, 0);
-        }
-        if (hasBottom && hasLeft && !hasBottomLeft) {
-            ctx.moveTo(px + inset, py + TILE_SIZE);
-            ctx.arc(px + inset, py + TILE_SIZE - inset, inset, Math.PI / 2, Math.PI);
-        }
-        if (hasBottom && hasRight && !hasBottomRight) {
-            ctx.moveTo(px + TILE_SIZE, py + TILE_SIZE - inset);
-            ctx.arc(px + TILE_SIZE - inset, py + TILE_SIZE - inset, inset, 0, Math.PI / 2);
-        }
-
         ctx.stroke();
-    };
+    }, []);
 
-    const draw = (ctx, state) => {
-        const canvas = canvasRef.current;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Optimized draw function with caching
+    const draw = useCallback((ctx, state) => {
         const { map, pacman, ghosts } = state;
+        const fc = state.frameCount;
 
-        // Draw underwater gradient background
-        const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        bgGrad.addColorStop(0, '#051525');
-        bgGrad.addColorStop(0.5, '#0a2540');
-        bgGrad.addColorStop(1, '#0d3a5c');
-        ctx.fillStyle = bgGrad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Clear and draw background (solid color is faster than gradient every frame)
+        ctx.fillStyle = '#0a2540';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-        // Draw animated bubbles in background
-        const bubbleCount = 8;
-        for (let i = 0; i < bubbleCount; i++) {
-            const seed = i * 137.5;
-            const bubbleX = ((seed + state.frameCount * 0.3) % canvas.width);
-            const bubbleY = canvas.height - ((state.frameCount * (0.5 + i * 0.1) + seed * 3) % (canvas.height + 20));
-            const bubbleSize = 3 + (i % 3) * 2;
-            const opacity = 0.15 + (Math.sin(state.frameCount * 0.05 + i) * 0.1);
-
-            ctx.beginPath();
-            const bubbleGrad = ctx.createRadialGradient(bubbleX - 1, bubbleY - 1, 0, bubbleX, bubbleY, bubbleSize);
-            bubbleGrad.addColorStop(0, `rgba(255, 255, 255, ${opacity + 0.2})`);
-            bubbleGrad.addColorStop(0.5, `rgba(103, 232, 249, ${opacity})`);
-            bubbleGrad.addColorStop(1, `rgba(34, 211, 238, ${opacity * 0.3})`);
-            ctx.fillStyle = bubbleGrad;
-            ctx.arc(bubbleX, bubbleY, bubbleSize, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Subtle underwater grid pattern
-        ctx.strokeStyle = 'rgba(6, 182, 212, 0.08)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= MAP_COLS; i++) {
-            ctx.beginPath();
-            ctx.moveTo(i * TILE_SIZE, 0);
-            ctx.lineTo(i * TILE_SIZE, canvas.height);
-            ctx.stroke();
-        }
-        for (let i = 0; i <= MAP_ROWS; i++) {
-            ctx.beginPath();
-            ctx.moveTo(0, i * TILE_SIZE);
-            ctx.lineTo(canvas.width, i * TILE_SIZE);
-            ctx.stroke();
-        }
-
-        // Helper to check if cell is wall
-        const isWall = (x, y) => {
-            if (y < 0 || y >= MAP_ROWS || x < 0 || x >= MAP_COLS) return false;
-            return map[y][x] === 1;
-        };
-
-        // First pass: Draw coral/rock wall fills with gradient
-        for (let y = 0; y < MAP_ROWS; y++) {
-            for (let x = 0; x < MAP_COLS; x++) {
-                const cell = map[y][x];
-                const px = x * TILE_SIZE;
-                const py = y * TILE_SIZE;
-
-                if (cell === 1) {
-                    const wallGrad = ctx.createLinearGradient(px, py, px + TILE_SIZE, py + TILE_SIZE);
-                    wallGrad.addColorStop(0, 'rgba(8, 145, 178, 0.4)');
-                    wallGrad.addColorStop(1, 'rgba(5, 21, 37, 0.6)');
-                    ctx.fillStyle = wallGrad;
-                    ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-                }
-            }
-        }
-
-        // Second pass: Draw coral/neon borders with rounded corners
+        // Draw walls (use pre-computed data, minimal shadows)
         ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 2;
 
         for (let y = 0; y < MAP_ROWS; y++) {
             for (let x = 0; x < MAP_COLS; x++) {
-                const cell = map[y][x];
-                const px = x * TILE_SIZE;
-                const py = y * TILE_SIZE;
+                if (INITIAL_MAP[y][x] === 1) {
+                    const px = x * TILE_SIZE;
+                    const py = y * TILE_SIZE;
+                    const wd = WALL_DATA[y][x];
 
-                if (cell === 1) {
-                    const hasTop = isWall(x, y - 1);
-                    const hasBottom = isWall(x, y + 1);
-                    const hasLeft = isWall(x - 1, y);
-                    const hasRight = isWall(x + 1, y);
-                    const hasTopLeft = isWall(x - 1, y - 1);
-                    const hasTopRight = isWall(x + 1, y - 1);
-                    const hasBottomLeft = isWall(x - 1, y + 1);
-                    const hasBottomRight = isWall(x + 1, y + 1);
+                    // Simple wall fill
+                    ctx.fillStyle = 'rgba(8, 145, 178, 0.3)';
+                    ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
 
-                    // Outer glow layer - coral/turquoise color
-                    ctx.strokeStyle = 'rgba(34, 211, 238, 0.4)';
-                    ctx.lineWidth = 4;
-                    ctx.shadowBlur = 12;
-                    ctx.shadowColor = '#06b6d4';
-                    drawWallSegments(ctx, px, py, hasTop, hasBottom, hasLeft, hasRight, hasTopLeft, hasTopRight, hasBottomLeft, hasBottomRight);
-
-                    // Inner bright line - bright cyan
-                    ctx.strokeStyle = '#22d3ee';
-                    ctx.lineWidth = 2;
-                    ctx.shadowBlur = 6;
-                    ctx.shadowColor = '#67e8f9';
-                    drawWallSegments(ctx, px, py, hasTop, hasBottom, hasLeft, hasRight, hasTopLeft, hasTopRight, hasBottomLeft, hasBottomRight);
-
-                    ctx.shadowBlur = 0;
+                    // Draw border segments
+                    drawWallSegments(ctx, px, py, wd);
                 }
             }
         }
 
-        // Third pass: Draw pearls (dots) and jellyfish (power pellets)
+        // Draw dots and power pellets
+        const halfTile = TILE_SIZE / 2;
         for (let y = 0; y < MAP_ROWS; y++) {
             for (let x = 0; x < MAP_COLS; x++) {
                 const cell = map[y][x];
-                const px = x * TILE_SIZE;
-                const py = y * TILE_SIZE;
-                const centerX = px + TILE_SIZE / 2;
-                const centerY = py + TILE_SIZE / 2;
+                if (cell === 0 || cell === 3) {
+                    const cx = x * TILE_SIZE + halfTile;
+                    const cy = y * TILE_SIZE + halfTile;
 
-                if (cell === 0) {
-                    // Normal dots - rendered as collectible bottles
-                    if (bottleImage) {
-                        // Draw bottle image centered in the tile
-                        // Original tile is 24px, let's make the bottle roughly 16px high/wide to fit nicely
-                        const size = 16;
-                        ctx.drawImage(bottleImage, centerX - size / 2, centerY - size / 2, size, size);
+                    if (cell === 0) {
+                        if (bottleImage) {
+                            ctx.drawImage(bottleImage, cx - 8, cy - 8, 16, 16);
+                        } else {
+                            ctx.fillStyle = '#7dd3fc';
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, 3, 0, 6.283);
+                            ctx.fill();
+                        }
                     } else {
-                        // Fallback while loading
-                        const pearlGrad = ctx.createRadialGradient(centerX - 1, centerY - 1, 0, centerX, centerY, 4);
-                        pearlGrad.addColorStop(0, '#ffffff');
-                        pearlGrad.addColorStop(0.3, '#e0f2fe');
-                        pearlGrad.addColorStop(0.7, '#7dd3fc');
-                        pearlGrad.addColorStop(1, '#38bdf8');
-
-                        ctx.fillStyle = pearlGrad;
-                        ctx.shadowBlur = 5;
-                        ctx.shadowColor = '#38bdf8';
+                        // Power pellet with simple pulse
+                        const pulse = 7 + 2 * Math.sin(fc * 0.08);
+                        ctx.fillStyle = '#e879f9';
                         ctx.beginPath();
-                        ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
+                        ctx.arc(cx, cy, pulse, 0, 6.283);
                         ctx.fill();
-                        ctx.shadowBlur = 0;
+                        ctx.fillStyle = '#fff';
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, pulse * 0.3, 0, 6.283);
+                        ctx.fill();
                     }
-
-                } else if (cell === 3) {
-                    // Jellyfish-like power pellet with pulsing glow
-                    const pulse = 1 + 0.3 * Math.sin(state.frameCount * 0.08);
-                    const radius = 7 * pulse;
-
-                    ctx.shadowBlur = 20 * pulse;
-                    ctx.shadowColor = '#f0abfc';
-
-                    const jellyGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
-                    jellyGrad.addColorStop(0, '#ffffff');
-                    jellyGrad.addColorStop(0.3, '#f5d0fe');
-                    jellyGrad.addColorStop(0.6, '#e879f9');
-                    jellyGrad.addColorStop(1, '#a855f7');
-
-                    ctx.fillStyle = jellyGrad;
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // Inner bright core
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, radius * 0.3, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.shadowBlur = 0;
                 }
             }
         }
 
-        // Draw Pacman as a tropical fish
-        const px = pacman.x * TILE_SIZE + TILE_SIZE / 2;
-        const py = pacman.y * TILE_SIZE + TILE_SIZE / 2;
+        // Draw Pacman
+        const px = pacman.x * TILE_SIZE + halfTile;
+        const py = pacman.y * TILE_SIZE + halfTile;
 
         ctx.save();
         ctx.translate(px, py);
+        ctx.fillStyle = '#fdba74';
 
-        // Underwater glow effect - golden/orange fish
-        ctx.shadowBlur = 18;
-        ctx.shadowColor = '#fb923c';
-
-        // Gradient body - tropical fish colors
-        const grad = ctx.createRadialGradient(0, 0, TILE_SIZE / 4, 0, 0, TILE_SIZE / 2);
-        grad.addColorStop(0, '#fef3c7'); // Center highlight
-        grad.addColorStop(0.5, '#fdba74'); // Orange mid
-        grad.addColorStop(1, '#f97316'); // Deeper orange edge
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        // Mouth open/close animation
-        const mouthSize = 0.2 * Math.PI * Math.abs(Math.sin(state.frameCount * 0.2));
+        const mouthSize = 0.2 * Math.PI * Math.abs(Math.sin(fc * 0.2));
         let angle = 0;
-        if (pacman.dir.x === 1) angle = 0;
-        if (pacman.dir.x === -1) angle = Math.PI;
-        if (pacman.dir.y === 1) angle = Math.PI / 2;
-        if (pacman.dir.y === -1) angle = -Math.PI / 2;
+        if (pacman.dirX === 1) angle = 0;
+        else if (pacman.dirX === -1) angle = Math.PI;
+        else if (pacman.dirY === 1) angle = Math.PI / 2;
+        else if (pacman.dirY === -1) angle = -Math.PI / 2;
 
-        ctx.arc(0, 0, TILE_SIZE / 2 - 2, angle + mouthSize, angle + (Math.PI * 2) - mouthSize);
+        ctx.beginPath();
+        ctx.arc(0, 0, TILE_SIZE / 2 - 2, angle + mouthSize, angle + 6.283 - mouthSize);
         ctx.lineTo(0, 0);
         ctx.fill();
 
-        // Add fish eye
-        ctx.shadowBlur = 0;
-        const eyeOffsetX = pacman.dir.x !== 0 ? -pacman.dir.x * 3 : 0;
-        const eyeOffsetY = pacman.dir.y !== 0 ? -pacman.dir.y * 3 : -3;
-        ctx.fillStyle = 'white';
+        // Eye
+        const eyeX = pacman.dirX !== 0 ? -pacman.dirX * 3 : 0;
+        const eyeY = pacman.dirY !== 0 ? -pacman.dirY * 3 : -3;
+        ctx.fillStyle = '#fff';
         ctx.beginPath();
-        ctx.arc(eyeOffsetX, eyeOffsetY, 3, 0, Math.PI * 2);
+        ctx.arc(eyeX, eyeY, 3, 0, 6.283);
         ctx.fill();
         ctx.fillStyle = '#1e293b';
         ctx.beginPath();
-        ctx.arc(eyeOffsetX + (pacman.dir.x || 0), eyeOffsetY + (pacman.dir.y || 0), 1.5, 0, Math.PI * 2);
+        ctx.arc(eyeX + (pacman.dirX || 0), eyeY + (pacman.dirY || 0), 1.5, 0, 6.283);
         ctx.fill();
-
         ctx.restore();
 
-        // Draw Jellyfish (Ghosts)
-        ghosts.forEach((g, idx) => {
-            const gx = g.x * TILE_SIZE + TILE_SIZE / 2;
-            const gy = g.y * TILE_SIZE + TILE_SIZE / 2;
+        // Draw Dogs (simplified for performance)
+        for (let i = 0; i < ghosts.length; i++) {
+            const g = ghosts[i];
+            const gx = g.x * TILE_SIZE + halfTile;
+            const gy = g.y * TILE_SIZE + halfTile;
 
             ctx.save();
             ctx.translate(gx, gy);
 
-            // Jellyfish Glow
-            ctx.shadowBlur = 18;
-            ctx.shadowColor = g.color;
+            const facingRight = g.dirX >= 0;
+            const bounceY = Math.sin(fc * 0.15 + i) * 1.5;
+            const color = GHOST_COLORS[i];
 
-            // Create gradient for jellyfish body
-            const jellyGrad = ctx.createRadialGradient(0, -4, 2, 0, -2, TILE_SIZE / 2);
-            jellyGrad.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-            jellyGrad.addColorStop(0.5, g.color);
-            jellyGrad.addColorStop(1, g.color + '80');
-            ctx.fillStyle = jellyGrad;
-
-            // Jellyfish bell (dome shape)
+            // Body
+            ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.ellipse(0, -2, TILE_SIZE / 2 - 2, TILE_SIZE / 3, 0, Math.PI, 0);
+            ctx.ellipse(0, 3 + bounceY, 9, 6, 0, 0, 6.283);
             ctx.fill();
 
-            // Tentacles with wave animation
-            ctx.shadowBlur = 8;
-            ctx.strokeStyle = g.color;
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-
-            const tentacleCount = 4;
-            const waveOffset = state.frameCount * 0.15 + idx;
-            for (let i = 0; i < tentacleCount; i++) {
-                const startX = -TILE_SIZE / 3 + (i * (TILE_SIZE * 2 / 3) / (tentacleCount - 1));
-                ctx.beginPath();
-                ctx.moveTo(startX, 2);
-                // Wavy tentacle
-                const wave1 = Math.sin(waveOffset + i) * 3;
-                const wave2 = Math.sin(waveOffset + i + 1) * 3;
-                ctx.quadraticCurveTo(startX + wave1, TILE_SIZE / 3, startX + wave2, TILE_SIZE / 2);
-                ctx.stroke();
-            }
-
-            // Eyes - cute jellyfish eyes
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            const lookingX = g.dir ? g.dir.x * 1.5 : 0;
-            const lookingY = g.dir ? g.dir.y * 1.5 : 0;
-
+            // Head
+            const headX = facingRight ? 6 : -6;
             ctx.beginPath();
-            ctx.arc(-4, -6, 3.5, 0, Math.PI * 2);
-            ctx.arc(4, -6, 3.5, 0, Math.PI * 2);
+            ctx.arc(headX, -4 + bounceY, 8, 0, 6.283);
             ctx.fill();
 
-            // Pupils
-            ctx.fillStyle = '#0f172a';
+            // Ears
             ctx.beginPath();
-            ctx.arc(-4 + lookingX, -6 + lookingY, 1.8, 0, Math.PI * 2);
-            ctx.arc(4 + lookingX, -6 + lookingY, 1.8, 0, Math.PI * 2);
+            ctx.ellipse(facingRight ? headX - 6 : headX + 6, -2 + bounceY, 4, 7, 0, 0, 6.283);
+            ctx.ellipse(facingRight ? headX + 4 : headX - 4, -1 + bounceY, 4, 8, 0, 0, 6.283);
+            ctx.fill();
+
+            // Snout
+            ctx.fillStyle = '#FFFAF0';
+            const snoutX = facingRight ? headX + 6 : headX - 6;
+            ctx.beginPath();
+            ctx.ellipse(snoutX, -2 + bounceY, 5, 4, 0, 0, 6.283);
+            ctx.fill();
+
+            // Nose
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(facingRight ? snoutX + 3 : snoutX - 3, -3 + bounceY, 2.5, 0, 6.283);
+            ctx.fill();
+
+            // Eye
+            ctx.fillStyle = '#fff';
+            const eyeX = facingRight ? headX + 2 : headX - 2;
+            ctx.beginPath();
+            ctx.arc(eyeX, -6 + bounceY, 4, 0, 6.283);
+            ctx.fill();
+            ctx.fillStyle = '#2d1b00';
+            ctx.beginPath();
+            ctx.arc(eyeX + g.dirX * 1.5, -6 + g.dirY + bounceY, 2.5, 0, 6.283);
+            ctx.fill();
+
+            // Collar
+            ctx.fillStyle = COLLAR_COLORS[i];
+            ctx.beginPath();
+            ctx.ellipse(facingRight ? 2 : -2, bounceY, 7, 2, 0, 0, 6.283);
             ctx.fill();
 
             ctx.restore();
-        });
-
-        // Draw underwater light rays from top
-        ctx.save();
-        const rayOpacity = 0.03 + Math.sin(state.frameCount * 0.02) * 0.01;
-        const rayGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.6);
-        rayGrad.addColorStop(0, `rgba(103, 232, 249, ${rayOpacity * 2})`);
-        rayGrad.addColorStop(1, 'transparent');
-
-        for (let i = 0; i < 3; i++) {
-            const rayX = canvas.width * (0.2 + i * 0.3) + Math.sin(state.frameCount * 0.01 + i) * 20;
-            ctx.beginPath();
-            ctx.moveTo(rayX - 30, 0);
-            ctx.lineTo(rayX + 30, 0);
-            ctx.lineTo(rayX + 60, canvas.height * 0.6);
-            ctx.lineTo(rayX - 60, canvas.height * 0.6);
-            ctx.closePath();
-            ctx.fillStyle = rayGrad;
-            ctx.fill();
         }
-        ctx.restore();
-    };
+    }, [bottleImage, drawWallSegments]);
 
-    const startGame = () => {
-        setGameActive(true);
-        setScores(); // Reset functionality if needed
-    };
+    // Draw initial state
+    useEffect(() => {
+        if (canvasRef.current && gameState.current.map) {
+            const ctx = canvasRef.current.getContext('2d', { alpha: false });
+            draw(ctx, gameState.current);
+        }
+    }, [draw]);
 
-    const setScores = () => {
-        gameState.current.score = 0;
+    // Reset game state
+    const resetGame = useCallback(() => {
+        const state = gameState.current;
+        state.score = 0;
+        state.map = INITIAL_MAP.map(row => [...row]);
+        state.dotsLeft = TOTAL_DOTS;
+        state.frameCount = 0;
+
+        // Reset pacman
+        state.pacman.x = 9;
+        state.pacman.y = 16;
+        state.pacman.dirX = 0;
+        state.pacman.dirY = 0;
+        state.pacman.nextDirX = 0;
+        state.pacman.nextDirY = 0;
+
+        // Reset ghosts
+        const ghostPositions = [[9, 8], [8, 10], [10, 10], [9, 10]];
+        for (let i = 0; i < state.ghosts.length; i++) {
+            state.ghosts[i].x = ghostPositions[i][0];
+            state.ghosts[i].y = ghostPositions[i][1];
+            state.ghosts[i].dirX = 0;
+            state.ghosts[i].dirY = 0;
+        }
+    }, []);
+
+    const startGame = useCallback(() => {
+        resetGame();
         setScore(0);
         setGameOver(false);
         setWin(false);
-        // Reset positions code needed here
-        gameState.current.pacman.x = 9;
-        gameState.current.pacman.y = 16;
-        gameState.current.pacman.dir = { x: 0, y: 0 };
-        gameState.current.pacman.nextDir = { x: 0, y: 0 };
-        // Reset dots...
-        gameState.current.map = JSON.parse(JSON.stringify(INITIAL_MAP));
-        let dots = 0;
-        INITIAL_MAP.forEach(row => row.forEach(cell => {
-            if (cell === 0 || cell === 3) dots++;
-        }));
-        gameState.current.dotsLeft = dots;
-    };
+        setGameActive(true);
+    }, [resetGame]);
+
+    // Memoized D-pad button to reduce re-renders
+    const DPadButton = useMemo(() => {
+        const Button = ({ dir, icon: Icon }) => (
+            <button
+                className={`d-pad-button ${dir} ${activeDir === dir ? 'active' : ''}`}
+                onPointerDown={() => handleDirectionInput(dir)}
+                onPointerUp={() => handleDirectionRelease(dir)}
+                onPointerLeave={() => handleDirectionRelease(dir)}
+                onContextMenu={(e) => e.preventDefault()}
+            >
+                <Icon size={24} />
+            </button>
+        );
+        return Button;
+    }, [activeDir, handleDirectionInput, handleDirectionRelease]);
 
     return (
         <div className="pacman-container">
-            {/* Animated bubbles */}
-            <div className="bubbles-container">
-                <div className="bubble"></div>
-                <div className="bubble"></div>
-                <div className="bubble"></div>
-                <div className="bubble"></div>
-                <div className="bubble"></div>
-                <div className="bubble"></div>
-                <div className="bubble"></div>
-                <div className="bubble"></div>
-                <div className="bubble"></div>
-                <div className="bubble"></div>
-                <div className="bubble"></div>
-                <div className="bubble"></div>
-            </div>
-
-            {/* Seaweed decoration */}
-            <div className="seaweed-container">
-                <div className="seaweed"></div>
-                <div className="seaweed"></div>
-                <div className="seaweed"></div>
-                <div className="seaweed"></div>
-                <div className="seaweed"></div>
-                <div className="seaweed"></div>
-            </div>
-
             <div className="game-header">
                 <h2 className="level-title">NIVEL SUBMARINO</h2>
                 <div className="score-board">SCORE: {score}</div>
@@ -756,8 +555,8 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete, userId }) {
             <div className="canvas-wrapper">
                 <canvas
                     ref={canvasRef}
-                    width={MAP_COLS * TILE_SIZE}
-                    height={MAP_ROWS * TILE_SIZE}
+                    width={CANVAS_WIDTH}
+                    height={CANVAS_HEIGHT}
                     className="game-canvas"
                 />
 
@@ -791,56 +590,17 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete, userId }) {
                 )}
             </div>
 
-            {/* D-PAD CONTROLS */}
             <div className="d-pad-container">
                 <div className="d-pad-row">
-                    <button
-                        className={`d-pad-button up ${isPressed('up') ? 'active' : ''}`}
-                        onPointerDown={() => handleDirectionInput('up')}
-                        onPointerUp={() => handleDirectionRelease('up')}
-                        onPointerLeave={() => handleDirectionRelease('up')}
-                        onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && handleDirectionInput('up')}
-                        onContextMenu={(e) => e.preventDefault()}
-                    >
-                        <ArrowUp size={24} />
-                    </button>
+                    <DPadButton dir="up" icon={ArrowUp} />
                 </div>
                 <div className="d-pad-row middle">
-                    <button
-                        className={`d-pad-button left ${isPressed('left') ? 'active' : ''}`}
-                        onPointerDown={() => handleDirectionInput('left')}
-                        onPointerUp={() => handleDirectionRelease('left')}
-                        onPointerLeave={() => handleDirectionRelease('left')}
-                        onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && handleDirectionInput('left')}
-                        onContextMenu={(e) => e.preventDefault()}
-                    >
-                        <ArrowLeft size={24} />
-                    </button>
-                    <div className="d-pad-center">
-                        {/* Empty center or place for pause/menu? For now just empty spacer */}
-                    </div>
-                    <button
-                        className={`d-pad-button right ${isPressed('right') ? 'active' : ''}`}
-                        onPointerDown={() => handleDirectionInput('right')}
-                        onPointerUp={() => handleDirectionRelease('right')}
-                        onPointerLeave={() => handleDirectionRelease('right')}
-                        onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && handleDirectionInput('right')}
-                        onContextMenu={(e) => e.preventDefault()}
-                    >
-                        <ArrowRight size={24} />
-                    </button>
+                    <DPadButton dir="left" icon={ArrowLeft} />
+                    <div className="d-pad-center" />
+                    <DPadButton dir="right" icon={ArrowRight} />
                 </div>
                 <div className="d-pad-row">
-                    <button
-                        className={`d-pad-button down ${isPressed('down') ? 'active' : ''}`}
-                        onPointerDown={() => handleDirectionInput('down')}
-                        onPointerUp={() => handleDirectionRelease('down')}
-                        onPointerLeave={() => handleDirectionRelease('down')}
-                        onPointerEnter={(e) => (e.buttons > 0 || e.pressure > 0) && handleDirectionInput('down')}
-                        onContextMenu={(e) => e.preventDefault()}
-                    >
-                        <ArrowDown size={24} />
-                    </button>
+                    <DPadButton dir="down" icon={ArrowDown} />
                 </div>
             </div>
 
