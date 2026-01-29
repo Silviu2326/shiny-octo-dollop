@@ -5,16 +5,16 @@ import Level1 from './game/Level1';
 import Level2 from './game/Level2';
 
 import Level3 from './game/Level3';
-import Level3_5 from './game/Level3_5';
+
 import Level4 from './game/Level4';
 import Level5 from './game/Level5';
 import Level6 from './game/Level6';
 import Level7 from './game/Level7';
 import Level8 from './game/Level8';
-import PacmanLevel from './game/PacmanLevel';
+
 import TetrisLevel from './game/TetrisLevel';
 import FroggerLevel from './game/FroggerLevel';
-import WoodLevel from './game/WoodLevel';
+
 import Ranking from './components/Ranking';
 import LoadingScreen from './components/LoadingScreen';
 import { supabase } from './services/supabase';
@@ -27,27 +27,21 @@ const LEVEL_DATA_TRANSLATIONS = {
     { id: 0, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Level 0', desc: 'The Cat House (Tutorial)', color: '#F3E9C6' },
     { id: 1, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Level 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
     { id: 2, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Level 2', desc: 'The Toasted One (Morena)', color: '#8A5A2B' },
-    { id: 2.5, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Level 2.5', desc: 'Morena Extra Challenge', color: '#8A5A2B' },
     { id: 3, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png', name: 'Level 3', desc: 'The Blonde (Catira)', color: '#F2C94C' },
     { id: 4, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Level 4', desc: 'Gluten Free (Sifrina)', color: '#D4AF37' },
     { id: 5, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png', name: 'Level 5', desc: 'The Dark One (Candela)', color: '#8B1E1E' },
     { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Level 6', desc: 'The Tropical (Guajira)', color: '#2ECC71' },
     { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Level 7', desc: 'The Finale (Cat Party)', color: '#56CCF2' },
-    { id: 8, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Level 8', desc: 'Pac-Man 2D (Bonus)', color: '#FFFF00' },
-    { id: 9, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Level 9', desc: 'Morena Pacman', color: '#8B4513' },
   ],
   es: [
     { id: 0, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
     { id: 1, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Nivel 1', desc: 'Medusa 0,0', color: '#7EC8E3' },
     { id: 2, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Nivel 2', desc: 'La Tostada (Morena)', color: '#8A5A2B' },
-    { id: 2.5, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png', name: 'Nivel 2.5', desc: 'Desafío Extra Morena', color: '#8A5A2B' },
     { id: 3, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png', name: 'Nivel 3', desc: 'La Rubia (Catira)', color: '#F2C94C' },
     { id: 4, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Nivel 4', desc: 'Sin Gluten (Sifrina)', color: '#D4AF37' },
     { id: 5, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png', name: 'Nivel 5', desc: 'La Oscura (Candela)', color: '#8B1E1E' },
     { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
     { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
-    { id: 8, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 8', desc: 'Pac-Man 2D (Bonus)', color: '#FFFF00' },
-    { id: 9, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Nivel 9', desc: 'Morena Pacman', color: '#8B4513' },
   ]
 };
 
@@ -234,14 +228,13 @@ function Game({ level, onBack, onNextLevel, onLevelComplete, onGoToEasterEgg, us
   if (level === 1) return <Level2 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
 
   if (level === 2) return <Level3 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
-  if (level === 2.5) return <Level3_5 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
+
   if (level === 3) return <Level4 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
   if (level === 4) return <Level5 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
   if (level === 5) return <Level6 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
   if (level === 6) return <Level7 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
   if (level === 7) return <Level8 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
-  if (level === 8) return <PacmanLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} onGoToEasterEgg={() => onGoToEasterEgg('tetris')} userId={userId} language={language} />;
-  if (level === 9) return <WoodLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} onGoToEasterEgg={() => onGoToEasterEgg('frogger')} userId={userId} language={language} />;
+
   // Easter eggs (no aparecen en el menú)
   if (level === 'tetris') return <TetrisLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
   if (level === 'frogger') return <FroggerLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
