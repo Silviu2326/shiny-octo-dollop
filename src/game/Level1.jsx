@@ -12,6 +12,7 @@ import CameraController from '../components/game/CameraController';
 import Enemy from '../components/game/Enemy';
 import { AIRoles, createPatrolZones, assignZone } from './ai/EnemyAI';
 import { saveScore } from '../services/supabase';
+import { getGameUI } from '../utils/translations';
 
 // --- Configuration & Constants ---
 const CELL_SIZE = 5;
@@ -187,7 +188,8 @@ function StarRating({ stars }) {
 
 // --- Main Component ---
 
-export default function Level1({ onBack, onNextLevel, onLevelComplete, userId }) {
+export default function Level1({ onBack, onNextLevel, onLevelComplete, userId, language = 'en' }) {
+  const gameUI = getGameUI(language);
   const [playerPos, setPlayerPos] = useState({ x: 2, z: 2 });
   const [direction, setDirection] = useState({ x: 0, z: 0 });
   const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -706,6 +708,7 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
           levelNumber={1}
           beersCollected={beersCollected}
           score={score}
+          language={language}
           onSettingsClick={() => {
             setIsPaused(true);
             setShowSettingsModal(true);
@@ -717,21 +720,21 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
         {showSettingsModal && (
           <div className="settings-modal">
             <div className="settings-content glass-panel">
-              <h2>PAUSA</h2>
+              <h2>{gameUI.pause}</h2>
               <button className="modal-button" onClick={() => {
                 setShowSettingsModal(false);
                 setIsPaused(false);
               }}>
-                <Play size={20} /> Seguir
+                <Play size={20} /> {gameUI.continue}
               </button>
               <button className="modal-button restart-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> Reiniciar
+                <RotateCcw size={20} /> {gameUI.restart}
               </button>
               <button className="modal-button" onClick={toggleMute}>
-                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />} {isMuted ? 'Activar Sonido' : 'Silenciar'}
+                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />} {isMuted ? gameUI.enableSound : gameUI.muteSound}
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> Salir
+                <Home size={20} /> {gameUI.exit}
               </button>
             </div>
           </div>
@@ -740,26 +743,26 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
         {showVictoryModal && (
           <div className="victory-modal">
             <div className="victory-content glass-panel">
-              <h2 className="victory-title">¡VICTORIA!</h2>
-              <p className="victory-subtitle">¡Nivel Completado!</p>
+              <h2 className="victory-title">{gameUI.victory}</h2>
+              <p className="victory-subtitle">{gameUI.levelCompleted}</p>
 
               <StarRating stars={3} />
 
               <div className="victory-stats">
-                <p>Puntuación Base: {finalScoreStats.score}</p>
-                <p>Bonus Tiempo: {finalScoreStats.bonus}</p>
-                <p style={{ fontSize: '1.4em', color: '#FFD700', fontWeight: 'bold' }}>Total: {finalScoreStats.total}</p>
+                <p>{gameUI.baseScore}: {finalScoreStats.score}</p>
+                <p>{gameUI.timeBonus}: {finalScoreStats.bonus}</p>
+                <p style={{ fontSize: '1.4em', color: '#FFD700', fontWeight: 'bold' }}>{gameUI.totalScore}: {finalScoreStats.total}</p>
               </div>
               {onNextLevel && (
                 <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78' }}>
-                  <Play size={20} /> Siguiente Nivel
+                  <Play size={20} /> {gameUI.nextLevel}
                 </button>
               )}
               <button className="modal-button restart-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> Jugar de nuevo
+                <RotateCcw size={20} /> {gameUI.playAgain}
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> Volver al menú
+                <Home size={20} /> {gameUI.backToMenu}
               </button>
             </div>
           </div>
@@ -769,10 +772,10 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
           <div className="game-over-modal">
             <div className="game-over-content glass-panel">
               <h2 className="game-over-title">
-                {beersCollected / initialCollectibles.length >= 0.7 ? "¡BUEN INTENTO!" : "¡HAS PERDIDO!"}
+                {beersCollected / initialCollectibles.length >= 0.7 ? gameUI.goodTry : gameUI.youLost}
               </h2>
               <p className="game-over-subtitle">
-                {beersCollected / initialCollectibles.length >= 0.7 ? "Puedes avanzar al siguiente nivel" : "Se acabaron las vidas"}
+                {beersCollected / initialCollectibles.length >= 0.7 ? gameUI.canAdvance : gameUI.outOfLives}
               </p>
 
               {beersCollected / initialCollectibles.length >= 0.7 && (
@@ -782,26 +785,26 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
               )}
 
               <div className="game-over-stats">
-                <p>Puntuación Base: {finalScoreStats.score}</p>
-                <p>Bonus Tiempo: {finalScoreStats.bonus}</p>
-                <p style={{ fontSize: '1.2em', color: '#FFD700' }}>Total: {finalScoreStats.total}</p>
-                <p>Cervezas recogidas: {beersCollected}</p>
+                <p>{gameUI.baseScore}: {finalScoreStats.score}</p>
+                <p>{gameUI.timeBonus}: {finalScoreStats.bonus}</p>
+                <p style={{ fontSize: '1.2em', color: '#FFD700' }}>{gameUI.totalScore}: {finalScoreStats.total}</p>
+                <p>{gameUI.beersCollected}: {beersCollected}</p>
                 {beersCollected / initialCollectibles.length >= 0.7 && (
-                  <p style={{ color: '#48BB78', marginTop: '10px' }}>¡Objetivo mínimo completado!</p>
+                  <p style={{ color: '#48BB78', marginTop: '10px' }}>{gameUI.minimumCompleted}</p>
                 )}
               </div>
 
               {beersCollected / initialCollectibles.length >= 0.7 && onNextLevel && (
                 <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78', marginBottom: '15px' }}>
-                  <Play size={20} /> Siguiente Nivel
+                  <Play size={20} /> {gameUI.nextLevel}
                 </button>
               )}
 
               <button className="modal-button restart-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> Reintentar
+                <RotateCcw size={20} /> {gameUI.tryAgain}
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> Volver al menú
+                <Home size={20} /> {gameUI.backToMenu}
               </button>
             </div>
           </div>
@@ -824,7 +827,7 @@ export default function Level1({ onBack, onNextLevel, onLevelComplete, userId })
         }}>
           <video
             ref={videoRef}
-            src="/assets/videos/nivel0 coolcat.mp4"
+            src={language === 'es' ? "/assets/videos/nivel0 coolcat.mp4" : "/assets/videosingles/LEVEL 0 (1).mp4"}
             autoPlay
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onEnded={() => { setShowIntroVideo(false); setIsPaused(false); }}

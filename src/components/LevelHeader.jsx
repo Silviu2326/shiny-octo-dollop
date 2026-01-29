@@ -1,15 +1,48 @@
 import './LevelHeader.css';
 
-const levelConfig = {
-  1: { name: "La Casa del Gato", backgroundColor: "#F3E9C6", textColor: "#2C1810", borderColor: "#D4D4C8", totalBeers: 40, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png' },
-  2: { name: "Medusa", backgroundColor: "#7EC8E3", textColor: "#2C1810", borderColor: "#5DA8C3", totalBeers: 55, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png' },
-  3: { name: "Morena", backgroundColor: "#8A5A2B", textColor: "#FFFFFF", borderColor: "#6A3A0B", totalBeers: 60, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png' },
-  4: { name: "La Cararera del Ziaagzag", backgroundColor: "#F2C94C", textColor: "#2C1810", borderColor: "#D2A92C", totalBeers: 70, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png' },
-  5: { name: " Sifrina", backgroundColor: "#F7F7F7", textColor: "#D4AF37", borderColor: "#D4AF37", totalBeers: 80, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png' },
-  6: { name: "La Oscura", backgroundColor: "#8B1E1E", textColor: "#FFFFFF", borderColor: "#1C1C1C", totalBeers: 85, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png' },
-  7: { name: "La Tropical", backgroundColor: "#2ECC71", textColor: "#2C1810", borderColor: "#27AE60", totalBeers: 90, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png' },
-  8: { name: "Fiesta del Gato", backgroundColor: "#EB5757", textColor: "#FFFFFF", borderColor: "#F2C94C", totalBeers: 100, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png' },
+// Traducciones para la cabecera del nivel
+const HEADER_TRANSLATIONS = {
+  en: {
+    level: 'Level',
+    tutorial: '(Tutorial)',
+    beers: 'Beers',
+    points: 'Points'
+  },
+  es: {
+    level: 'Nivel',
+    tutorial: '(Tutorial)',
+    beers: 'Cervezas',
+    points: 'Puntos'
+  }
 };
+
+const getHeaderText = (lang) => HEADER_TRANSLATIONS[lang] || HEADER_TRANSLATIONS.en;
+
+// Configuración de niveles con traducciones
+const levelConfigTranslations = {
+  en: {
+    1: { name: "The Cat House", backgroundColor: "#F3E9C6", textColor: "#2C1810", borderColor: "#D4D4C8", totalBeers: 40, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png' },
+    2: { name: "Medusa", backgroundColor: "#7EC8E3", textColor: "#2C1810", borderColor: "#5DA8C3", totalBeers: 55, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png' },
+    3: { name: "Morena", backgroundColor: "#8A5A2B", textColor: "#FFFFFF", borderColor: "#6A3A0B", totalBeers: 60, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png' },
+    4: { name: "The Zigzag Race", backgroundColor: "#F2C94C", textColor: "#2C1810", borderColor: "#D2A92C", totalBeers: 70, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png' },
+    5: { name: "Sifrina", backgroundColor: "#F7F7F7", textColor: "#D4AF37", borderColor: "#D4AF37", totalBeers: 80, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png' },
+    6: { name: "The Dark One", backgroundColor: "#8B1E1E", textColor: "#FFFFFF", borderColor: "#1C1C1C", totalBeers: 85, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png' },
+    7: { name: "The Tropical", backgroundColor: "#2ECC71", textColor: "#2C1810", borderColor: "#27AE60", totalBeers: 90, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png' },
+    8: { name: "Cat Party", backgroundColor: "#EB5757", textColor: "#FFFFFF", borderColor: "#F2C94C", totalBeers: 100, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png' },
+  },
+  es: {
+    1: { name: "La Casa del Gato", backgroundColor: "#F3E9C6", textColor: "#2C1810", borderColor: "#D4D4C8", totalBeers: 40, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png' },
+    2: { name: "Medusa", backgroundColor: "#7EC8E3", textColor: "#2C1810", borderColor: "#5DA8C3", totalBeers: 55, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png' },
+    3: { name: "Morena", backgroundColor: "#8A5A2B", textColor: "#FFFFFF", borderColor: "#6A3A0B", totalBeers: 60, image: '/assets/drive-download-20260109T123100Z-1-001/morena.png' },
+    4: { name: "La Carrera del Zigzag", backgroundColor: "#F2C94C", textColor: "#2C1810", borderColor: "#D2A92C", totalBeers: 70, image: '/assets/drive-download-20260109T123100Z-1-001/CATIRA.png' },
+    5: { name: "Sifrina", backgroundColor: "#F7F7F7", textColor: "#D4AF37", borderColor: "#D4AF37", totalBeers: 80, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png' },
+    6: { name: "La Oscura", backgroundColor: "#8B1E1E", textColor: "#FFFFFF", borderColor: "#1C1C1C", totalBeers: 85, image: '/assets/drive-download-20260109T123100Z-1-001/CANDELA.png' },
+    7: { name: "La Tropical", backgroundColor: "#2ECC71", textColor: "#2C1810", borderColor: "#27AE60", totalBeers: 90, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png' },
+    8: { name: "Fiesta del Gato", backgroundColor: "#EB5757", textColor: "#FFFFFF", borderColor: "#F2C94C", totalBeers: 100, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png' },
+  }
+};
+
+const getLevelConfig = (lang) => levelConfigTranslations[lang] || levelConfigTranslations.en;
 
 export default function LevelHeader({
   lives = 3,
@@ -21,10 +54,14 @@ export default function LevelHeader({
   backgroundColor,
   textColor,
   borderColor,
-  onSettingsClick
+  onSettingsClick,
+  language = 'en'
 }) {
+  const levelConfig = getLevelConfig(language);
+  const headerText = getHeaderText(language);
+
   const baseConfig = levelConfig[levelNumber] || {
-    name: levelName || `Nivel ${levelNumber || ''}`,
+    name: levelName || `${headerText.level} ${levelNumber || ''}`,
     backgroundColor: "#F5F5DC",
     textColor: "#2C1810",
     borderColor: "#D4D4C8",
@@ -78,7 +115,7 @@ export default function LevelHeader({
             className={`level-header-subtitle ${displayLevelNumber !== 0 ? 'level-header-subtitle-large' : ''}`}
             style={{ color: displayConfig.textColor }}
           >
-            Nivel {displayConfig.name === "La Casa del Gato" && displayLevelNumber === 0 ? "0 (Tutorial)" : displayLevelNumber}
+            {headerText.level} {(displayConfig.name === "La Casa del Gato" || displayConfig.name === "The Cat House") && displayLevelNumber === 0 ? `0 ${headerText.tutorial}` : displayLevelNumber}
           </span>
           <span className="level-header-name" style={{ color: displayConfig.textColor }}>
             {displayConfig.name}
@@ -103,10 +140,10 @@ export default function LevelHeader({
 
             {/* Métricas */}
             <div className="level-header-metric" style={{ color: displayConfig.textColor }}>
-              Cervezas: {beersCollected}/{displayConfig.totalBeers}
+              {headerText.beers}: {beersCollected}/{displayConfig.totalBeers}
             </div>
             <div className="level-header-metric" style={{ color: displayConfig.textColor }}>
-              Puntos: {score}
+              {headerText.points}: {score}
             </div>
           </div>
         </div>

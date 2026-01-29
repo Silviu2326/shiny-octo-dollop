@@ -8,6 +8,7 @@ import LevelHeader from '../components/LevelHeader';
 import EnemyAdvanced from '../components/game/Enemy_Advanced';
 import { AIRoles, createPatrolZones, assignZone } from './ai/EnemyAI';
 import { EnemyCoordinator, AdvancedAIConfig } from './ai/EnemyAI_Advanced';
+import { getGameUI } from '../utils/translations';
 
 // --- Configuration & Constants ---
 const CELL_SIZE = 4;
@@ -566,7 +567,8 @@ function CameraController({ targetX, targetZ, rotation, distance, height }) {
 
 // --- Main Component ---
 
-export default function Level2_5({ onBack, onNextLevel, onLevelComplete }) {
+export default function Level2_5({ onBack, onNextLevel, onLevelComplete, language = 'en' }) {
+  const gameUI = getGameUI(language);
   const [playerPos, setPlayerPos] = useState({ x: 3, z: 3 });
   const [direction, setDirection] = useState({ x: 0, z: 0 });
   const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -1125,6 +1127,7 @@ export default function Level2_5({ onBack, onNextLevel, onLevelComplete }) {
           beersCollected={beersCollected}
           totalBeers={totalBeers}
           score={score}
+          language={language}
         />
 
         <button className="settings-button" onClick={() => {
@@ -1137,21 +1140,21 @@ export default function Level2_5({ onBack, onNextLevel, onLevelComplete }) {
         {showSettingsModal && (
           <div className="settings-modal">
             <div className="settings-content glass-panel">
-              <h2>PAUSA</h2>
+              <h2>{gameUI.pause}</h2>
               <button className="modal-button" onClick={() => {
                 setShowSettingsModal(false);
                 setIsPaused(false);
               }}>
-                <Play size={20} /> Seguir
+                <Play size={20} /> {gameUI.continue}
               </button>
               <button className="modal-button restart-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> Reiniciar
+                <RotateCcw size={20} /> {gameUI.restart}
               </button>
               <button className="modal-button" onClick={toggleMute}>
-                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />} {isMuted ? 'Activar Sonido' : 'Silenciar'}
+                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />} {isMuted ? gameUI.unmute : gameUI.mute}
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> Salir
+                <Home size={20} /> {gameUI.exit}
               </button>
             </div>
           </div>
@@ -1160,25 +1163,25 @@ export default function Level2_5({ onBack, onNextLevel, onLevelComplete }) {
         {showGameOverModal && (
           <div className="game-over-modal">
             <div className="game-over-content glass-panel">
-              <h2 className="game-over-title">¡HAS PERDIDO!</h2>
-              <p className="game-over-subtitle">Los enemigos inteligentes te atraparon</p>
+              <h2 className="game-over-title">{gameUI.gameOver}</h2>
+              <p className="game-over-subtitle">{gameUI.advancedEnemiesCaught}</p>
               <div className="game-over-stats">
-                <p>Puntuación final: {score}</p>
-                <p>Cervezas recogidas: {beersCollected}</p>
+                <p>{gameUI.finalScore}: {score}</p>
+                <p>{gameUI.beersCollected}: {beersCollected}</p>
                 <p style={{ fontSize: '0.9em', color: '#9C27B0', marginTop: '10px' }}>
-                  🧠 Los enemigos usaron IA avanzada
+                  🧠 {gameUI.advancedAIUsed}
                 </p>
               </div>
               {beersCollected >= totalBeers && onNextLevel && (
                 <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
-                  <Play size={20} /> Avanzar al siguiente nivel
+                  <Play size={20} /> {gameUI.nextLevel}
                 </button>
               )}
               <button className="modal-button restart-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> Reintentar
+                <RotateCcw size={20} /> {gameUI.retry}
               </button>
               <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> Volver al menú
+                <Home size={20} /> {gameUI.backToMenu}
               </button>
             </div>
           </div>
@@ -1187,19 +1190,19 @@ export default function Level2_5({ onBack, onNextLevel, onLevelComplete }) {
         {showVictoryModal && (
           <div className="settings-modal victory-modal">
             <div className="settings-content glass-panel victory-content">
-              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
-              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>¡Has conseguido {score} puntos!</p>
-              <p style={{ fontSize: '1em', marginBottom: '10px', color: '#4CAF50' }}>¡Has superado el nivel desafío!</p>
+              <h2 style={{ fontSize: '2.5em', marginBottom: '20px' }}>🎉 {gameUI.levelComplete} 🎉</h2>
+              <p style={{ fontSize: '1.2em', marginBottom: '10px' }}>{gameUI.youScored} {score} {gameUI.points}!</p>
+              <p style={{ fontSize: '1em', marginBottom: '10px', color: '#4CAF50' }}>{gameUI.challengeLevelBeaten}</p>
               <p style={{ fontSize: '0.9em', marginBottom: '30px', color: '#9C27B0' }}>
-                🧠 ¡Venciste a los enemigos con IA avanzada!
+                🧠 {gameUI.defeatedAdvancedAI}
               </p>
               {onNextLevel && (
                 <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#4CAF50', marginBottom: '10px' }}>
-                  <Play size={20} /> Siguiente Nivel
+                  <Play size={20} /> {gameUI.nextLevel}
                 </button>
               )}
               <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> Volver al Menú
+                <Home size={20} /> {gameUI.backToMenu}
               </button>
             </div>
           </div>
@@ -1221,7 +1224,7 @@ export default function Level2_5({ onBack, onNextLevel, onLevelComplete }) {
           flexDirection: 'column'
         }}>
           <video
-            src="/assets/videos/NIVEL 1 FINAL.mp4"
+            src={language === 'es' ? "/assets/videos/NIVEL 1 FINAL.mp4" : "/assets/videosingles/LEVEL 1 (1).mp4"}
             autoPlay
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onEnded={() => setShowIntroVideo(false)}
@@ -1243,7 +1246,7 @@ export default function Level2_5({ onBack, onNextLevel, onLevelComplete }) {
               fontWeight: 'bold'
             }}
           >
-            Saltar
+            {gameUI.skip}
           </button>
         </div>
       )}

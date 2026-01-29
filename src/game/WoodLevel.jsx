@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Play, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { getGameUI } from '../utils/translations';
 import './WoodLevel.css';
 
 // Constants
@@ -65,7 +66,8 @@ for (let y = 0; y < MAP_ROWS; y++) {
 const GHOST_COLORS = ['#8B4513', '#D2691E', '#F5F5DC', '#2F2F2F'];
 const COLLAR_COLORS = ['#ef4444', '#8b5cf6', '#22d3ee', '#f472b6'];
 
-function WoodLevel({ onBack, onNextLevel, onLevelComplete }) {
+function WoodLevel({ onBack, onNextLevel, onLevelComplete, onGoToEasterEgg, language = 'en' }) {
+    const gameUI = getGameUI(language);
     const canvasRef = useRef(null);
     const animFrameRef = useRef(null);
     const [score, setScore] = useState(0);
@@ -659,21 +661,27 @@ function WoodLevel({ onBack, onNextLevel, onLevelComplete }) {
 
                 {gameOver && (
                     <div className="wood-overlay">
-                        <h2 className="wood-game-over-text">GAME OVER</h2>
+                        <h2 className="wood-game-over-text">{gameUI.gameOver}</h2>
                         <button onClick={startGame} className="wood-restart-btn">
-                            <RotateCcw size={24} /> REINTENTAR
+                            <RotateCcw size={24} /> {gameUI.retry}
                         </button>
                         <button onClick={onBack} className="wood-back-btn">
-                            VOLVER AL MENU
+                            {gameUI.backToMenu}
                         </button>
                     </div>
                 )}
 
                 {win && (
                     <div className="wood-overlay">
-                        <h2 className="wood-win-text">¡NIVEL COMPLETADO!</h2>
-                        <button onClick={onNextLevel} className="wood-next-btn">
-                            SIGUIENTE NIVEL <Play size={24} />
+                        <h2 className="wood-win-text">{gameUI.levelComplete}</h2>
+                        <p style={{ color: '#FFD700', fontSize: '14px', marginBottom: '10px' }}>
+                            🎮 {language === 'en' ? 'Secret Bonus Unlocked!' : '¡Bonus Secreto Desbloqueado!'}
+                        </p>
+                        <button onClick={onGoToEasterEgg} className="wood-next-btn" style={{ background: 'linear-gradient(135deg, #27AE60, #1E8449)' }}>
+                            🐸 Frogger Beer <Play size={24} />
+                        </button>
+                        <button onClick={onBack} className="wood-back-btn" style={{ marginTop: '10px' }}>
+                            {gameUI.backToMenu}
                         </button>
                     </div>
                 )}
@@ -693,7 +701,7 @@ function WoodLevel({ onBack, onNextLevel, onLevelComplete }) {
                 </div>
             </div>
 
-            <button onClick={onBack} className="wood-back-button-footer">VOLVER</button>
+            <button onClick={onBack} className="wood-back-button-footer">{gameUI.back}</button>
         </div>
     );
 }

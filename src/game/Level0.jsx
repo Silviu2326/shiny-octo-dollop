@@ -5,6 +5,7 @@ import { mergeBufferGeometries } from 'three-stdlib';
 import './Level0.css';
 import LevelHeader from '../components/LevelHeader';
 import { saveScore } from '../services/supabase';
+import { getGameUI } from '../utils/translations';
 
 // --- Configuration & Constants ---
 const CELL_SIZE = 5;
@@ -337,7 +338,8 @@ function CameraController({ targetX, targetZ }) {
 
 // --- Main Component ---
 
-export default function Level0({ onBack, onNextLevel, onLevelComplete, userId }) {
+export default function Level0({ onBack, onNextLevel, onLevelComplete, userId, language = 'en' }) {
+    const gameUI = getGameUI(language);
     const [playerPos, setPlayerPos] = useState(INITIAL_PLAYER_POS);
     const [direction, setDirection] = useState({ x: 0, z: 0 });
     const [collectibles, setCollectibles] = useState(initialCollectibles);
@@ -634,19 +636,20 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete, userId })
                     levelNumber={1}
                     beersCollected={beersCollected}
                     score={score}
+                    language={language}
                 />
 
                 <button className="back-button" onClick={onBack}>
-                    salir
+                    {gameUI.exit}
                 </button>
 
                 {showTutorial && (
                     <div className="tutorial-modal animate-fade-in">
                         <div className="tutorial-content glass-panel">
-                            <h2>¡Bienvenido!</h2>
-                            <p>Usa las flechas o W/A/S/D para moverte.</p>
-                            <p>Recoge todas las cervezas 🍺</p>
-                            <button onClick={() => setShowTutorial(false)}>JUGAR</button>
+                            <h2>{language === 'es' ? '¡Bienvenido!' : 'Welcome!'}</h2>
+                            <p>{language === 'es' ? 'Usa las flechas o W/A/S/D para moverte.' : 'Use arrows or W/A/S/D to move.'}</p>
+                            <p>{language === 'es' ? 'Recoge todas las cervezas' : 'Collect all the beers'}</p>
+                            <button onClick={() => setShowTutorial(false)}>{gameUI.play}</button>
                         </div>
                     </div>
                 )}
@@ -654,14 +657,14 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete, userId })
                 {showVictory && (
                     <div className="tutorial-modal animate-fade-in">
                         <div className="tutorial-content glass-panel">
-                            <h2>🎉 ¡NIVEL COMPLETADO! 🎉</h2>
-                            <p>Has conseguido {score} puntos</p>
-                            <p>¡El siguiente nivel está desbloqueado!</p>
+                            <h2>{gameUI.levelCompleted}</h2>
+                            <p>{language === 'es' ? `Has conseguido ${score} puntos` : `You got ${score} points`}</p>
+                            <p>{language === 'es' ? '¡El siguiente nivel está desbloqueado!' : 'The next level is unlocked!'}</p>
                             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                                 <button onClick={() => {
                                     if (onNextLevel) onNextLevel();
-                                }}>SIGUIENTE NIVEL</button>
-                                <button onClick={onBack} style={{ background: '#666' }}>VOLVER AL MENÚ</button>
+                                }}>{gameUI.nextLevel}</button>
+                                <button onClick={onBack} style={{ background: '#666' }}>{gameUI.backToMenu}</button>
                             </div>
                         </div>
                     </div>

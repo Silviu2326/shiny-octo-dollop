@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './FroggerLevel.css';
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Heart, Trophy } from 'lucide-react';
+import './FroggerLevelButtons.css';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Heart, Trophy, Beer, Star } from 'lucide-react';
+import { getGameUI } from '../utils/translations';
 
 // Configuration
 const GRID_ROWS = 11;
@@ -17,20 +19,22 @@ const GAME_SPEED = 16; // ~60fps
 const INITIAL_PLAYER = { x: 4, y: 10 }; // Center bottom
 
 const OBSTACLES_CONFIG = [
-    // River (Left to Right, Right to Left...)
-    { row: 1, type: 'log', speed: 0.003, width: 2, image: '/assets/cervezas/collectible_bottle.png', count: 3 },
-    { row: 2, type: 'log', speed: -0.005, width: 3, image: '/assets/cervezas/collectible_bottle.png', count: 2 },
-    { row: 3, type: 'log', speed: 0.006, width: 2, image: '/assets/cervezas/collectible_bottle.png', count: 3 },
-    { row: 4, type: 'log', speed: -0.004, width: 2, image: '/assets/cervezas/collectible_bottle.png', count: 3 },
+    // River (Left to Right, Right to Left...) - TRONCOS flotantes
+    { row: 1, type: 'log', speed: 0.003, width: 2, count: 3 },
+    { row: 2, type: 'log', speed: -0.005, width: 3, count: 2 },
+    { row: 3, type: 'log', speed: 0.006, width: 2, count: 3 },
 
-    // Road
-    { row: 6, type: 'car', speed: -0.005, width: 1, image: '/assets/barriles/barrel_chatgpt.png', count: 3 },
-    { row: 7, type: 'car', speed: 0.008, width: 1, image: '/assets/cervezas/collectible_medusa.png', count: 2 },
-    { row: 8, type: 'car', speed: -0.006, width: 1, image: '/assets/barriles/barrel_chatgpt.png', count: 3 },
-    { row: 9, type: 'car', speed: 0.004, width: 1, image: '/assets/cervezas/collectible_medusa.png', count: 3 },
+    // Road - BARRILES de cerveza rodando
+    { row: 6, type: 'barrel', speed: -0.005, width: 1.2, count: 3 },
+    { row: 7, type: 'barrel', speed: 0.008, width: 1.2, count: 2 },
+    { row: 8, type: 'barrel', speed: -0.006, width: 1.2, count: 3 },
 ];
 
-const FroggerLevel = ({ onBack, onNextLevel, onLevelComplete }) => {
+const FroggerLevel = ({ onBack, onNextLevel, onLevelComplete, language = 'en' }) => {
+    // Configuration defined directly to ensure updates
+    const gameUI = getGameUI(language);
+
+
     const [playerPos, setPlayerPos] = useState(INITIAL_PLAYER);
     const [entities, setEntities] = useState([]);
     const [lives, setLives] = useState(3);
@@ -65,7 +69,7 @@ const FroggerLevel = ({ onBack, onNextLevel, onLevelComplete }) => {
         setEntities(newEntities);
         entitiesRef.current = newEntities;
         playerRef.current = INITIAL_PLAYER;
-    }, [lives]); // Re-init on life loss if we wanted full reset, but usually just player resets
+    }, [lives]); // Re-init on life loss
 
     // Game Loop
     const animate = useCallback((time) => {
@@ -83,6 +87,12 @@ const FroggerLevel = ({ onBack, onNextLevel, onLevelComplete }) => {
 
         // Check Collisions
         checkCollisions();
+
+        // Update Player Render (important for drift)
+        // We only update if state is playing to avoid overwriting reset on death
+        if (gameState === 'playing') {
+            setPlayerPos({ ...playerRef.current });
+        }
 
         requestRef.current = requestAnimationFrame(animate);
     }, [gameState]);
@@ -119,28 +129,29 @@ const FroggerLevel = ({ onBack, onNextLevel, onLevelComplete }) => {
 
                 // Simply check if player center is within entity X range
                 if (playerCenter > entStart && playerCenter < entEnd) {
-                    if (ent.type === 'car') {
+                    if (ent.type === 'barrel') {
                         handleDeath();
                         return;
                     } else if (ent.type === 'log') {
                         onLog = true;
                         // Move player with log
-                        const newGridX = playerRef.current.x + (ent.speed * GRID_COLS); // Approximate movement mapping back to grid units? 
-                        // No, keeping player on grid is better for "hopping" game feel, 
-                        // BUT in Frogger you drift.
-
-                        // Let's implement Drift:
-                        // We need floating point player X for drift
-                        // Updating playerRef directly with drift
-                        // THIS IS TRICKY mixing grid movement and drift.
-                        // Simplified: Just die if in river and NOT colliding.
+                        // ent.speed is normalized (0-1), map to grid units
+                        playerRef.current.x += ent.speed * GRID_COLS;
                     }
                 }
             }
         }
 
-        if (inRiver && !onLog) {
-            handleDeath();
+        if (inRiver) {
+            if (!onLog) {
+                handleDeath();
+            } else {
+                // Check edge death (drifted off screen)
+                // Allow a small buffer (0.5) before killing
+                if (playerRef.current.x < -0.5 || playerRef.current.x > GRID_COLS - 0.5) {
+                    handleDeath();
+                }
+            }
         }
     };
 
@@ -185,12 +196,12 @@ const FroggerLevel = ({ onBack, onNextLevel, onLevelComplete }) => {
     return (
         <div className="frogger-container">
             <div className="frogger-header">
-                <h2>FROGGER BEER</h2>
+                <h2><Beer size={24} style={{ verticalAlign: 'middle', marginRight: '8px' }} />FROGGER BEER<Beer size={24} style={{ verticalAlign: 'middle', marginLeft: '8px' }} /></h2>
                 <div className="frogger-stats">
                     <div className="lives-container">
-                        {[...Array(lives)].map((_, i) => <Heart key={i} fill="red" color="red" size={20} />)}
+                        {[...Array(lives)].map((_, i) => <Heart key={i} fill="#ff4757" color="#ff6b81" size={18} />)}
                     </div>
-                    <span>SCORE: {score}</span>
+                    <span><Star size={14} style={{ verticalAlign: 'middle', marginRight: '4px', color: '#ffd54f' }} />{score}</span>
                 </div>
             </div>
 
@@ -214,12 +225,16 @@ const FroggerLevel = ({ onBack, onNextLevel, onLevelComplete }) => {
                             top: `${(ent.row / GRID_ROWS) * 100}%`,
                             width: `${ent.width * 100}%`, // proportional width
                             height: `${100 / GRID_ROWS}%`,
-                            backgroundImage: `url(${ent.image})`,
-                            backgroundSize: 'contain',
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'center',
+                            ...(ent.image ? {
+                                backgroundImage: `url(${ent.image})`,
+                                backgroundSize: 'contain',
+                                backgroundRepeat: 'no-repeat',
+                                backgroundPosition: 'center',
+                            } : {})
                         }}
-                    />
+                    >
+                        {/* Inner detail for log if needed, can be done in CSS */}
+                    </div>
                 ))}
 
                 {/* Render Player */}
@@ -230,7 +245,7 @@ const FroggerLevel = ({ onBack, onNextLevel, onLevelComplete }) => {
                         top: `${(playerPos.y / GRID_ROWS) * 100}%`,
                         width: `${100 / GRID_COLS}%`,
                         height: `${100 / GRID_ROWS}%`,
-                        backgroundImage: 'url("/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png")',
+                        backgroundImage: 'url("/assets/drive-download-20260109T123100Z-1-001/image-removebg-preview (33).png")',
                         backgroundSize: 'contain',
                         backgroundRepeat: 'no-repeat',
                         backgroundPosition: 'center',
@@ -251,9 +266,15 @@ const FroggerLevel = ({ onBack, onNextLevel, onLevelComplete }) => {
             {gameState === 'lost' && (
                 <div className="modal-overlay">
                     <div className="modal-content">
-                        <h2>GAME OVER</h2>
-                        <button className="restart-btn" onClick={() => { setLives(3); setScore(0); setGameState('playing'); }}>Reintentar</button>
-                        <button className="back-btn" onClick={onBack}>Salir</button>
+                        <div style={{ fontSize: '48px', marginBottom: '15px' }}>
+                            <Beer size={48} color="#e74c3c" style={{ animation: 'trophyBounce 1s ease-in-out infinite' }} />
+                        </div>
+                        <h2>{gameUI.gameOver}</h2>
+                        <p style={{ marginBottom: '20px', opacity: 0.8 }}>{gameUI.beerSpilled}</p>
+                        <div className="modal-buttons">
+                            <button className="restart-btn" onClick={() => { setLives(3); setScore(0); setGameState('playing'); }}>{gameUI.tryAgain}</button>
+                            <button className="back-btn" onClick={onBack}>{gameUI.exit}</button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -261,10 +282,16 @@ const FroggerLevel = ({ onBack, onNextLevel, onLevelComplete }) => {
             {gameState === 'won' && (
                 <div className="modal-overlay">
                     <div className="modal-content">
-                        <Trophy size={64} color="gold" />
-                        <h2>¡AMETA ALCANZADA!</h2>
-                        <p>Has cruzado el bar con éxito.</p>
-                        <button className="restart-btn" onClick={() => onNextLevel()}>Siguiente Nivel</button>
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                            <Trophy size={72} color="#ffd700" style={{ filter: 'drop-shadow(0 0 20px rgba(255, 215, 0, 0.8))' }} />
+                            <Star size={24} color="#ffd700" style={{ position: 'absolute', top: '-10px', right: '-15px', animation: 'heartPulse 0.5s ease-in-out infinite' }} />
+                            <Star size={18} color="#ffd700" style={{ position: 'absolute', top: '5px', left: '-20px', animation: 'heartPulse 0.7s ease-in-out infinite' }} />
+                        </div>
+                        <h2>{gameUI.goalReached}</h2>
+                        <p>{gameUI.crossedBarSuccess} {score}</p>
+                        <div className="modal-buttons">
+                            <button className="restart-btn" onClick={() => onNextLevel()}>{gameUI.nextLevel}</button>
+                        </div>
                     </div>
                 </div>
             )}

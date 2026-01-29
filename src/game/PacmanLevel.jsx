@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Play, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { getGameUI } from '../utils/translations';
 import './PacmanLevel.css';
 
 // Constants - moved outside component to prevent recreation
@@ -71,7 +72,8 @@ for (let y = 0; y < MAP_ROWS; y++) {
 const GHOST_COLORS = ['#8B4513', '#D2691E', '#F5F5DC', '#2F2F2F'];
 const COLLAR_COLORS = ['#ef4444', '#8b5cf6', '#22d3ee', '#f472b6'];
 
-function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
+function PacmanLevel({ onBack, onNextLevel, onLevelComplete, onGoToEasterEgg, language = 'en' }) {
+    const gameUI = getGameUI(language);
     const canvasRef = useRef(null);
     const wallCanvasRef = useRef(null); // Offscreen canvas for static walls
     const animFrameRef = useRef(null);
@@ -696,21 +698,27 @@ function PacmanLevel({ onBack, onNextLevel, onLevelComplete }) {
 
                 {gameOver && (
                     <div className="overlay">
-                        <h2 className="game-over-text">GAME OVER</h2>
+                        <h2 className="game-over-text">{gameUI.gameOver}</h2>
                         <button onClick={startGame} className="restart-btn">
-                            <RotateCcw size={24} /> REINTENTAR
+                            <RotateCcw size={24} /> {gameUI.tryAgain}
                         </button>
                         <button onClick={onBack} className="back-btn">
-                            VOLVER AL MENU
+                            {gameUI.backToMenu}
                         </button>
                     </div>
                 )}
 
                 {win && (
                     <div className="overlay">
-                        <h2 className="win-text">¡NIVEL COMPLETADO!</h2>
-                        <button onClick={onNextLevel} className="next-btn">
-                            SIGUIENTE NIVEL <Play size={24} />
+                        <h2 className="win-text">{gameUI.levelCompleted}</h2>
+                        <p style={{ color: '#FFD700', fontSize: '14px', marginBottom: '10px' }}>
+                            🎮 {language === 'en' ? 'Secret Bonus Unlocked!' : '¡Bonus Secreto Desbloqueado!'}
+                        </p>
+                        <button onClick={onGoToEasterEgg} className="next-btn" style={{ background: 'linear-gradient(135deg, #9B59B6, #8E44AD)' }}>
+                            🎁 Tetris Challenge <Play size={24} />
+                        </button>
+                        <button onClick={onBack} className="back-btn" style={{ marginTop: '10px' }}>
+                            {gameUI.backToMenu}
                         </button>
                     </div>
                 )}

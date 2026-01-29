@@ -34,9 +34,7 @@ const LEVEL_DATA_TRANSLATIONS = {
     { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Level 6', desc: 'The Tropical (Guajira)', color: '#2ECC71' },
     { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Level 7', desc: 'The Finale (Cat Party)', color: '#56CCF2' },
     { id: 8, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Level 8', desc: 'Pac-Man 2D (Bonus)', color: '#FFFF00' },
-    { id: 9, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Level 9', desc: 'Tetris Challenge', color: '#9B59B6' },
-    { id: 10, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Level 10', desc: 'Frogger Beer', color: '#27AE60' },
-    { id: 11, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Level 11', desc: 'Morena Pacman', color: '#8B4513' },
+    { id: 9, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Level 9', desc: 'Morena Pacman', color: '#8B4513' },
   ],
   es: [
     { id: 0, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 0', desc: 'La Casa del Gato (Tutorial)', color: '#F3E9C6' },
@@ -49,9 +47,7 @@ const LEVEL_DATA_TRANSLATIONS = {
     { id: 6, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Nivel 6', desc: 'La Tropical (Guajira)', color: '#2ECC71' },
     { id: 7, image: '/assets/drive-download-20260109T123100Z-1-001/BUCK.png', name: 'Nivel 7', desc: 'El Final (Fiesta del Gato)', color: '#56CCF2' },
     { id: 8, image: '/assets/drive-download-20260109T123100Z-1-001/COOL CAT.png', name: 'Nivel 8', desc: 'Pac-Man 2D (Bonus)', color: '#FFFF00' },
-    { id: 9, image: '/assets/drive-download-20260109T123100Z-1-001/GUAJIRA.png', name: 'Nivel 9', desc: 'Tetris Challenge', color: '#9B59B6' },
-    { id: 10, image: '/assets/drive-download-20260109T123100Z-1-001/SIFRINA.png', name: 'Nivel 10', desc: 'Frogger Beer', color: '#27AE60' },
-    { id: 11, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Nivel 11', desc: 'Morena Pacman', color: '#8B4513' },
+    { id: 9, image: '/assets/drive-download-20260109T123100Z-1-001/MEDUSA.png', name: 'Nivel 9', desc: 'Morena Pacman', color: '#8B4513' },
   ]
 };
 
@@ -224,29 +220,31 @@ function LevelSelector({ onSelectLevel, userId, language }) {
         <Ranking
           onClose={() => setShowRanking(false)}
           userId={userId}
+          language={language}
         />
       )}
     </div>
   );
 }
 
-function Game({ level, onBack, onNextLevel, onLevelComplete, userId, language }) {
+function Game({ level, onBack, onNextLevel, onLevelComplete, onGoToEasterEgg, userId, language }) {
   const uiText = getUIText(language);
   // Mapping with off-by-one: Nivel 0 (selector) = Level1.jsx, Nivel 1 = Level2.jsx, etc.
-  if (level === 0) return <Level1 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
-  if (level === 1) return <Level2 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 0) return <Level1 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
+  if (level === 1) return <Level2 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
 
-  if (level === 2) return <Level3 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
-  if (level === 2.5) return <Level3_5 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
-  if (level === 3) return <Level4 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
-  if (level === 4) return <Level5 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
-  if (level === 5) return <Level6 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
-  if (level === 6) return <Level7 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
-  if (level === 7) return <Level8 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
-  if (level === 8) return <PacmanLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
-  if (level === 9) return <TetrisLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
-  if (level === 10) return <FroggerLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
-  if (level === 11) return <WoodLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} />;
+  if (level === 2) return <Level3 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
+  if (level === 2.5) return <Level3_5 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
+  if (level === 3) return <Level4 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
+  if (level === 4) return <Level5 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
+  if (level === 5) return <Level6 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
+  if (level === 6) return <Level7 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
+  if (level === 7) return <Level8 onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
+  if (level === 8) return <PacmanLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} onGoToEasterEgg={() => onGoToEasterEgg('tetris')} userId={userId} language={language} />;
+  if (level === 9) return <WoodLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} onGoToEasterEgg={() => onGoToEasterEgg('frogger')} userId={userId} language={language} />;
+  // Easter eggs (no aparecen en el menú)
+  if (level === 'tetris') return <TetrisLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
+  if (level === 'frogger') return <FroggerLevel onBack={onBack} onNextLevel={onNextLevel} onLevelComplete={onLevelComplete} userId={userId} language={language} />;
 
   return (
     <div className="app-container">
@@ -336,6 +334,11 @@ function App() {
     console.log('handleBack called');
     setSelectedLevel(null);
     setRefreshKey(k => k + 1); // Force update to refresh unlocked levels in selector
+  };
+
+  const handleGoToEasterEgg = (easterEggId) => {
+    console.log('handleGoToEasterEgg called:', easterEggId);
+    setSelectedLevel(easterEggId);
   };
 
   const handleIntroFinish = () => {
@@ -432,6 +435,7 @@ function App() {
     onBack={handleBack}
     onNextLevel={handleNextLevel}
     onLevelComplete={handleLevelComplete}
+    onGoToEasterEgg={handleGoToEasterEgg}
     userId={userId}
     language={currentLanguage}
   />;

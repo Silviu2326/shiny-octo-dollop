@@ -5,43 +5,111 @@
     justify-content: flex-start;
     height: 100vh;
     height: 100dvh;
-    background: radial-gradient(circle at center, #2c3e50 0%, #1a252f 100%);
+    background:
+        radial-gradient(ellipse at top, #1a1a2e 0%, transparent 50%),
+        radial-gradient(ellipse at bottom, #16213e 0%, transparent 50%),
+        linear-gradient(180deg, #0f0f23 0%, #1a1a2e 50%, #0f0f23 100%);
     color: #fff;
     font-family: 'Press Start 2P', cursive, sans-serif;
     overflow: hidden;
     position: relative;
 }
 
+.frogger-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 48, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+}
+
 .frogger-header {
     margin: 15px 0;
     text-align: center;
     z-index: 10;
-    text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
-    background: rgba(0, 0, 0, 0.3);
-    padding: 10px 20px;
-    border-radius: 20px;
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, rgba(255, 183, 77, 0.15) 0%, rgba(255, 111, 0, 0.1) 100%);
+    padding: 12px 28px;
+    border-radius: 25px;
+    backdrop-filter: blur(12px);
+    border: 2px solid rgba(255, 183, 77, 0.3);
+    box-shadow:
+        0 8px 32px rgba(255, 152, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    animation: headerGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes headerGlow {
+    0% {
+        box-shadow:
+            0 8px 32px rgba(255, 152, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    100% {
+        box-shadow:
+            0 8px 40px rgba(255, 152, 0, 0.35),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
 }
 
 .frogger-header h2 {
-    color: #f1c40f;
-    font-size: 20px;
-    margin-bottom: 5px;
+    background: linear-gradient(135deg, #ffd54f 0%, #ffab00 50%, #ff6f00 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-size: 22px;
+    margin-bottom: 8px;
+    letter-spacing: 3px;
+    text-shadow: none;
+    filter: drop-shadow(0 2px 4px rgba(255, 152, 0, 0.5));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.frogger-header h2 svg {
+    color: #ffd54f;
+    filter: drop-shadow(0 0 8px rgba(255, 183, 77, 0.6));
+    animation: beerWiggle 2s ease-in-out infinite;
+}
+
+.frogger-header h2 svg:last-child {
+    animation-delay: 0.3s;
+}
+
+@keyframes beerWiggle {
+    0%, 100% {
+        transform: rotate(-5deg);
+    }
+    50% {
+        transform: rotate(5deg);
+    }
 }
 
 .frogger-game-area {
     position: relative;
     width: 95%;
     max-width: 500px;
-    /* Constrain width for better playability */
     height: 65vh;
-    /* Taller play area */
-    background-color: #000;
-    border: 4px solid #34495e;
-    border-radius: 8px;
+    background: linear-gradient(180deg, #0a0a15 0%, #0d0d1a 100%);
+    border: 3px solid transparent;
+    border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.1),
+        0 20px 60px rgba(0, 0, 0, 0.6),
+        0 0 100px rgba(41, 128, 185, 0.15),
+        inset 0 0 60px rgba(0, 0, 0, 0.5);
+    background-image:
+        linear-gradient(135deg, rgba(41, 128, 185, 0.05) 0%, transparent 50%),
+        linear-gradient(315deg, rgba(46, 204, 113, 0.05) 0%, transparent 50%);
+    z-index: 1;
 }
 
 /* --- Environment Styling --- */
@@ -50,23 +118,63 @@
 .river-zone {
     position: absolute;
     top: 9.09%;
-    /* Row 1 starts approx here (1/11) */
     height: 36.36%;
-    /* 4 Rows */
     width: 100%;
-    background: linear-gradient(180deg, #2980b9 0%, #3498db 50%, #2980b9 100%);
-    background-size: 100% 20px;
-    animation: flowWater 2s linear infinite;
-    opacity: 0.8;
+    background:
+        linear-gradient(180deg,
+            rgba(20, 80, 130, 0.95) 0%,
+            rgba(41, 128, 185, 0.9) 25%,
+            rgba(52, 152, 219, 0.85) 50%,
+            rgba(41, 128, 185, 0.9) 75%,
+            rgba(20, 80, 130, 0.95) 100%);
+    overflow: hidden;
+}
+
+.river-zone::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 300%;
+    height: 100%;
+    background:
+        repeating-linear-gradient(90deg,
+            transparent 0px,
+            rgba(255, 255, 255, 0.08) 2px,
+            transparent 4px,
+            transparent 40px);
+    animation: flowWater 3s linear infinite;
+}
+
+.river-zone::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        radial-gradient(ellipse 80px 20px at 20% 30%, rgba(255, 255, 255, 0.15) 0%, transparent 100%),
+        radial-gradient(ellipse 60px 15px at 60% 70%, rgba(255, 255, 255, 0.1) 0%, transparent 100%),
+        radial-gradient(ellipse 100px 25px at 80% 40%, rgba(255, 255, 255, 0.12) 0%, transparent 100%);
+    animation: shimmer 4s ease-in-out infinite;
 }
 
 @keyframes flowWater {
     0% {
-        background-position: 0 0;
+        transform: translateX(0);
     }
-
     100% {
-        background-position: 20px 20px;
+        transform: translateX(33.33%);
+    }
+}
+
+@keyframes shimmer {
+    0%, 100% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 1;
     }
 }
 
@@ -74,17 +182,46 @@
 .road-zone {
     position: absolute;
     top: 54.54%;
-    /* Row 6 starts approx here */
     height: 36.36%;
-    /* 4 Rows */
     width: 100%;
-    background-color: #2c3e50;
-    background-image:
-        linear-gradient(#34495e 2px, transparent 2px),
-        linear-gradient(90deg, #34495e 2px, transparent 2px);
-    background-size: 50px 50px;
-    border-top: 4px dashed #95a5a6;
-    border-bottom: 4px dashed #95a5a6;
+    background:
+        linear-gradient(180deg,
+            #1a1a2e 0%,
+            #252540 50%,
+            #1a1a2e 100%);
+    overflow: hidden;
+}
+
+.road-zone::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        repeating-linear-gradient(90deg,
+            transparent 0px,
+            transparent 45%,
+            rgba(255, 200, 0, 0.6) 47%,
+            rgba(255, 200, 0, 0.6) 53%,
+            transparent 55%,
+            transparent 100%);
+    background-size: 100% 25%;
+}
+
+.road-zone::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-top: 4px solid rgba(255, 255, 255, 0.2);
+    border-bottom: 4px solid rgba(255, 255, 255, 0.2);
+    box-shadow:
+        inset 0 8px 20px rgba(0, 0, 0, 0.4),
+        inset 0 -8px 20px rgba(0, 0, 0, 0.4);
 }
 
 /* Safe Zones (Start, Middle, End) */
@@ -92,90 +229,291 @@
     position: absolute;
     width: 100%;
     height: 9.09%;
-    /* 1 Row height */
-    background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h20v20H0z' fill='%2395a5a6' fill-opacity='0.4'/%3E%3Cpath d='M0 0h10v10H0zM10 10h10v10H10z' fill='%237f8c8d' fill-opacity='0.4'/%3E%3C/svg%3E");
+    background:
+        repeating-linear-gradient(45deg,
+            rgba(100, 100, 120, 0.3) 0px,
+            rgba(100, 100, 120, 0.3) 10px,
+            rgba(80, 80, 100, 0.3) 10px,
+            rgba(80, 80, 100, 0.3) 20px);
 }
 
 .zone-start {
     bottom: 0;
-    border-top: 4px solid #7f8c8d;
+    background:
+        linear-gradient(180deg,
+            rgba(46, 204, 113, 0.4) 0%,
+            rgba(39, 174, 96, 0.3) 50%,
+            rgba(46, 204, 113, 0.4) 100%);
+    border-top: 4px solid rgba(46, 204, 113, 0.7);
+    box-shadow:
+        inset 0 0 30px rgba(46, 204, 113, 0.3),
+        0 -5px 20px rgba(46, 204, 113, 0.2);
+}
+
+.zone-start::before {
+    content: 'INICIO';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 3px;
+    font-weight: bold;
 }
 
 .zone-middle {
     top: 45.45%;
-    background-color: #8e44ad;
-    border-top: 4px solid #fff;
-    border-bottom: 4px solid #fff;
+    background:
+        linear-gradient(180deg,
+            rgba(155, 89, 182, 0.7) 0%,
+            rgba(142, 68, 173, 0.6) 50%,
+            rgba(155, 89, 182, 0.7) 100%);
+    border-top: 4px solid rgba(255, 255, 255, 0.4);
+    border-bottom: 4px solid rgba(255, 255, 255, 0.4);
+    box-shadow:
+        inset 0 0 40px rgba(155, 89, 182, 0.5),
+        0 0 25px rgba(155, 89, 182, 0.4);
+    z-index: 5;
+}
+
+.zone-middle::before {
+    content: 'ZONA SEGURA';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 2px;
+    font-weight: bold;
+    white-space: nowrap;
 }
 
 .zone-goal {
     top: 0;
-    background: linear-gradient(90deg, #27ae60 0%, #2ecc71 50%, #27ae60 100%);
-    border-bottom: 4px solid #ecf0f1;
+    background:
+        linear-gradient(180deg,
+            rgba(255, 215, 0, 0.9) 0%,
+            rgba(255, 183, 77, 0.85) 30%,
+            rgba(255, 152, 0, 0.8) 70%,
+            rgba(230, 126, 34, 0.85) 100%);
+    border-bottom: 4px solid rgba(255, 255, 255, 0.5);
     display: flex;
     align-items: center;
     justify-content: space-around;
+    box-shadow:
+        inset 0 -10px 30px rgba(0, 0, 0, 0.3),
+        0 8px 30px rgba(255, 183, 77, 0.5);
+    animation: goalPulse 2s ease-in-out infinite;
+    z-index: 5;
 }
 
-/* Goal visual markers */
+@keyframes goalPulse {
+    0%, 100% {
+        box-shadow:
+            inset 0 -10px 30px rgba(0, 0, 0, 0.3),
+            0 8px 30px rgba(255, 183, 77, 0.5);
+    }
+    50% {
+        box-shadow:
+            inset 0 -10px 30px rgba(0, 0, 0, 0.3),
+            0 8px 45px rgba(255, 215, 0, 0.7);
+    }
+}
+
+/* Goal visual markers - Jarras de cerveza */
 .goal-slot {
-    width: 10%;
-    height: 80%;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 10px 10px 0 0;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    width: 14%;
+    height: 75%;
+    background:
+        linear-gradient(180deg,
+            rgba(255, 220, 100, 0.3) 0%,
+            rgba(255, 200, 50, 0.5) 30%,
+            rgba(200, 150, 50, 0.4) 100%);
+    border-radius: 5px 5px 8px 8px;
+    border: 3px solid rgba(139, 69, 19, 0.6);
+    box-shadow:
+        inset 0 -10px 20px rgba(255, 255, 255, 0.2),
+        inset 0 5px 15px rgba(255, 255, 255, 0.3),
+        0 4px 12px rgba(0, 0, 0, 0.4);
+    position: relative;
+}
+
+.goal-slot::before {
+    content: '';
+    position: absolute;
+    top: 5%;
+    left: 10%;
+    width: 80%;
+    height: 25%;
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.9) 0%,
+        rgba(255, 255, 255, 0.6) 50%,
+        rgba(255, 250, 220, 0.3) 100%);
+    border-radius: 50% 50% 0 0;
+}
+
+.goal-slot::after {
+    content: '';
+    position: absolute;
+    right: -25%;
+    top: 20%;
+    width: 25%;
+    height: 50%;
+    background: rgba(139, 69, 19, 0.5);
+    border-radius: 0 10px 10px 0;
+    border: 2px solid rgba(139, 69, 19, 0.6);
+    border-left: none;
 }
 
 /* --- Sprites --- */
 .sprite {
     position: absolute;
-    transition: transform 0.05s linear;
-    /* Smooth interpolation handled by JS mostly, this is fallback */
     display: flex;
     align-items: center;
     justify-content: center;
-    will-change: left, top;
+    will-change: left, top, transform;
+    z-index: 2;
 }
 
 .player {
     z-index: 100;
-    transition: left 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275), top 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    /* Hop effect */
+    animation: playerBounce 0.5s ease-in-out infinite;
 }
 
-/* Player "Hop" animation effect can be added via class toggle in JS, but CSS transition is okay for now */
-
-.entity-car {
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    filter: drop-shadow(2px 4px 6px rgba(0, 0, 0, 0.5));
+@keyframes playerBounce {
+    0%, 100% {
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        transform: translateY(-2px) scale(1.02);
+    }
 }
 
+/* Barril de cerveza - obstaculos de la carretera */
+.entity-barrel {
+    border-radius: 12px;
+    background:
+        linear-gradient(180deg,
+            #ff6b6b 0%,
+            #ee5a5a 20%,
+            #dc3545 50%,
+            #c82333 80%,
+            #a71d2a 100%);
+    border: 3px solid #721c24;
+    box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.5),
+        inset 0 2px 8px rgba(255, 255, 255, 0.3),
+        inset 0 -4px 8px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Etiqueta de peligro */
+.entity-barrel::before {
+    content: '☠';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.8em;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    z-index: 2;
+}
+
+/* Brillo superior */
+.entity-barrel::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.4) 0%,
+        rgba(255, 255, 255, 0.1) 50%,
+        transparent 100%);
+    border-radius: 10px 10px 50% 50%;
+}
+
+/* Troncos flotantes - obstaculos del rio (el jugador puede subirse) */
 .entity-log {
-    border-radius: 15px;
-    box-shadow: inset 0 -5px 10px rgba(0, 0, 0, 0.3);
-    filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.3));
-    opacity: 0.95;
+    border-radius: 50px;
+    background:
+        linear-gradient(180deg,
+            #a0522d 0%,
+            #8b4513 15%,
+            #654321 40%,
+            #4a3520 60%,
+            #654321 85%,
+            #8b4513 100%);
+    border: 3px solid #3e2723;
+    box-shadow:
+        0 4px 15px rgba(0, 0, 0, 0.5),
+        inset 0 4px 10px rgba(160, 120, 80, 0.4),
+        inset 0 -4px 10px rgba(0, 0, 0, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Textura de corteza del tronco - lineas horizontales */
+.entity-log::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        repeating-linear-gradient(90deg,
+            transparent 0px,
+            transparent 15px,
+            rgba(62, 39, 35, 0.25) 15px,
+            rgba(62, 39, 35, 0.25) 18px);
+    border-radius: 50px;
+}
+
+/* Anillos del tronco en los extremos */
+.entity-log::after {
+    content: '';
+    position: absolute;
+    left: 2%;
+    top: 10%;
+    width: 8%;
+    height: 80%;
+    background:
+        radial-gradient(ellipse,
+            #2d1f14 20%,
+            #4a3525 50%,
+            #654321 80%,
+            transparent 100%);
+    border-radius: 50%;
+    box-shadow: calc(1100%) 0 0 0 #2d1f14;
 }
 
 /* --- Controls --- */
 .frogger-controls {
     margin-top: auto;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(2, 1fr);
-    gap: 10px;
+    gap: 12px;
     width: 100%;
-    max-width: 300px;
-    padding: 0 20px;
+    max-width: 280px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 30px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 1;
 }
 
 .control-btn {
-    width: 65px;
-    height: 65px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    width: 70px;
+    height: 70px;
     border-radius: 50%;
     display: flex;
     justify-content: center;
@@ -186,43 +524,95 @@
     user-select: none;
     touch-action: none;
     -webkit-tap-highlight-color: transparent;
-    backdrop-filter: blur(8px);
     margin: 0 auto;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    transition: transform 0.1s, background 0.1s;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease;
+}
+
+.control-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 50%);
+    border-radius: 50%;
+    pointer-events: none;
 }
 
 .control-btn:active {
-    background: rgba(255, 255, 255, 0.3);
-    transform: scale(0.9);
+    transform: scale(0.9) translateY(2px);
 }
 
 .control-btn svg {
-    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+    z-index: 1;
 }
 
 .btn-up {
     grid-column: 2;
     grid-row: 1;
-    background: linear-gradient(135deg, rgba(46, 204, 113, 0.3), rgba(39, 174, 96, 0.3));
+    background: linear-gradient(180deg, #2ecc71 0%, #27ae60 100%);
+    border: 2px solid rgba(46, 204, 113, 0.5);
+    box-shadow:
+        0 6px 20px rgba(46, 204, 113, 0.4),
+        inset 0 -3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn-up:active {
+    box-shadow:
+        0 2px 10px rgba(46, 204, 113, 0.6),
+        inset 0 3px 10px rgba(0, 0, 0, 0.3);
 }
 
 .btn-down {
     grid-column: 2;
     grid-row: 2;
-    background: linear-gradient(135deg, rgba(231, 76, 60, 0.3), rgba(192, 57, 43, 0.3));
+    background: linear-gradient(180deg, #e74c3c 0%, #c0392b 100%);
+    border: 2px solid rgba(231, 76, 60, 0.5);
+    box-shadow:
+        0 6px 20px rgba(231, 76, 60, 0.4),
+        inset 0 -3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn-down:active {
+    box-shadow:
+        0 2px 10px rgba(231, 76, 60, 0.6),
+        inset 0 3px 10px rgba(0, 0, 0, 0.3);
 }
 
 .btn-left {
     grid-column: 1;
     grid-row: 2;
-    background: linear-gradient(135deg, rgba(52, 152, 219, 0.3), rgba(41, 128, 185, 0.3));
+    background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+    border: 2px solid rgba(52, 152, 219, 0.5);
+    box-shadow:
+        0 6px 20px rgba(52, 152, 219, 0.4),
+        inset 0 -3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn-left:active {
+    box-shadow:
+        0 2px 10px rgba(52, 152, 219, 0.6),
+        inset 0 3px 10px rgba(0, 0, 0, 0.3);
 }
 
 .btn-right {
     grid-column: 3;
     grid-row: 2;
-    background: linear-gradient(135deg, rgba(52, 152, 219, 0.3), rgba(41, 128, 185, 0.3));
+    background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+    border: 2px solid rgba(52, 152, 219, 0.5);
+    box-shadow:
+        0 6px 20px rgba(52, 152, 219, 0.4),
+        inset 0 -3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn-right:active {
+    box-shadow:
+        0 2px 10px rgba(52, 152, 219, 0.6),
+        inset 0 3px 10px rgba(0, 0, 0, 0.3);
 }
 
 .frogger-stats {
@@ -234,56 +624,233 @@
 
 .lives-container {
     display: flex;
-    gap: 4px;
-    background: rgba(0, 0, 0, 0.3);
-    padding: 5px 10px;
-    border-radius: 15px;
+    gap: 6px;
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.2) 0%, rgba(192, 57, 43, 0.15) 100%);
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.2);
+}
+
+.lives-container svg {
+    filter: drop-shadow(0 0 4px rgba(255, 0, 0, 0.5));
+    animation: heartPulse 1s ease-in-out infinite;
+}
+
+.lives-container svg:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.lives-container svg:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes heartPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.15);
+    }
+}
+
+.frogger-stats > span {
+    background: linear-gradient(135deg, rgba(241, 196, 15, 0.2) 0%, rgba(243, 156, 18, 0.15) 100%);
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(241, 196, 15, 0.3);
+    color: #ffd54f;
+    font-weight: bold;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(241, 196, 15, 0.2);
 }
 
 .score-container {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 5px 10px;
-    border-radius: 15px;
+    background: linear-gradient(135deg, rgba(241, 196, 15, 0.2) 0%, rgba(243, 156, 18, 0.15) 100%);
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(241, 196, 15, 0.3);
     font-weight: bold;
-    color: #f1c40f;
+    color: #ffd54f;
+    box-shadow: 0 4px 15px rgba(241, 196, 15, 0.2);
 }
 
 /* Modal Polish */
 .modal-overlay {
-    background: rgba(0, 0, 0, 0.7);
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        radial-gradient(ellipse at center, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.95) 100%);
     backdrop-filter: blur(10px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 .modal-content {
-    background: rgba(44, 62, 80, 0.9);
-    padding: 30px;
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    background:
+        linear-gradient(135deg, rgba(44, 62, 80, 0.95) 0%, rgba(26, 37, 47, 0.95) 100%);
+    padding: 40px 50px;
+    border-radius: 25px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+        0 25px 80px rgba(0, 0, 0, 0.6),
+        0 0 100px rgba(52, 152, 219, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
     text-align: center;
-    max-width: 80%;
+    max-width: 85%;
+    animation: modalSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.modal-content h2 {
+    font-size: 24px;
+    margin-bottom: 15px;
+    background: linear-gradient(135deg, #ffd54f 0%, #ff6f00 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+}
+
+.modal-content p {
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 25px;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.modal-content svg {
+    filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
+    margin-bottom: 15px;
+    animation: trophyBounce 1s ease-in-out infinite;
+}
+
+@keyframes trophyBounce {
+    0%, 100% {
+        transform: translateY(0) rotate(-5deg);
+    }
+    50% {
+        transform: translateY(-10px) rotate(5deg);
+    }
+}
+
+.modal-content .restart-btn,
+.modal-content .back-btn {
+    padding: 14px 35px;
+    font-size: 12px;
+    font-family: inherit;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    margin: 8px;
+    transition: all 0.2s ease;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.modal-content .restart-btn {
+    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+    color: white;
+    box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+}
+
+.modal-content .restart-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(46, 204, 113, 0.5);
+}
+
+.modal-content .restart-btn:active {
+    transform: translateY(1px);
+}
+
+.modal-content .back-btn {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.modal-content .back-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
 }
 
 @media (max-width: 600px) {
     .frogger-header {
-        margin: 5px 0;
-        padding: 5px 15px;
+        margin: 8px 0;
+        padding: 8px 18px;
     }
 
     .frogger-header h2 {
         font-size: 16px;
-        margin: 0;
+        margin-bottom: 6px;
+        letter-spacing: 2px;
     }
 
-    .score-container,
+    .frogger-stats {
+        gap: 10px;
+    }
+
+    .frogger-stats > span,
     .lives-container {
         font-size: 10px;
-        padding: 4px 8px;
+        padding: 6px 10px;
     }
 
     .frogger-game-area {
-        height: 60vh;
-        width: 100%;
-        border-width: 2px;
+        height: 58vh;
+        width: 98%;
+        border-radius: 12px;
+    }
+
+    .frogger-controls {
+        max-width: 250px;
+        gap: 10px;
+        padding: 12px;
+        margin-bottom: 15px;
+    }
+
+    .control-btn {
+        width: 60px;
+        height: 60px;
+    }
+
+    .modal-content {
+        padding: 30px 35px;
+    }
+
+    .modal-content h2 {
+        font-size: 20px;
+    }
+
+    .modal-content .restart-btn,
+    .modal-content .back-btn {
+        padding: 12px 28px;
+        font-size: 11px;
     }
 }

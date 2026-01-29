@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './TetrisLevel.css';
 import { Trophy, RotateCw, ArrowLeft, ArrowRight, ArrowDown } from 'lucide-react';
+import { getGameUI } from '../utils/translations';
 
 // Tetromino definitions
 const TETROMINOS = {
@@ -106,7 +107,8 @@ const checkCollision = (player, stage, { x: moveX, y: moveY }) => {
     return false;
 };
 
-const TetrisLevel = ({ onBack, onNextLevel, onLevelComplete, userId }) => {
+const TetrisLevel = ({ onBack, onNextLevel, onLevelComplete, userId, language = 'en' }) => {
+    const gameUI = getGameUI(language);
     const [stage, setStage] = useState(createStage());
     const [dropTime, setDropTime] = useState(null);
     const [gameOver, setGameOver] = useState(false);
@@ -304,8 +306,8 @@ const TetrisLevel = ({ onBack, onNextLevel, onLevelComplete, userId }) => {
     return (
         <div className="tetris-container" role="button" tabIndex="0" onKeyDown={move} onKeyUp={keyUp}>
             <div className="tetris-header">
-                <h2>TETRIS CHALLENGE</h2>
-                <p>Consigue 1000 puntos para ganar</p>
+                <h2>{gameUI.tetrisChallenge}</h2>
+                <p>{gameUI.get1000Points}</p>
             </div>
 
             <div className="tetris-game-area">
@@ -319,26 +321,26 @@ const TetrisLevel = ({ onBack, onNextLevel, onLevelComplete, userId }) => {
 
                 <div className="tetris-stats">
                     <div className="stat-box">
-                        <div className="stat-label">Puntuación</div>
+                        <div className="stat-label">{gameUI.score}</div>
                         <div className="stat-value">{score}</div>
                     </div>
                     <div className="stat-box">
-                        <div className="stat-label">Líneas</div>
+                        <div className="stat-label">{gameUI.lines}</div>
                         <div className="stat-value">{rows}</div>
                     </div>
                     <div className="stat-box">
-                        <div className="stat-label">Nivel</div>
+                        <div className="stat-label">{gameUI.level}</div>
                         <div className="stat-value">{level}</div>
                     </div>
                     <div className="stat-box">
-                        <div className="stat-label">Siguiente</div>
+                        <div className="stat-label">{gameUI.next}</div>
                         <div className="next-piece-preview">
                             {createPreview(nextPiece)}
                         </div>
                     </div>
 
                     <button className="back-btn" onClick={onBack} style={{ marginTop: 'auto', width: '100%', fontSize: '14px' }}>
-                        Salir
+                        {gameUI.exit}
                     </button>
                 </div>
             </div>
@@ -352,11 +354,11 @@ const TetrisLevel = ({ onBack, onNextLevel, onLevelComplete, userId }) => {
 
             {gameOver && (
                 <div className="game-over-modal">
-                    <h1 className="game-over-title">GAME OVER</h1>
-                    <p className="game-over-score">Puntuación final: {score}</p>
+                    <h1 className="game-over-title">{gameUI.gameOver}</h1>
+                    <p className="game-over-score">{gameUI.finalScore}: {score}</p>
                     <div>
-                        <button className="restart-btn" onClick={startGame}>Reintentar</button>
-                        <button className="back-btn" onClick={onBack}>Salir</button>
+                        <button className="restart-btn" onClick={startGame}>{gameUI.tryAgain}</button>
+                        <button className="back-btn" onClick={onBack}>{gameUI.exit}</button>
                     </div>
                 </div>
             )}
@@ -364,9 +366,9 @@ const TetrisLevel = ({ onBack, onNextLevel, onLevelComplete, userId }) => {
             {score >= 1000 && (
                 <div className="game-over-modal" style={{ background: 'rgba(0, 100, 0, 0.9)' }}>
                     <Trophy size={64} color="gold" style={{ marginBottom: 20 }} />
-                    <h1 className="game-over-title" style={{ color: 'gold' }}>¡NIVEL COMPLETADO!</h1>
-                    <p className="game-over-score">¡Has superado los 1000 puntos!</p>
-                    <button className="restart-btn" onClick={() => onNextLevel()}>Siguiente Nivel</button>
+                    <h1 className="game-over-title" style={{ color: 'gold' }}>{gameUI.levelCompleted1000}</h1>
+                    <p className="game-over-score">{gameUI.passed1000Points}</p>
+                    <button className="restart-btn" onClick={() => onNextLevel()}>{gameUI.nextLevel}</button>
                 </div>
             )}
         </div>

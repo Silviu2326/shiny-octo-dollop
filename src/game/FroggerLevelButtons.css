@@ -1,0 +1,112 @@
+/* Modal Buttons - Enhanced */
+.restart-btn,
+.back-btn {
+    display: inline-block;
+    min-width: 160px;
+    padding: 16px 32px;
+    margin: 10px 8px;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 12px;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.restart-btn::before,
+.back-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+    border-radius: 30px 30px 0 0;
+    pointer-events: none;
+}
+
+.restart-btn::after,
+.back-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.4s, height 0.4s;
+}
+
+.restart-btn:active::after,
+.back-btn:active::after {
+    width: 300px;
+    height: 300px;
+}
+
+.restart-btn {
+    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 50%, #1e8449 100%);
+    box-shadow:
+        0 6px 0 #1e8449,
+        0 8px 20px rgba(46, 204, 113, 0.4);
+}
+
+.restart-btn:hover {
+    transform: translateY(-3px);
+    box-shadow:
+        0 9px 0 #1e8449,
+        0 12px 30px rgba(46, 204, 113, 0.5);
+}
+
+.restart-btn:active {
+    transform: translateY(3px);
+    box-shadow:
+        0 2px 0 #1e8449,
+        0 4px 10px rgba(46, 204, 113, 0.4);
+}
+
+.back-btn {
+    background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 50%, #6c3483 100%);
+    box-shadow:
+        0 6px 0 #6c3483,
+        0 8px 20px rgba(155, 89, 182, 0.4);
+}
+
+.back-btn:hover {
+    transform: translateY(-3px);
+    box-shadow:
+        0 9px 0 #6c3483,
+        0 12px 30px rgba(155, 89, 182, 0.5);
+}
+
+.back-btn:active {
+    transform: translateY(3px);
+    box-shadow:
+        0 2px 0 #6c3483,
+        0 4px 10px rgba(155, 89, 182, 0.4);
+}
+
+/* Button container for horizontal layout */
+.modal-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+@media (max-width: 480px) {
+    .restart-btn,
+    .back-btn {
+        min-width: 140px;
+        padding: 14px 24px;
+        font-size: 10px;
+    }
+}
