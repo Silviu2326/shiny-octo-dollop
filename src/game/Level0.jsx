@@ -655,12 +655,14 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete, userId, l
                 )}
 
                 {showVictory && (
-                    <div className="tutorial-modal animate-fade-in">
-                        <div className="tutorial-content glass-panel">
-                            <h2>{gameUI.levelCompleted}</h2>
-                            <p>{language === 'es' ? `Has conseguido ${score} puntos` : `You got ${score} points`}</p>
-                            <p>{language === 'es' ? '¡El siguiente nivel está desbloqueado!' : 'The next level is unlocked!'}</p>
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                    <div className="victory-modal animate-fade-in">
+                        <div className="victory-content glass-panel">
+                            <h2 className="victory-title">🎉 {gameUI.levelCompleted} 🎉</h2>
+                            <p className="victory-subtitle">{language === 'es' ? `Has conseguido ${score} puntos` : `You got ${score} points`}</p>
+                            <div className="victory-stats">
+                                <p>{gameUI.beersCollected}: {beersCollected}/{totalBeers}</p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'center' }}>
                                 <button onClick={() => {
                                     if (onNextLevel) onNextLevel();
                                 }}>{gameUI.nextLevel}</button>
