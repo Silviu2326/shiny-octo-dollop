@@ -1368,34 +1368,99 @@ export default function Level8({ onBack, onNextLevel, onLevelComplete, language 
                 )}
 
                 {showVictoryModal && (
-                    <div className="settings-modal victory-modal">
-                        <div className="settings-content glass-panel victory-content">
-                            <h2>{gameUI.gameCompleted}</h2>
-                            <p className="score-text">{gameUI.allLevelsCompleted}</p>
-                            <p className="score-text" style={{ fontWeight: 'bold', color: '#FFD700' }}>{gameUI.finalScore}: {score}</p>
-                            <p className="unlock-text">{gameUI.thanksForPlaying}</p>
-                            <button className="modal-button cancel-button" onClick={onBack}>
-                                <Home size={20} /> {gameUI.backToMenu}
-                            </button>
+                    <div className="level8-super-victory-modal-wrapper">
+                        <div className="level8-super-victory-content-box glass-panel">
+                            <h2 className="level8-super-victory-title">{gameUI.victory}</h2>
+                            <p className="level8-super-victory-subtitle">{gameUI.levelCompleted}</p>
+
+                            <div style={{ margin: '20px 0' }}>
+                                <StarRating stars={3} />
+                            </div>
+
+                            <div className="level8-super-victory-stats">
+                                <div className="level8-super-victory-stat-row">
+                                    <span>{gameUI.baseScore}:</span>
+                                    <span>{finalScoreStats.score}</span>
+                                </div>
+                                <div className="level8-super-victory-stat-row">
+                                    <span>{gameUI.timeBonus}:</span>
+                                    <span>{finalScoreStats.bonus}</span>
+                                </div>
+                                <div className="level8-super-victory-stat-total">
+                                    {gameUI.totalScore}: {finalScoreStats.total}
+                                </div>
+                            </div>
+
+                            <div className="level8-super-buttons-row">
+                                {onNextLevel && (
+                                    <button className="level8-btn-primary" onClick={onNextLevel}>
+                                        {gameUI.nextLevel}
+                                    </button>
+                                )}
+                                <button className="level8-btn-secondary" onClick={restartLevel}>
+                                    {gameUI.playAgain}
+                                </button>
+                                <button className="level8-btn-secondary" style={{ backgroundColor: '#333' }} onClick={onBack}>
+                                    {gameUI.backToMenu}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
 
                 {showGameOverModal && (
-                    <div className="game-over-modal">
-                        <div className="game-over-content glass-panel">
-                            <h2 className="game-over-title">{gameUI.youLost}</h2>
-                            <p className="game-over-subtitle">{gameUI.outOfLives}</p>
-                            <div className="game-over-stats">
-                                <p>{gameUI.finalScore}: {score}</p>
-                                <p>{gameUI.beersCollected}: {initialCollectibles.length - collectibles.filter(c => !c.collected).length}</p>
+                    <div className="level8-super-loss-modal-wrapper">
+                        <div className="level8-super-loss-content-box glass-panel">
+                            <h2 className="level8-super-loss-title">
+                                {beersCollected / initialCollectibles.length >= 0.7 ? gameUI.goodTry : gameUI.youLost}
+                            </h2>
+                            <p className="level8-super-loss-subtitle">
+                                {beersCollected / initialCollectibles.length >= 0.7 ? gameUI.canAdvance : gameUI.outOfLives}
+                            </p>
+
+                            {beersCollected / initialCollectibles.length >= 0.7 && (
+                                <div style={{ marginBottom: '20px' }}>
+                                    <StarRating stars={beersCollected / initialCollectibles.length >= 0.85 ? 2 : 1} />
+                                </div>
+                            )}
+
+                            <div className="level8-super-loss-stats">
+                                <div className="level8-super-loss-stat-row">
+                                    <span>{gameUI.baseScore}:</span>
+                                    <span>{finalScoreStats.score}</span>
+                                </div>
+                                <div className="level8-super-loss-stat-row">
+                                    <span>{gameUI.timeBonus}:</span>
+                                    <span>{finalScoreStats.bonus}</span>
+                                </div>
+                                <div className="level8-super-loss-stat-row" style={{ color: '#FFD700', fontWeight: 'bold', marginTop: '10px' }}>
+                                    <span>{gameUI.totalScore}:</span>
+                                    <span>{finalScoreStats.total}</span>
+                                </div>
+                                <div className="level8-super-loss-stat-row" style={{ marginTop: '10px' }}>
+                                    <span>{gameUI.beersCollected}:</span>
+                                    <span>{beersCollected}</span>
+                                </div>
+                                {beersCollected / initialCollectibles.length >= 0.7 && (
+                                    <p style={{ color: '#4CAF50', marginTop: '10px', fontWeight: 'bold' }}>{gameUI.minimumCompleted}</p>
+                                )}
                             </div>
-                            <button className="modal-button restart-button" onClick={restartLevel}>
-                                <RotateCcw size={20} /> {gameUI.retry}
-                            </button>
-                            <button className="modal-button cancel-button" onClick={onBack}>
-                                <Home size={20} /> {gameUI.backToMenu}
-                            </button>
+
+                            <div className="level8-super-buttons-row">
+                                {beersCollected / initialCollectibles.length >= 0.7 && onNextLevel ? (
+                                    <button className="level8-loss-btn-primary" style={{ background: 'linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)' }} onClick={onNextLevel}>
+                                        {gameUI.nextLevel}
+                                    </button>
+                                ) : (
+                                    <button className="level8-loss-btn-primary" onClick={restartLevel}>
+                                        {gameUI.tryAgain}
+                                    </button>
+                                )}
+
+                                <button className="level8-btn-secondary" onClick={onBack}>
+                                    {gameUI.backToMenu}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

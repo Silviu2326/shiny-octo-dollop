@@ -1,4 +1,9 @@
-.game-container {
+/* ============================================
+   LEVEL 0 - UNIQUE VICTORY MODAL STYLES
+   These classes have unique names to avoid conflicts
+   ============================================ */
+
+.level0-game-container {
     width: 100vw;
     height: 100vh;
     position: relative;
@@ -7,7 +12,7 @@
     touch-action: none;
 }
 
-.ui-overlay {
+.level0-ui-overlay {
     position: absolute;
     top: 0;
     left: 0;
@@ -16,128 +21,349 @@
     pointer-events: none;
 }
 
-.score-board {
-    position: absolute;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.6);
-    padding: 10px 20px;
-    border-radius: 20px;
-    color: #fff;
-    font-size: 24px;
-    font-weight: bold;
-    border: 2px solid #ff6b35;
+/* ============================================
+   LEVEL 0 UNIQUE VICTORY MODAL - SUPER LAYER
+   This must be above ALL other elements including LevelHeader
+   ============================================ */
+.level0-super-victory-modal-wrapper {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background: rgba(0, 0, 0, 0.99) !important;
+    pointer-events: auto !important;
+    z-index: 999999 !important;
+    animation: level0VictoryFadeIn 0.5s ease-out forwards;
 }
 
-.back-button {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    pointer-events: auto;
-    touch-action: auto;
-    background: #FF0000;
-    border: 2px solid #FFF;
-    font-size: 14px;
-    padding: 10px 20px;
-}
+@keyframes level0VictoryFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
 
-/* Victory Modal Styles */
-.victory-modal {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: rgba(0, 0, 0, 0.95) !important;
-    pointer-events: auto;
-    z-index: 9999;
-}
-
-.victory-content {
-    background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF8C00 100%) !important;
-    box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.4) !important;
-    animation: victoryPulse 2s ease-in-out infinite;
-    max-width: 90vw;
-    padding: 30px;
-    border-radius: 20px;
-    text-align: center;
-}
-
-.victory-title {
-    font-size: 2.5em;
-    color: #2C1810 !important;
-    margin-bottom: 10px;
-    text-shadow: 0 0 30px rgba(76, 175, 80, 0.8);
-    animation: victoryPulse 1.5s ease infinite;
-}
-
-.victory-subtitle {
-    font-size: 1.3em;
-    color: #2C1810 !important;
-    margin-bottom: 20px;
-}
-
-.victory-stats {
-    width: 100%;
-    margin: 20px 0;
-}
-
-.victory-stats p {
-    font-size: 18px;
-    color: #2C1810 !important;
-    margin: 8px 0;
-    font-weight: bold;
-}
-
-@keyframes victoryPulse {
-    0%, 100% {
+    to {
+        opacity: 1;
         transform: scale(1);
-        box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.4);
     }
+}
+
+.level0-super-victory-content-box {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF8C00 100%) !important;
+    box-shadow: 0 0 50px rgba(255, 215, 0, 1), 0 0 100px rgba(255, 165, 0, 0.8), inset 0 0 30px rgba(255, 255, 255, 0.3) !important;
+    animation: level0VictoryPulse 2s ease-in-out infinite;
+    max-width: 90vw;
+    width: 380px;
+    padding: 25px 20px;
+    border-radius: 25px !important;
+    text-align: center;
+    border: 5px solid #FFF8DC !important;
+}
+
+@keyframes level0VictoryPulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 50px rgba(255, 215, 0, 1), 0 0 100px rgba(255, 165, 0, 0.8);
+    }
+
     50% {
-        transform: scale(1.02);
-        box-shadow: 0 0 50px rgba(255, 215, 0, 1), 0 0 80px rgba(255, 215, 0, 0.6);
+        transform: scale(1.03);
+        box-shadow: 0 0 80px rgba(255, 215, 0, 1), 0 0 150px rgba(255, 165, 0, 1);
     }
 }
 
-/* Tutorial Modal (mantener existente) */
-.tutorial-modal {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: rgba(0, 0, 0, 0.7);
-    pointer-events: auto;
-    z-index: 9999;
+.level0-super-victory-main-title {
+    font-size: 2.2em !important;
+    color: #2C1810 !important;
+    font-weight: 900 !important;
+    margin-bottom: 10px !important;
+    text-shadow: 2px 2px 0px rgba(255, 255, 255, 0.5) !important;
+    animation: level0TitleBounce 1s ease infinite;
+    display: block;
+    line-height: 1.1;
 }
 
-.tutorial-content {
+@keyframes level0TitleBounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+.level0-super-victory-sub-message {
+    font-size: 1.1em !important;
+    color: #2C1810 !important;
+    margin-bottom: 15px !important;
+    font-weight: bold !important;
+}
+
+.level0-super-victory-stats-container {
+    width: 100%;
+    margin: 25px 0;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 20px;
+    border-radius: 15px;
+}
+
+.level0-super-victory-stat-item {
+    font-size: 1.1em !important;
+    color: #2C1810 !important;
+    margin: 8px 0 !important;
+    font-weight: 700 !important;
+    display: block;
+}
+
+.level0-super-victory-button-row {
+    display: flex !important;
+    gap: 15px !important;
+    margin-top: 30px !important;
+    justify-content: center !important;
+    flex-wrap: wrap;
+}
+
+.level0-super-victory-button {
+    padding: 15px 30px !important;
+    font-size: 1.2em !important;
+    font-weight: bold !important;
+    border: none !important;
+    border-radius: 25px !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    min-width: 140px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.level0-super-victory-button-primary {
+    background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%) !important;
+    color: white !important;
+    box-shadow: 0 5px 20px rgba(76, 175, 80, 0.5) !important;
+}
+
+.level0-super-victory-button-primary:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 30px rgba(76, 175, 80, 0.7) !important;
+}
+
+.level0-super-victory-button-secondary {
+    background: linear-gradient(135deg, #666 0%, #333 100%) !important;
+    color: white !important;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+.level0-super-victory-button-secondary:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ============================================
+   LEVEL 0 TUTORIAL MODAL (mantener)
+   ============================================ */
+.level0-tutorial-modal-wrapper {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background: rgba(0, 0, 0, 0.95) !important;
+    pointer-events: auto !important;
+    z-index: 999998 !important;
+}
+
+.level0-tutorial-content-box {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    padding: 40px;
+    border-radius: 20px !important;
     text-align: center;
     max-width: 400px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
-.tutorial-content h2 {
-    color: var(--color-text-main);
+.level0-tutorial-content-box h2 {
+    color: white !important;
     margin-bottom: 20px;
+    font-size: 2em;
 }
 
-.tutorial-content p {
-    color: var(--color-text-muted);
-    font-size: 18px;
+.level0-tutorial-content-box p {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 1.1em;
     margin-bottom: 10px;
 }
 
-.tutorial-content button {
-    margin-top: 20px;
-    background: var(--color-primary);
+.level0-tutorial-content-box button {
+    margin-top: 25px;
+    background: #fff !important;
+    color: #764ba2 !important;
+    padding: 12px 40px;
+    border: none;
+    border-radius: 25px;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* ============================================
+   LEVEL 0 BACK BUTTON
+   ============================================ */
+.level0-back-button-style {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    z-index: 1001 !important;
+    background: #FF0000 !important;
+    border: 3px solid #FFF !important;
+    font-size: 14px !important;
+    padding: 12px 24px !important;
+    border-radius: 10px !important;
+    color: white !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+}
+
+/* ============================================
+   LEVEL 0 TEST WIN BUTTON
+   ============================================ */
+.level0-test-win-button {
+    position: fixed !important;
+    bottom: 20px !important;
+    left: 20px !important;
+    z-index: 1001 !important;
+    background: #9C27B0 !important;
+    border: 3px solid #FFF !important;
+    font-size: 14px !important;
+    padding: 12px 24px !important;
+    border-radius: 10px !important;
+    color: white !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 15px rgba(156, 39, 176, 0.5) !important;
+}
+
+.level0-test-win-button:hover {
+    background: #AB47BC !important;
+    transform: scale(1.05) !important;
+}
+
+/* ============================================
+   LEVEL 0 UNIQUE LOSS MODAL - SUPER LAYER
+   ============================================ */
+.level0-super-loss-modal-wrapper {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background: rgba(0, 0, 0, 0.95) !important;
+    pointer-events: auto !important;
+    z-index: 999999 !important;
+    animation: level0VictoryFadeIn 0.5s ease-out forwards;
+}
+
+.level0-super-loss-content-box {
+    background: linear-gradient(135deg, #2C1810 0%, #000000 100%) !important;
+    box-shadow: 0 0 50px rgba(255, 0, 0, 0.5), 0 0 100px rgba(100, 0, 0, 0.8), inset 0 0 30px rgba(50, 0, 0, 0.5) !important;
+    max-width: 90vw;
+    width: 380px;
+    padding: 25px 20px;
+    border-radius: 25px !important;
+    text-align: center;
+    border: 3px solid #D32F2F !important;
+}
+
+.level0-super-loss-main-title {
+    font-size: 2.2em !important;
+    color: #FF5252 !important;
+    font-weight: 900 !important;
+    margin-bottom: 10px !important;
+    text-shadow: 0 0 20px rgba(255, 0, 0, 0.6) !important;
+    display: block;
+    line-height: 1.1;
+    animation: level0TitleBounce 1s ease infinite;
+    /* Reuse bounce */
+}
+
+.level0-super-loss-sub-message {
+    font-size: 1.1em !important;
+    color: #AAAAAA !important;
+    margin-bottom: 20px !important;
+    font-style: italic !important;
+}
+
+.level0-super-loss-stats-container {
     width: 100%;
-    touch-action: auto;
+    margin: 25px 0;
+    background: rgba(60, 0, 0, 0.4);
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid rgba(255, 0, 0, 0.3);
+}
+
+.level0-super-loss-stat-item {
+    font-size: 1.1em !important;
+    color: #E0E0E0 !important;
+    margin: 8px 0 !important;
+    font-weight: 600 !important;
+    display: block;
+}
+
+.level0-super-loss-button-row {
+    display: flex !important;
+    gap: 15px !important;
+    margin-top: 30px !important;
+    justify-content: center !important;
+    flex-wrap: wrap;
+}
+
+.level0-super-loss-button {
+    padding: 15px 30px !important;
+    font-size: 1.1em !important;
+    font-weight: bold !important;
+    border: none !important;
+    border-radius: 25px !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    min-width: 140px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.level0-super-loss-button-primary {
+    background: linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%) !important;
+    color: white !important;
+    box-shadow: 0 5px 20px rgba(211, 47, 47, 0.4) !important;
+}
+
+.level0-super-loss-button-primary:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 30px rgba(211, 47, 47, 0.6) !important;
+}
+
+.level0-super-loss-button-secondary {
+    background: linear-gradient(135deg, #444 0%, #222 100%) !important;
+    color: white !important;
+    border: 1px solid #666 !important;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+.level0-super-loss-button-secondary:hover {
+    background: #555 !important;
+    transform: translateY(-3px) !important;
 }

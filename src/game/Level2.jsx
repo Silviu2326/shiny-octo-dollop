@@ -1207,76 +1207,100 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete, userId, l
         )}
 
         {showGameOverModal && (
-          <div className="game-over-modal">
-            <div className="game-over-content glass-panel">
-              <h2 className="game-over-title">
-                {beersCollected / initialCollectibles.length >= 0.7 ? gameUI.goodTry : gameUI.youLost}
+          <div className="level2-super-loss-modal-wrapper">
+            <div className="level2-super-loss-content-box glass-panel">
+              <h2 className="level2-super-loss-title">
+                {score >= 200 ? gameUI.goodTry : gameUI.youLost}
               </h2>
-              <p className="game-over-subtitle">
-                {beersCollected / initialCollectibles.length >= 0.7 ? gameUI.canAdvance : gameUI.outOfLives}
+              <p className="level2-super-loss-subtitle">
+                {score >= 200 ? gameUI.canAdvance : gameUI.outOfLives}
               </p>
 
-              {beersCollected / initialCollectibles.length >= 0.7 && (
-                <StarRating stars={
-                  beersCollected / initialCollectibles.length >= 0.85 ? 2 : 1
-                } />
+              {score >= 200 && (
+                <div style={{ marginBottom: '20px' }}>
+                  <StarRating stars={score >= 300 ? 2 : 1} />
+                </div>
               )}
 
-              <div className="game-over-stats">
-                <p>{gameUI.baseScore}: {finalScoreStats.score}</p>
-                <p>{gameUI.timeBonus}: {finalScoreStats.bonus}</p>
-                <p style={{ fontSize: '1.2em', color: '#FFD700' }}>{gameUI.totalScore}: {finalScoreStats.total}</p>
-                <p>{gameUI.beersCollected}: {beersCollected}</p>
-                {beersCollected / initialCollectibles.length >= 0.7 && (
-                  <p style={{ color: '#48BB78', marginTop: '10px' }}>{gameUI.minimumCompleted}</p>
+              <div className="level2-super-loss-stats">
+                <div className="level2-super-loss-stat-row">
+                  <span>{gameUI.baseScore}:</span>
+                  <span>{finalScoreStats.score}</span>
+                </div>
+                <div className="level2-super-loss-stat-row">
+                  <span>{gameUI.timeBonus}:</span>
+                  <span>{finalScoreStats.bonus}</span>
+                </div>
+                <div className="level2-super-loss-stat-row" style={{ color: '#FFD700', fontWeight: 'bold', marginTop: '10px' }}>
+                  <span>{gameUI.totalScore}:</span>
+                  <span>{finalScoreStats.total}</span>
+                </div>
+                {score >= 200 && (
+                  <p style={{ color: '#4CAF50', marginTop: '10px', fontWeight: 'bold' }}>{gameUI.minimumCompleted}</p>
                 )}
               </div>
 
-              {beersCollected / initialCollectibles.length >= 0.7 && onNextLevel && (
-                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78', marginBottom: '15px' }}>
-                  <Play size={20} /> {gameUI.nextLevel}
-                </button>
-              )}
+              <div className="level2-super-buttons-row">
+                {score >= 200 && onNextLevel ? (
+                  <button className="level2-loss-btn-primary" style={{ background: 'linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)' }} onClick={onNextLevel}>
+                    {gameUI.nextLevel}
+                  </button>
+                ) : (
+                  <button className="level2-loss-btn-primary" onClick={restartLevel}>
+                    {gameUI.tryAgain}
+                  </button>
+                )}
 
-              <button className="modal-button restart-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> {gameUI.tryAgain}
-              </button>
-              <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> {gameUI.backToMenu}
-              </button>
+                <button className="level2-btn-secondary" onClick={onBack}>
+                  {gameUI.backToMenu}
+                </button>
+              </div>
             </div>
           </div>
         )}
 
-        {
-          showVictoryModal && (
-            <div className="victory-modal">
-              <div className="victory-content glass-panel">
-                <h2 className="victory-title">{gameUI.victory}</h2>
-                <p className="victory-subtitle">{gameUI.levelCompleted}</p>
 
+
+        {showVictoryModal && (
+          <div className="level2-super-victory-modal-wrapper">
+            <div className="level2-super-victory-content-box glass-panel">
+              <h2 className="level2-super-victory-title">{gameUI.victory}</h2>
+              <p className="level2-super-victory-subtitle">{gameUI.levelCompleted}</p>
+
+              <div style={{ margin: '20px 0' }}>
                 <StarRating stars={3} />
+              </div>
 
-                <div className="victory-stats">
-                  <p>{gameUI.baseScore}: {finalScoreStats.score}</p>
-                  <p>{gameUI.timeBonus}: {finalScoreStats.bonus}</p>
-                  <p style={{ fontSize: '1.4em', color: '#FFD700', fontWeight: 'bold' }}>{gameUI.totalScore}: {finalScoreStats.total}</p>
+              <div className="level2-super-victory-stats">
+                <div className="level2-super-victory-stat-row">
+                  <span>{gameUI.baseScore}:</span>
+                  <span>{finalScoreStats.score}</span>
                 </div>
+                <div className="level2-super-victory-stat-row">
+                  <span>{gameUI.timeBonus}:</span>
+                  <span>{finalScoreStats.bonus}</span>
+                </div>
+                <div className="level2-super-victory-stat-total">
+                  {gameUI.totalScore}: {finalScoreStats.total}
+                </div>
+              </div>
+
+              <div className="level2-super-buttons-row">
                 {onNextLevel && (
-                  <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78' }}>
-                    <Play size={20} /> {gameUI.nextLevel}
+                  <button className="level2-btn-primary" onClick={onNextLevel}>
+                    {gameUI.nextLevel}
                   </button>
                 )}
-                <button className="modal-button restart-button" onClick={restartLevel}>
-                  <RotateCcw size={20} /> {gameUI.playAgain}
+                <button className="level2-btn-secondary" onClick={restartLevel}>
+                  {gameUI.playAgain}
                 </button>
-                <button className="modal-button cancel-button" onClick={onBack}>
-                  <Home size={20} /> {gameUI.backToMenu}
+                <button className="level2-btn-secondary" style={{ backgroundColor: '#333' }} onClick={onBack}>
+                  {gameUI.backToMenu}
                 </button>
               </div>
             </div>
-          )
-        }
+          </div>
+        )}
 
         {
           enemyAlert && (
@@ -1287,111 +1311,113 @@ export default function Level2({ onBack, onNextLevel, onLevelComplete, userId, l
         }
       </div >
 
-      {showIntroVideo && (
-        <div className="intro-video-overlay" style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'black',
-          zIndex: 2000,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          flexDirection: 'column'
-        }}>
-          {isVideoLoading && (
-            <div style={{
-              position: 'absolute',
-              zIndex: 2001,
-              color: 'white',
-              fontSize: '24px',
-              fontWeight: 'bold',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '10px'
-            }}>
-              <div className="spinner" style={{
-                width: '40px',
-                height: '40px',
-                border: '4px solid rgba(255,255,255,0.3)',
-                borderTop: '4px solid white',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }}></div>
-              <div>Cargando...</div>
-            </div>
-          )}
-          <video
-            ref={videoRef}
-            src={language === 'es' ? "/assets/videos/NIVEL 1 FINAL.mp4" : "/assets/videosingles/LEVEL 1 (1).mp4"}
-            autoPlay
-            playsInline
+      {
+        showIntroVideo && (
+          <div className="intro-video-overlay" style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'black',
+            zIndex: 2000,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexDirection: 'column'
+          }}>
+            {isVideoLoading && (
+              <div style={{
+                position: 'absolute',
+                zIndex: 2001,
+                color: 'white',
+                fontSize: '24px',
+                fontWeight: 'bold',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <div className="spinner" style={{
+                  width: '40px',
+                  height: '40px',
+                  border: '4px solid rgba(255,255,255,0.3)',
+                  borderTop: '4px solid white',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}></div>
+                <div>Cargando...</div>
+              </div>
+            )}
+            <video
+              ref={videoRef}
+              src={language === 'es' ? "/assets/videos/NIVEL 1 FINAL.mp4" : "/assets/videosingles/LEVEL 1 (1).mp4"}
+              autoPlay
+              playsInline
 
-            onLoadStart={() => setIsVideoLoading(true)}
-            onWaiting={() => setIsVideoLoading(true)}
-            onCanPlay={() => setIsVideoLoading(false)}
-            onPlaying={() => setIsVideoLoading(false)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isVideoLoading ? 0.5 : 1 }}
-            onEnded={() => { setShowIntroVideo(false); setIsPaused(false); }}
-            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
-            onError={() => { setShowIntroVideo(false); setIsPaused(false); }}
-          />
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (videoRef.current) {
-                if (isVideoPlaying) {
-                  videoRef.current.pause();
-                } else {
-                  videoRef.current.play();
+              onLoadStart={() => setIsVideoLoading(true)}
+              onWaiting={() => setIsVideoLoading(true)}
+              onCanPlay={() => setIsVideoLoading(false)}
+              onPlaying={() => setIsVideoLoading(false)}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isVideoLoading ? 0.5 : 1 }}
+              onEnded={() => { setShowIntroVideo(false); setIsPaused(false); }}
+              onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
+              onError={() => { setShowIntroVideo(false); setIsPaused(false); }}
+            />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (videoRef.current) {
+                  if (isVideoPlaying) {
+                    videoRef.current.pause();
+                  } else {
+                    videoRef.current.play();
+                  }
+                  setIsVideoPlaying(!isVideoPlaying);
                 }
-                setIsVideoPlaying(!isVideoPlaying);
-              }
-            }}
-            style={{
-              position: 'absolute',
-              bottom: '20px',
-              right: '120px',
-              padding: '10px 20px',
-              backgroundColor: 'rgba(255, 255, 255, 0.5)',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              color: 'black',
-              fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              zIndex: 2002
-            }}
-          >
-            {isVideoPlaying ? <Pause size={16} color="black" /> : <Play size={16} color="black" />}
-            {isVideoPlaying ? "Parar" : "Reproducir"}
-          </button>
-          <button
-            onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
-            style={{
-              position: 'absolute',
-              bottom: '20px',
-              right: '20px',
-              padding: '10px 20px',
-              backgroundColor: 'rgba(255, 255, 255, 0.5)',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              color: 'black',
-              fontWeight: 'bold',
-              zIndex: 2002
-            }}
-          >
-            Saltar
-          </button>
-        </div>
-      )}
-    </div>
+              }}
+              style={{
+                position: 'absolute',
+                bottom: '20px',
+                right: '120px',
+                padding: '10px 20px',
+                backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                color: 'black',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                zIndex: 2002
+              }}
+            >
+              {isVideoPlaying ? <Pause size={16} color="black" /> : <Play size={16} color="black" />}
+              {isVideoPlaying ? "Parar" : "Reproducir"}
+            </button>
+            <button
+              onClick={() => { setShowIntroVideo(false); setIsPaused(false); }}
+              style={{
+                position: 'absolute',
+                bottom: '20px',
+                right: '20px',
+                padding: '10px 20px',
+                backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                color: 'black',
+                fontWeight: 'bold',
+                zIndex: 2002
+              }}
+            >
+              Saltar
+            </button>
+          </div>
+        )
+      }
+    </div >
   );
 }
 

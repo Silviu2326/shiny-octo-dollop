@@ -1427,72 +1427,99 @@ export default function Level4({ onBack, onNextLevel, onLevelComplete, language 
         )}
 
         {showGameOverModal && (
-          <div className="game-over-modal">
-            <div className="game-over-content glass-panel">
-              <h2 className="game-over-title">
+          <div className="level4-super-loss-modal-wrapper">
+            <div className="level4-super-loss-content-box glass-panel">
+              <h2 className="level4-super-loss-title">
                 {beersCollected / initialCollectibles.length >= 0.7 ? gameUI.goodTry : gameUI.youLost}
               </h2>
-              <p className="game-over-subtitle">
+              <p className="level4-super-loss-subtitle">
                 {beersCollected / initialCollectibles.length >= 0.7 ? gameUI.canAdvance : gameUI.outOfLives}
               </p>
 
               {beersCollected / initialCollectibles.length >= 0.7 && (
-                <StarRating stars={
-                  beersCollected / initialCollectibles.length >= 0.85 ? 2 : 1
-                } />
+                <div style={{ marginBottom: '20px' }}>
+                  <StarRating stars={beersCollected / initialCollectibles.length >= 0.85 ? 2 : 1} />
+                </div>
               )}
 
-              <div className="game-over-stats">
-                <p>{gameUI.baseScore}: {finalScoreStats.score}</p>
-                <p>{gameUI.timeBonus}: {finalScoreStats.bonus}</p>
-                <p style={{ fontSize: '1.2em', color: '#FFD700' }}>{gameUI.totalScore}: {finalScoreStats.total}</p>
-                <p>{gameUI.beersCollected}: {beersCollected}</p>
+              <div className="level4-super-loss-stats">
+                <div className="level4-super-loss-stat-row">
+                  <span>{gameUI.baseScore}:</span>
+                  <span>{finalScoreStats.score}</span>
+                </div>
+                <div className="level4-super-loss-stat-row">
+                  <span>{gameUI.timeBonus}:</span>
+                  <span>{finalScoreStats.bonus}</span>
+                </div>
+                <div className="level4-super-loss-stat-row" style={{ color: '#FFD700', fontWeight: 'bold', marginTop: '10px' }}>
+                  <span>{gameUI.totalScore}:</span>
+                  <span>{finalScoreStats.total}</span>
+                </div>
+                <div className="level4-super-loss-stat-row" style={{ marginTop: '10px' }}>
+                  <span>{gameUI.beersCollected}:</span>
+                  <span>{beersCollected}</span>
+                </div>
                 {beersCollected / initialCollectibles.length >= 0.7 && (
-                  <p style={{ color: '#48BB78', marginTop: '10px' }}>{gameUI.minimumObjective}</p>
+                  <p style={{ color: '#4CAF50', marginTop: '10px', fontWeight: 'bold' }}>{gameUI.minimumObjective}</p>
                 )}
               </div>
 
-              {beersCollected / initialCollectibles.length >= 0.7 && onNextLevel && (
-                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78', marginBottom: '15px' }}>
-                  <Play size={20} /> {gameUI.nextLevel}
-                </button>
-              )}
+              <div className="level4-super-buttons-row">
+                {beersCollected / initialCollectibles.length >= 0.7 && onNextLevel ? (
+                  <button className="level4-loss-btn-primary" style={{ background: 'linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)' }} onClick={onNextLevel}>
+                    {gameUI.nextLevel}
+                  </button>
+                ) : (
+                  <button className="level4-loss-btn-primary" onClick={restartLevel}>
+                    {gameUI.retry}
+                  </button>
+                )}
 
-              <button className="modal-button restart-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> {gameUI.retry}
-              </button>
-              <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> {gameUI.backToMenu}
-              </button>
+                <button className="level4-btn-secondary" onClick={onBack}>
+                  {gameUI.backToMenu}
+                </button>
+              </div>
             </div>
           </div>
         )}
 
         {showWinModal && (
-          <div className="victory-modal">
-            <div className="victory-content glass-panel">
-              <h2 className="victory-title">{gameUI.victory}</h2>
-              <p className="victory-subtitle">{gameUI.levelCompleted}</p>
+          <div className="level4-super-victory-modal-wrapper">
+            <div className="level4-super-victory-content-box glass-panel">
+              <h2 className="level4-super-victory-title">{gameUI.victory}</h2>
+              <p className="level4-super-victory-subtitle">{gameUI.levelCompleted}</p>
 
-              <StarRating stars={3} />
-
-              <div className="victory-stats">
-                <p>{gameUI.baseScore}: {finalScoreStats.score}</p>
-                <p>{gameUI.timeBonus}: {finalScoreStats.bonus}</p>
-                <p style={{ fontSize: '1.4em', color: '#FFD700', fontWeight: 'bold' }}>{gameUI.totalScore}: {finalScoreStats.total}</p>
+              <div style={{ margin: '20px 0' }}>
+                <StarRating stars={3} />
               </div>
 
-              {onNextLevel && (
-                <button className="modal-button" onClick={onNextLevel} style={{ backgroundColor: '#48BB78' }}>
-                  <Play size={20} /> {gameUI.nextLevel}
+              <div className="level4-super-victory-stats">
+                <div className="level4-super-victory-stat-row">
+                  <span>{gameUI.baseScore}:</span>
+                  <span>{finalScoreStats.score}</span>
+                </div>
+                <div className="level4-super-victory-stat-row">
+                  <span>{gameUI.timeBonus}:</span>
+                  <span>{finalScoreStats.bonus}</span>
+                </div>
+                <div className="level4-super-victory-stat-total">
+                  {gameUI.totalScore}: {finalScoreStats.total}
+                </div>
+              </div>
+
+              <div className="level4-super-buttons-row">
+                {onNextLevel && (
+                  <button className="level4-btn-primary" onClick={onNextLevel}>
+                    {gameUI.nextLevel}
+                  </button>
+                )}
+                <button className="level4-btn-secondary" onClick={restartLevel}>
+                  {gameUI.playAgain}
                 </button>
-              )}
-              <button className="modal-button restart-button" onClick={restartLevel}>
-                <RotateCcw size={20} /> {gameUI.playAgain}
-              </button>
-              <button className="modal-button cancel-button" onClick={onBack}>
-                <Home size={20} /> {gameUI.backToMenu}
-              </button>
+                <button className="level4-btn-secondary" style={{ backgroundColor: '#333' }} onClick={onBack}>
+                  {gameUI.backToMenu}
+                </button>
+              </div>
             </div>
           </div>
         )}

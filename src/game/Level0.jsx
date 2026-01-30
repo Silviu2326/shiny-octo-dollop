@@ -348,6 +348,7 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete, userId, l
     const [isPaused, setIsPaused] = useState(false);
     const [lives, setLives] = useState(3);
     const [showVictory, setShowVictory] = useState(false);
+    const [showGameOver, setShowGameOver] = useState(false);
     const [startTime] = useState(Date.now()); // Para medir tiempo de juego
 
     const totalBeers = initialCollectibles.length;
@@ -456,6 +457,13 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete, userId, l
                 setShowTutorial(false); // Dismiss tutorial on any key
                 return;
             }
+
+            // DEBUG: Press 'P' to instantly win (for testing)
+            if (e.key === 'p' || e.key === 'P') {
+                setScore(200); // Trigger victory
+                return;
+            }
+
             switch (e.key) {
                 case 'ArrowUp':
                 case 'w':
@@ -606,7 +614,7 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete, userId, l
     };
 
     return (
-        <div className="game-container">
+        <div className="level0-game-container">
             <Canvas camera={{ position: [12, 15, 20], fov: 60 }} shadows>
                 <ambientLight intensity={1.5} />
                 <pointLight position={[10, 10, 10]} intensity={2.0} />
@@ -630,7 +638,7 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete, userId, l
             </Canvas>
 
             {/* UI Overlay */}
-            <div className="ui-overlay">
+            <div className="level0-ui-overlay">
                 <LevelHeader
                     lives={lives}
                     levelNumber={1}
@@ -639,13 +647,13 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete, userId, l
                     language={language}
                 />
 
-                <button className="back-button" onClick={onBack}>
+                <button className="level0-back-button-style" onClick={onBack}>
                     {gameUI.exit}
                 </button>
 
                 {showTutorial && (
-                    <div className="tutorial-modal animate-fade-in">
-                        <div className="tutorial-content glass-panel">
+                    <div className="level0-tutorial-modal-wrapper animate-fade-in">
+                        <div className="level0-tutorial-content-box glass-panel">
                             <h2>{language === 'es' ? '¡Bienvenido!' : 'Welcome!'}</h2>
                             <p>{language === 'es' ? 'Usa las flechas o W/A/S/D para moverte.' : 'Use arrows or W/A/S/D to move.'}</p>
                             <p>{language === 'es' ? 'Recoge todas las cervezas' : 'Collect all the beers'}</p>
@@ -654,24 +662,76 @@ export default function Level0({ onBack, onNextLevel, onLevelComplete, userId, l
                     </div>
                 )}
 
-                {showVictory && (
-                    <div className="victory-modal animate-fade-in">
-                        <div className="victory-content glass-panel">
-                            <h2 className="victory-title">🎉 {gameUI.levelCompleted} 🎉</h2>
-                            <p className="victory-subtitle">{language === 'es' ? `Has conseguido ${score} puntos` : `You got ${score} points`}</p>
-                            <div className="victory-stats">
-                                <p>{gameUI.beersCollected}: {beersCollected}/{totalBeers}</p>
+                {/* Game Over Modal - UNIQUE STYLE */}
+                {showGameOver && (
+                    <div className="level0-super-loss-modal-wrapper animate-fade-in">
+                        <div className="level0-super-loss-content-box glass-panel">
+                            <h2 className="level0-super-loss-main-title">{gameUI.youLost}</h2>
+                            <p className="level0-super-loss-sub-message">{gameUI.outOfLives}</p>
+
+                            <div className="level0-super-loss-stats-container">
+                                <p className="level0-super-loss-stat-item">{gameUI.baseScore || 'Base Score'}: {score}</p>
+                                <p className="level0-super-loss-stat-item">{gameUI.timeBonus || 'Time Bonus'}: 0</p>
+                                <p className="level0-super-loss-stat-item highlight-total" style={{ color: '#ff6b6b' }}>{gameUI.totalScore || 'Total'}: {score}</p>
+                                <p className="level0-super-loss-stat-item small-text">{gameUI.beersCollected}: {beersCollected}</p>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'center' }}>
-                                <button onClick={() => {
-                                    if (onNextLevel) onNextLevel();
-                                }}>{gameUI.nextLevel}</button>
-                                <button onClick={onBack} style={{ background: '#666' }}>{gameUI.backToMenu}</button>
+
+                            <div className="level0-super-loss-button-row">
+                                <button
+                                    className="level0-super-loss-button level0-super-loss-button-primary"
+                                    onClick={() => {
+                                        setShowGameOver(false);
+                                        setScore(0);
+                                        setCollectibles(generateCollectibles(80)); // Reset collectibles
+                                        setPlayerPos(INITIAL_PLAYER_POS);
+                                        setLives(3);
+                                        setIsPaused(false);
+                                    }}
+                                >
+                                    {gameUI.tryAgain}
+                                </button>
+                                <button
+                                    className="level0-super-loss-button level0-super-loss-button-secondary"
+                                    onClick={onBack}
+                                >
+                                    {gameUI.backToMenu}
+                                </button>
                             </div>
                         </div>
                     </div>
                 )}
             </div>
+
+
+
+            {/* Victory Modal - OUTSIDE ui-overlay para que z-index:999999 funcione */}
+            {showVictory && (
+                <div className="level0-super-victory-modal-wrapper animate-fade-in">
+                    <div className="level0-super-victory-content-box glass-panel">
+                        <h2 className="level0-super-victory-main-title">🎉 {gameUI.levelCompleted} 🎉</h2>
+                        <p className="level0-super-victory-sub-message">{language === 'es' ? `Has conseguido ${score} puntos` : `You got ${score} points`}</p>
+                        <div className="level0-super-victory-stats-container">
+                            <p className="level0-super-victory-stat-item">{gameUI.beersCollected}: {beersCollected}/{totalBeers}</p>
+                        </div>
+                        <div className="level0-super-victory-button-row">
+                            <button
+                                className="level0-super-victory-button level0-super-victory-button-primary"
+                                onClick={() => {
+                                    if (onNextLevel) onNextLevel();
+                                }}
+                            >
+                                {gameUI.nextLevel}
+                            </button>
+                            <button
+                                className="level0-super-victory-button level0-super-victory-button-secondary"
+                                onClick={onBack}
+                            >
+                                {gameUI.backToMenu}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
